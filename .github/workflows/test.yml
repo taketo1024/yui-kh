@@ -17,4 +17,4 @@ jobs:
     - name: Build
       run: cargo build --verbose --features all
     - name: Run tests
-      run: cargo test --verbose --features all --workspace
+      run: cargo test --all --verbose --features all
