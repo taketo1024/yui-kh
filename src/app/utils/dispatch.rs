@@ -96,8 +96,8 @@ macro_rules! try_qint {
     ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
         cfg_if::cfg_if! {
             if #[cfg(any(feature = "qint", feature = "all"))] {
-                type GaussInt = yui_quad_int::GaussInt<Int>;
-                type EisenInt = yui_quad_int::EisenInt<Int>;
+                type GaussInt = yui::GaussInt<Int>;
+                type EisenInt = yui::EisenInt<Int>;
 
                 match $c_type {
                     CType::Gauss => call!(GaussInt, $method, $($args),*),
@@ -119,8 +119,8 @@ macro_rules! try_euc_poly {
     ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
         cfg_if::cfg_if! {
             if #[cfg(any(feature = "poly", feature = "all"))] {
-                use yui_ratio::Ratio;
-                use yui_ff::FF;
+                use yui::Ratio;
+                use yui::FF;
                 use yui::poly::Poly;
 
                 type Q = Ratio<Int>;
@@ -154,8 +154,8 @@ macro_rules! try_noneuc_poly {
     ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
         cfg_if::cfg_if! {
             if #[cfg(any(feature = "poly", feature = "all"))] {
-                use yui_ratio::Ratio;
-                use yui_ff::FF;
+                use yui::Ratio;
+                use yui::FF;
                 use yui::poly::{Poly, Poly2};
 
                 type Z = Int;
