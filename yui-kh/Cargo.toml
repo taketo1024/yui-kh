@@ -1,0 +1,19 @@
+[package]
+name = "yui-kh"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+auto-impl-ops = "0.2.1"
+cartesian = "0.2.1"
+delegate = "0.10.0"
+derive_more = "0.99.17"
+grouping_by = "0.2.2"
+itertools = "0.11.0"
+log = "0.4.20"
+num-traits = "0.2.16"
+
+yui =          { workspace = true }
+yui-matrix =   { workspace = true }
+yui-link =     { workspace = true }
+yui-homology = { workspace = true }

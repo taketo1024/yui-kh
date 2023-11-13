@@ -1,5 +1,4 @@
 mod app;
-mod utils;
 use app::App;
 
 fn main() {

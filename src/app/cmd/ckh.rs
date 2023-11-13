@@ -1,9 +1,9 @@
 use std::str::FromStr;
 use itertools::Itertools;
-use yui_core::{Ring, RingOps};
+use yui::{Ring, RingOps};
 use yui_homology::{DisplayTable, DisplaySeq, ChainComplexCommon};
-use yui_khovanov::KhComplex;
-use crate::utils::*;
+use yui_kh::KhComplex;
+use crate::app::utils::*;
 
 #[derive(Debug, clap::Args)]
 pub struct Args { 

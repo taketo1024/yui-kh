@@ -9,7 +9,7 @@ use serde::Deserialize;
 use csv::Writer;
 use yui_link::{Edge, Link};
 use super::ss::{Args as SSArgs, run as ss_run};
-use crate::utils::*;
+use crate::app::utils::*;
 
 #[derive(Debug, clap::Args)]
 pub struct Args { 

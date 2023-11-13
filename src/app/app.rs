@@ -1,7 +1,7 @@
 use log::{info, error};
 use clap::{Parser, Subcommand};
 use super::cmd::{kh, ckh, ss, ss_batch};
-use crate::utils::*;
+use super::utils::*;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -45,7 +45,7 @@ impl App {
         }
 
         info!("args: {:?}", args);
-        info!("int-type: {}", std::any::type_name::<crate::utils::dispatch::Int>());
+        info!("int-type: {}", std::any::type_name::<super::utils::dispatch::Int>());
 
         let (res, time) = measure(||
             self.dispatch(&args)

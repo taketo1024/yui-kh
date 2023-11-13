@@ -1,5 +1,5 @@
 [package]
-name = "yui"
+name = "ykh"
 version = "0.1.0"
 edition = "2021"
 authors = ["Taketo Sano <taketo1024@gmail.com>"]
@@ -13,15 +13,7 @@ bigint = []
 
 [workspace]
 members = [ 
-    "workspace/core",
-    "workspace/utils",
-    "workspace/types/ratio",
-    "workspace/types/ff",
-    "workspace/types/quad_int",    
-    "workspace/types/lin_comb",
-    "workspace/types/polynomial",
-    "workspace/link",
-    "workspace/khovanov"
+    "yui-kh"
 ]
 
 [profile.release]
@@ -40,16 +32,27 @@ regex = "1.9.6"
 serde_json = "1.0.107"
 simplelog = "0.12.1"
 string-builder = "0.2.0"
-yui-core  = { version = "0.1.0", path = "workspace/core" }
-yui-ratio = { version = "0.1.0", path = "workspace/types/ratio" }
-yui-ff = { version = "0.1.0", path = "workspace/types/ff" }
-yui-quad-int = { version = "0.1.0", path = "workspace/types/quad_int" }
-yui-polynomial = { version = "0.1.0", path = "workspace/types/polynomial" }
-yui-matrix = { version = "0.1.0", path = "workspace/matrix" }
-yui-homology = { version = "0.1.0", path = "workspace/homology" }
-yui-link = { version = "0.1.0", path = "workspace/link" }
-yui-khovanov = { version = "0.1.0", path = "workspace/khovanov" }
 serde = { version = "1.0.188", features = ["derive"] }
 cfg-if = "1.0.0"
-yui-utils = { version = "0.1.0", path = "workspace/utils" }
 itertools = "0.11.0"
+
+yui  =         { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui-link =     { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui-matrix =   { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui-homology = { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+# yui  =         { path = "../yui/yui" }
+# yui-link =     { path = "../yui/yui-link" }
+# yui-matrix =   { path = "../yui/yui-matrix" }
+# yui-homology = { path = "../yui/yui-homology" }
+
+yui-kh       = { path = "yui-kh" }
+
+[workspace.dependencies]
+yui  =         { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui-link =     { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui-matrix =   { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui-homology = { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+# yui  =         { path = "../yui/yui" }
+# yui-link =     { path = "../yui/yui-link" }
+# yui-matrix =   { path = "../yui/yui-matrix" }
+# yui-homology = { path = "../yui/yui-homology" }

@@ -1,8 +1,8 @@
 use std::str::FromStr;
-use yui_core::{EucRing, EucRingOps};
+use yui::{EucRing, EucRingOps};
 use yui_homology::{DisplayTable, DisplaySeq};
-use yui_khovanov::{KhHomology, KhHomologyBigraded};
-use crate::utils::*;
+use yui_kh::{KhHomology, KhHomologyBigraded};
+use crate::app::utils::*;
 
 #[derive(Debug, clap::Args)]
 pub struct Args { 

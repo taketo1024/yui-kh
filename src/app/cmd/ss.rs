@@ -1,8 +1,8 @@
 use std::str::FromStr;
 use log::info;
-use yui_core::{EucRing, EucRingOps};
-use yui_khovanov::{ss_invariant, ss_invariant_v1};
-use crate::utils::*;
+use yui::{EucRing, EucRingOps};
+use yui_kh::{ss_invariant, ss_invariant_v1};
+use crate::app::utils::*;
 
 #[derive(Debug, clap::Args)]
 pub struct Args { 
