@@ -5,8 +5,6 @@ use std::str::FromStr;
 use num_traits::Zero;
 use yui_link::{Link, Edge};
 
-const RESOURCE_DIR: &str = "resources";
-
 pub fn measure<F, Res>(proc: F) -> (Res, std::time::Duration) 
 where F: FnOnce() -> Res { 
     let start = std::time::Instant::now();
@@ -31,25 +29,18 @@ where F: FnOnce() -> Result<R, Box<dyn std::error::Error>> + std::panic::UnwindS
     })
 }
 
-pub fn load_json<Output>(path: &String) -> Result<Output, Box<dyn std::error::Error>>
-where Output: serde::de::DeserializeOwned { 
-    let json = std::fs::read_to_string(path)?;
-    let data: Output = serde_json::from_str(&json)?;
-    Ok(data)
-}
-
-pub fn load_link(link: &String, mirror: bool) -> Result<Link, Box<dyn std::error::Error>> { 
+pub fn load_link(input: &String, mirror: bool) -> Result<Link, Box<dyn std::error::Error>> { 
     type PDCode = Vec<[Edge; 4]>;
     
     let l = { 
-        let path = format!("{}/links/{}.json", RESOURCE_DIR, link);
-        
-        if let Ok(pd_code) = serde_json::from_str::<PDCode>(&link) { 
+        if let Ok(pd_code) = serde_json::from_str::<PDCode>(&input) { 
             Link::from_pd_code(pd_code)
-        } else if std::path::Path::new(&path).exists() { 
-            Link::load(&path)?
+        } else if let Ok(link) = Link::load_resource(input) { 
+            link
+        } else if std::path::Path::new(&input).exists() { 
+            Link::load(&input)?
         } else { 
-            return err!("invalid input link: '{}'", link);
+            return err!("invalid input link: '{}'", input);
         }
     };
 
