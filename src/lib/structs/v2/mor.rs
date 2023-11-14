@@ -44,7 +44,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn is_invertible(&self) -> bool { 
-        self.ngens() == 1 && 
+        self.nterms() == 1 && 
         self.iter().next().map(|(c, a)| 
             c.is_invertible() && a.is_unit()
         ).unwrap_or(false)
