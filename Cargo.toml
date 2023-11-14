@@ -1,21 +1,17 @@
 [package]
-name = "ykh"
+name = "yui-kh"
 version = "0.2.0"
 authors = ["Taketo Sano <taketo1024@gmail.com>"]
 edition = "2021"
 license = "MIT"
 description = "YUI-Kh"
 
-[workspace.package]
-version = "0.2.0"
-authors = ["Taketo Sano <taketo1024@gmail.com>"]
-edition = "2021"
-license = "MIT"
+[[bin]]
+name = "ykh"
+path = "src/bin/main.rs"
 
-[workspace]
-members = [ 
-    "yui-kh"
-]
+[lib]
+path = "src/lib/lib.rs"
 
 [features]
 all = ["poly", "qint"]
@@ -29,9 +25,13 @@ debug = true
 overflow-checks = true
 
 [dependencies]
+auto-impl-ops = "0.2.1"
+cartesian = "0.2.1"
 clap = { version = "4.4.6", features = ["derive", "cargo"] }
 csv = "1.2.2"
+delegate = "0.10.0"
 derive_more = "0.99.17"
+grouping_by = "0.2.2"
 indexmap = { version = "2.0.2", features = ["serde"] }
 log = "0.4.20"
 num-bigint = "0.4.4"
@@ -44,18 +44,6 @@ serde = { version = "1.0.188", features = ["derive"] }
 cfg-if = "1.0.0"
 itertools = "0.11.0"
 
-yui  =         { git = "https://github.com/taketo1024/yui", branch = "develop" }
-yui-link =     { git = "https://github.com/taketo1024/yui", branch = "develop" }
-yui-matrix =   { git = "https://github.com/taketo1024/yui", branch = "develop" }
-yui-homology = { git = "https://github.com/taketo1024/yui", branch = "develop" }
-# yui  =         { path = "../yui/yui" }
-# yui-link =     { path = "../yui/yui-link" }
-# yui-matrix =   { path = "../yui/yui-matrix" }
-# yui-homology = { path = "../yui/yui-homology" }
-
-yui-kh       = { path = "yui-kh" }
-
-[workspace.dependencies]
 yui  =         { git = "https://github.com/taketo1024/yui", branch = "develop" }
 yui-link =     { git = "https://github.com/taketo1024/yui", branch = "develop" }
 yui-matrix =   { git = "https://github.com/taketo1024/yui", branch = "develop" }
