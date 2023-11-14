@@ -1,8 +1,21 @@
 [package]
 name = "ykh"
-version = "0.1.0"
-edition = "2021"
+version = "0.2.0"
 authors = ["Taketo Sano <taketo1024@gmail.com>"]
+edition = "2021"
+license = "MIT"
+description = "YUI-Kh"
+
+[workspace.package]
+version = "0.2.0"
+authors = ["Taketo Sano <taketo1024@gmail.com>"]
+edition = "2021"
+license = "MIT"
+
+[workspace]
+members = [ 
+    "yui-kh"
+]
 
 [features]
 all = ["poly", "qint"]
@@ -10,11 +23,6 @@ poly = []
 qint = []
 i128 = []
 bigint = []
-
-[workspace]
-members = [ 
-    "yui-kh"
-]
 
 [profile.release]
 debug = true
