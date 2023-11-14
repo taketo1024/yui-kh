@@ -35,10 +35,8 @@ pub fn load_link(input: &String, mirror: bool) -> Result<Link, Box<dyn std::erro
     let l = { 
         if let Ok(pd_code) = serde_json::from_str::<PDCode>(&input) { 
             Link::from_pd_code(pd_code)
-        } else if let Ok(link) = Link::load_resource(input) { 
+        } else if let Ok(link) = Link::load(input) { 
             link
-        } else if std::path::Path::new(&input).exists() { 
-            Link::load(&input)?
         } else { 
             return err!("invalid input link: '{}'", input);
         }
