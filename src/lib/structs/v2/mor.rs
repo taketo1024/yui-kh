@@ -44,7 +44,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn is_invertible(&self) -> bool { 
-        self.len() == 1 && 
+        self.ngens() == 1 && 
         self.iter().next().map(|(c, a)| 
             c.is_invertible() && a.is_unit()
         ).unwrap_or(false)
@@ -86,7 +86,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn part_eval(self, h: &Self::R, t: &Self::R) -> Self {
-        if self.keys().any(|c| c.should_part_eval()) { 
+        if self.gens().any(|c| c.should_part_eval()) { 
             self.into_iter().map(|(cob, r)|
                 cob.part_eval(h, t) * r
             ).sum()
