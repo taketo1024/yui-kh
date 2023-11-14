@@ -6,7 +6,7 @@ use yui::{Ring, RingOps};
 use yui_link::{State, Crossing};
 use yui::macros::map;
 
-use crate::{KhEnhState, KhAlgGen, KhChain};
+use crate::{KhGen, KhAlgGen, KhChain};
 
 use super::cob::{Cob, Bottom, Dot};
 use super::mor::{Mor, MorTrait};
@@ -17,7 +17,7 @@ pub struct TngElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     state: State,
     value: Cob,                        // precomposed at the final step.
-    mors: HashMap<KhEnhState, Mor<R>>, // src must partially match init_cob. 
+    mors: HashMap<KhGen, Mor<R>>, // src must partially match init_cob. 
     x_count: usize
 }
 
@@ -25,7 +25,7 @@ impl<R> TngElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn init(state: State, value: Cob) -> Self { 
         let f = Mor::from(Cob::empty());
-        let mors = map! { KhEnhState::init() => f };
+        let mors = map! { KhGen::init() => f };
         let x_count = 0;
 
         Self{ state, value, mors, x_count }
@@ -72,7 +72,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }).collect();
     }
 
-    pub fn deloop(&mut self, k: &KhEnhState, c: &TngComp, reduced: bool) {
+    pub fn deloop(&mut self, k: &KhGen, c: &TngComp, reduced: bool) {
         let Some(f) = self.mors.remove(k) else { return };
 
         let (k0, f0) = self.deloop_for(k, &f, c, KhAlgGen::X, Dot::None);
@@ -84,7 +84,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn deloop_for(&self, k: &KhEnhState, f: &Mor<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (KhEnhState, Mor<R>) { 
+    fn deloop_for(&self, k: &KhGen, f: &Mor<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (KhGen, Mor<R>) { 
         let mut k_new = *k;
         k_new.label.push(label);
 
@@ -92,7 +92,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (k_new, f_new)
     }
 
-    pub fn eliminate(&mut self, i: &KhEnhState, j: &KhEnhState, i_out: &HashMap<KhEnhState, Mor<R>>) {
+    pub fn eliminate(&mut self, i: &KhGen, j: &KhGen, i_out: &HashMap<KhGen, Mor<R>>) {
         // mors into i can be simply dropped.
         self.mors.remove(i);
 

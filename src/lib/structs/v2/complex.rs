@@ -10,7 +10,7 @@ use yui_homology::{XChainComplex, XModStr, Grid1};
 use yui_link::{Crossing, Edge};
 use yui::bitseq::Bit;
 
-use crate::{KhAlgGen, KhEnhState};
+use crate::{KhAlgGen, KhGen};
 use super::cob::{Cob, Dot, Bottom, CobComp};
 use super::tng::{Tng, TngComp};
 use super::mor::{Mor, MorTrait};
@@ -18,16 +18,16 @@ use super::mor::{Mor, MorTrait};
 #[derive(Clone, Debug)]
 pub struct TngVertex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    key: KhEnhState,
+    key: KhGen,
     tng: Tng,
-    in_edges: HashSet<KhEnhState>,
-    out_edges: HashMap<KhEnhState, Mor<R>>
+    in_edges: HashSet<KhGen>,
+    out_edges: HashMap<KhGen, Mor<R>>
 }
 
 impl<R> TngVertex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn init() -> Self { 
-        let key = KhEnhState::init();
+        let key = KhGen::init();
         let tng = Tng::empty();
         let in_edges = HashSet::new();
         let out_edges = HashMap::new();
@@ -38,7 +38,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.tng
     }
 
-    pub fn out_edges(&self) -> &HashMap<KhEnhState, Mor<R>> {
+    pub fn out_edges(&self) -> &HashMap<KhGen, Mor<R>> {
         &self.out_edges
     }
 }
@@ -52,7 +52,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 pub struct TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    vertices: HashMap<KhEnhState, TngVertex<R>>,
+    vertices: HashMap<KhGen, TngVertex<R>>,
     len: usize,
     h: R,
     t: R,
@@ -63,7 +63,7 @@ impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new(h: &R, t: &R, deg_shift: (isize, isize)) -> Self { 
         let mut vertices = HashMap::new();
-        let k0 = KhEnhState::init();
+        let k0 = KhGen::init();
         let v0 = TngVertex::init();
         vertices.insert(k0, v0);
 
@@ -86,7 +86,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }).count()
     }
 
-    pub fn vertex(&self, v: &KhEnhState) -> &TngVertex<R> { 
+    pub fn vertex(&self, v: &KhGen) -> &TngVertex<R> { 
         &self.vertices[v]
     }
 
@@ -94,15 +94,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.len()
     }
 
-    pub fn iter_verts(&self) -> impl Iterator<Item = (&KhEnhState, &TngVertex<R>)> {
+    pub fn iter_verts(&self) -> impl Iterator<Item = (&KhGen, &TngVertex<R>)> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
     }
 
-    pub fn edge(&self, k: &KhEnhState, l: &KhEnhState) -> &Mor<R> {
+    pub fn edge(&self, k: &KhGen, l: &KhGen) -> &Mor<R> {
         &self.vertices[k].out_edges[l]
     }
 
-    fn add_edge(&mut self, k: &KhEnhState, l: &KhEnhState, f: Mor<R>) { 
+    fn add_edge(&mut self, k: &KhGen, l: &KhGen, f: Mor<R>) { 
         let v = self.vertices.get_mut(k).unwrap();
         v.out_edges.insert(*l, f);
 
@@ -110,7 +110,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         w.in_edges.insert(*k);
     }
 
-    fn remove_edge(&mut self, k: &KhEnhState, l: &KhEnhState) { 
+    fn remove_edge(&mut self, k: &KhGen, l: &KhGen) { 
         let v = self.vertices.get_mut(k).unwrap();
         v.out_edges.remove(l);
 
@@ -180,7 +180,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices = verts.into_iter().map(|(k, mut v)| { 
             v.tng.connect(c.src());
 
-            modify!(v.out_edges, |edges: HashMap<KhEnhState, Mor<R>>| { 
+            modify!(v.out_edges, |edges: HashMap<KhGen, Mor<R>>| { 
                 edges.into_iter().map(|(k, f)| { 
                     (k, f.connect(&c))
                 }).collect()
@@ -213,7 +213,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         v.tng.connect(c.src());
 
         // append 0 / 1 to in_edges.
-        modify!(v.in_edges, |edges: HashSet<KhEnhState>| { 
+        modify!(v.in_edges, |edges: HashSet<KhGen>| { 
             edges.into_iter().map(|mut k| { 
                 k.state.push(r);
                 k
@@ -222,7 +222,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // append 0 / 1 to out_edges with id-cob connected.
         let e = if r.is_zero() { R::one() } else { -R::one() };
-        modify!(v.out_edges, |edges: HashMap<KhEnhState, Mor<R>>| { 
+        modify!(v.out_edges, |edges: HashMap<KhGen, Mor<R>>| { 
             edges.into_iter().map(|(mut k, f)| { 
                 k.state.push(r);
                 (k, f.connect(c) * &e)
@@ -236,7 +236,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         v1.in_edges.insert(v0.key);
     }
 
-    pub fn find_loop(&self, exclude: Option<Edge>) -> Option<(KhEnhState, usize, &TngComp)> { 
+    pub fn find_loop(&self, exclude: Option<Edge>) -> Option<(KhGen, usize, &TngComp)> { 
         for (k, v) in self.iter_verts() { 
             if let Some((r, c)) = v.tng.find_loop(exclude) { 
                 return Some((*k, r, c))
@@ -245,7 +245,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         None
     }
 
-    pub fn deloop(&mut self, k: &KhEnhState, r: usize, reduced: bool) -> Vec<KhEnhState> { 
+    pub fn deloop(&mut self, k: &KhGen, r: usize, reduced: bool) -> Vec<KhGen> { 
         info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
 
         let mut v = self.vertices.remove(k).unwrap();
@@ -326,7 +326,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn find_inv_edge(&self, k: &KhEnhState) -> Option<(KhEnhState, KhEnhState)> { 
+    pub fn find_inv_edge(&self, k: &KhGen) -> Option<(KhGen, KhGen)> { 
         let mut cand = None;
         let mut cand_s = usize::MAX;
 
@@ -369,7 +369,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn eliminate(&mut self, k0: &KhEnhState, l0: &KhEnhState) {
+    pub fn eliminate(&mut self, k0: &KhGen, l0: &KhGen) {
         let v0 = self.vertex(k0);
         let w0 = self.vertex(l0);
         let a = &v0.out_edges[l0];
@@ -448,7 +448,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         debug_assert!(self.validate_edges());
     }
 
-    pub fn eval(self, h: &R, t: &R) -> XChainComplex<KhEnhState, R> {
+    pub fn eval(self, h: &R, t: &R) -> XChainComplex<KhGen, R> {
         debug_assert!(self.is_evalable());
 
         let (h, t) = (h.clone(), t.clone());
@@ -641,7 +641,7 @@ mod tests {
 
         let Some((k, r, _)) = e else { panic!() };
 
-        assert_eq!(k, KhEnhState::new(
+        assert_eq!(k, KhGen::new(
             State::from([1,0]), 
             KhLabel::from_iter([])
         ));

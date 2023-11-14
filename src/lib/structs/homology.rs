@@ -5,11 +5,11 @@ use yui_homology::{GridTrait, XHomology, XHomologySummand, XHomology2};
 use yui::{EucRing, EucRingOps, isize2};
 use yui_link::Link;
 
-use crate::KhEnhState;
+use crate::KhGen;
 
 pub struct KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology<KhEnhState, R>
+    inner: XHomology<KhGen, R>
 }
 
 impl<R> KhHomology<R> 
@@ -18,7 +18,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         KhHomology::new_v2(l, h, t, reduced)
     }
 
-    pub(crate) fn _new(inner: XHomology<KhEnhState, R>) -> Self { 
+    pub(crate) fn _new(inner: XHomology<KhGen, R>) -> Self { 
         Self { inner }
     }
 
@@ -33,7 +33,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> GridTrait<isize> for KhHomology<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     type Itr = std::vec::IntoIter<isize>;
-    type Output = XHomologySummand<KhEnhState, R>;
+    type Output = XHomologySummand<KhGen, R>;
 
     delegate! { 
         to self.inner { 
@@ -46,7 +46,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 impl<R> Index<isize> for KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    type Output = XHomologySummand<KhEnhState, R>;
+    type Output = XHomologySummand<KhGen, R>;
 
     delegate! { 
         to self.inner { 
@@ -57,7 +57,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 pub struct KhHomologyBigraded<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology2<KhEnhState, R>
+    inner: XHomology2<KhGen, R>
 }
 
 impl<R> KhHomologyBigraded<R>
@@ -66,7 +66,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         KhHomologyBigraded::new_v2(l, reduced)
     }
 
-    pub(crate) fn _new(inner: XHomology2<KhEnhState, R>) -> Self { 
+    pub(crate) fn _new(inner: XHomology2<KhGen, R>) -> Self { 
         Self { inner }
     }
 }
@@ -74,7 +74,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> GridTrait<isize2> for KhHomologyBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     type Itr = std::vec::IntoIter<isize2>;
-    type Output = XHomologySummand<KhEnhState, R>;
+    type Output = XHomologySummand<KhGen, R>;
 
     delegate! { 
         to self.inner { 
@@ -87,7 +87,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 impl<R> Index<(isize, isize)> for KhHomologyBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    type Output = XHomologySummand<KhEnhState, R>;
+    type Output = XHomologySummand<KhGen, R>;
 
     delegate! { 
         to self.inner { 

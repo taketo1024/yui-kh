@@ -6,13 +6,13 @@ use yui_homology::{XChainComplex, Grid, XModStr};
 use yui::lc::Lc;
 use yui_link::{Link, State, LinkComp, Edge};
 
-use crate::{KhAlgStr, KhLabel, KhEnhState};
+use crate::{KhAlgStr, KhLabel, KhGen};
 
 #[derive(Debug)]
 pub struct KhCubeVertex { 
     state: State,
     circles: Vec<LinkComp>,
-    gens: Vec<KhEnhState>
+    gens: Vec<KhGen>
 }
 
 impl KhCubeVertex { 
@@ -20,16 +20,16 @@ impl KhCubeVertex {
         let circles = l.resolved_by(&state).components();
         let r = circles.len();
         let gens = KhLabel::generate(r).into_iter().map(|label| { 
-            KhEnhState::new( state, label )
+            KhGen::new( state, label )
         }).collect();
         KhCubeVertex { state, circles, gens }
     }
 
-    pub fn generators(&self) -> Vec<&KhEnhState> { 
+    pub fn generators(&self) -> Vec<&KhGen> { 
         self.gens.iter().collect()
     }
 
-    pub fn reduced_generators(&self, red_e: &Edge) -> Vec<&KhEnhState> { 
+    pub fn reduced_generators(&self, red_e: &Edge) -> Vec<&KhGen> { 
         let red_i = self.circles.iter().position(|c| 
             c.edges().contains(red_e)
         ).unwrap(); // must exist
@@ -164,15 +164,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         q0 ..= q1
     }
 
-    pub fn generators(&self, i: isize) -> Vec<&KhEnhState> { 
+    pub fn generators(&self, i: isize) -> Vec<&KhGen> { 
         self.collect_generators(i, None)
     }
 
-    pub fn reduced_generators(&self, i: isize, red_e: &Edge) -> Vec<&KhEnhState> { 
+    pub fn reduced_generators(&self, i: isize, red_e: &Edge) -> Vec<&KhGen> { 
         self.collect_generators(i, Some(red_e))
     }
 
-    fn collect_generators(&self, i: isize, red_e: Option<&Edge>) -> Vec<&KhEnhState> { 
+    fn collect_generators(&self, i: isize, red_e: Option<&Edge>) -> Vec<&KhGen> { 
         if self.h_range().contains(&i) { 
             let i = i as usize;
             self.vertices_of_weight(i).into_iter().flat_map(|v| 
@@ -187,7 +187,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn d(&self, x: &KhEnhState) -> Lc<KhEnhState, R> {
+    pub fn d(&self, x: &KhGen) -> Lc<KhGen, R> {
         let edges = self.edges_from(&x.state);
         edges.iter().flat_map(|(t, e)| { 
             self.apply(x, t, e)
@@ -220,7 +220,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.edges[s]
     }
 
-    fn apply(&self, x: &KhEnhState, to: &State, e: &KhCubeEdge) -> Vec<(KhEnhState, R)> {
+    fn apply(&self, x: &KhGen, to: &State, e: &KhCubeEdge) -> Vec<(KhGen, R)> {
         use KhCubeEdgeTrans::*;
         
         let sign = R::from_sign(e.sign);
@@ -235,7 +235,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     label.insert(k, y_k);
 
                     let t = *to;
-                    let y = KhEnhState::new(t, label);
+                    let y = KhGen::new(t, label);
                     let r = &sign * &a;
                     (y, r)
                 }).collect_vec()
@@ -249,7 +249,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     label.insert(k, y_k);
 
                     let t = *to;
-                    let y = KhEnhState::new(t, label);
+                    let y = KhGen::new(t, label);
                     let r = &sign * &a;
 
                     (y, r)
@@ -258,7 +258,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn into_complex(self, i0: isize, reduced: bool) -> XChainComplex<KhEnhState, R> {
+    pub fn into_complex(self, i0: isize, reduced: bool) -> XChainComplex<KhGen, R> {
         let range = self.h_range();
         let range = (range.start() + i0) ..= (range.end() + i0);
 

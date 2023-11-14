@@ -106,14 +106,14 @@ impl Display for KhLabel {
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct KhEnhState { 
+pub struct KhGen { 
     pub state: State,
     pub label: KhLabel
 }
 
-impl KhEnhState {
-    pub fn new(state: State, label: KhLabel) -> KhEnhState { 
-        KhEnhState { state, label }
+impl KhGen {
+    pub fn new(state: State, label: KhLabel) -> KhGen { 
+        KhGen { state, label }
     }
 
     pub fn init() -> Self { 
@@ -127,8 +127,8 @@ impl KhEnhState {
         q + r + s
     }
 
-    pub fn append(&mut self, other: KhEnhState) { 
-        let KhEnhState { state, label } = other;
+    pub fn append(&mut self, other: KhGen) { 
+        let KhGen { state, label } = other;
         self.state.append(state);
         self.label.append(label);
     }
@@ -140,19 +140,19 @@ impl KhEnhState {
 }
 
 #[auto_ops]
-impl MulAssign<&KhEnhState> for KhEnhState {
-    fn mul_assign(&mut self, rhs: &KhEnhState) {
+impl MulAssign<&KhGen> for KhGen {
+    fn mul_assign(&mut self, rhs: &KhGen) {
         self.append(*rhs)
     }
 }
 
-impl Elem for KhEnhState { 
+impl Elem for KhGen { 
     fn math_symbol() -> String { 
         String::from("Kh")
     }
 }
 
-impl Display for KhEnhState {
+impl Display for KhGen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.state.is_empty() {
             write!(f, "()")
@@ -164,6 +164,6 @@ impl Display for KhEnhState {
     }
 }
 
-impl Gen for KhEnhState {}
+impl Gen for KhGen {}
 
-pub type KhChain<R> = Lc<KhEnhState, R>;
+pub type KhChain<R> = Lc<KhGen, R>;

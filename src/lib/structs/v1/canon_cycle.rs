@@ -2,7 +2,7 @@ use yui::{Ring, RingOps};
 use yui_link::{Link, State};
 
 use crate::ext::LinkExt;
-use crate::{KhAlgGen, KhLabel, KhEnhState, KhChain};
+use crate::{KhAlgGen, KhLabel, KhGen, KhChain};
 
 pub trait CanonCycles<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
@@ -16,7 +16,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let colors = l.colored_seifert_circles(ori);
 
         let mut z = KhChain::from(
-            KhEnhState::new(s, KhLabel::empty())
+            KhGen::new(s, KhLabel::empty())
         );
 
         let x_a = make_factor(a); // X - a
@@ -38,8 +38,8 @@ fn make_factor<R>(a: &R) -> KhChain<R> // a -> X - a
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     use KhAlgGen::{I, X};
 
-    fn init(x: KhAlgGen) -> KhEnhState { 
-        KhEnhState::new(
+    fn init(x: KhAlgGen) -> KhGen { 
+        KhGen::new(
             State::empty(),
             KhLabel::from(x)
         )

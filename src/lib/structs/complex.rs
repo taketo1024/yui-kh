@@ -8,13 +8,13 @@ use yui_link::Link;
 use yui_homology::{ChainComplexTrait, XChainComplex, XChainComplex2, GridTrait, XChainComplexSummand, Grid2, XModStr};
 use yui_matrix::sparse::SpMat;
 
-use crate::{KhEnhState, KhChain, KhHomology, KhHomologyBigraded};
+use crate::{KhGen, KhChain, KhHomology, KhHomologyBigraded};
 
-pub type KhComplexSummand<R> = XChainComplexSummand<KhEnhState, R>;
+pub type KhComplexSummand<R> = XChainComplexSummand<KhGen, R>;
 
 pub struct KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    inner: XChainComplex<KhEnhState, R>,
+    inner: XChainComplex<KhGen, R>,
     canon_cycles: Vec<KhChain<R>>,
     reduced: bool,
     deg_shift: (isize, isize)
@@ -26,7 +26,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Self::new_v2(link, h, t, reduced)
     }
 
-    pub(crate) fn _new(inner: XChainComplex<KhEnhState, R>, canon_cycles: Vec<KhChain<R>>, reduced: bool, deg_shift: (isize, isize)) -> Self { 
+    pub(crate) fn _new(inner: XChainComplex<KhGen, R>, canon_cycles: Vec<KhChain<R>>, reduced: bool, deg_shift: (isize, isize)) -> Self { 
         KhComplex { inner, canon_cycles, reduced, deg_shift }
     }
 
@@ -55,7 +55,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (q_min + q0) ..= (q_max + q0)
     }
 
-    pub fn inner(&self) -> &XChainComplex<KhEnhState, R> {
+    pub fn inner(&self) -> &XChainComplex<KhGen, R> {
         &self.inner
     }
 
@@ -131,7 +131,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> ChainComplexTrait<isize> for KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     type R = R;
-    type Element = Lc<KhEnhState, R>;
+    type Element = Lc<KhGen, R>;
 
     delegate! { 
         to self.inner { 
@@ -153,7 +153,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 pub struct KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    inner: XChainComplex2<KhEnhState, R>,
+    inner: XChainComplex2<KhGen, R>,
     reduced: bool,
 }
 
@@ -167,7 +167,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.reduced
     }
 
-    pub fn inner(&self) -> &XChainComplex2<KhEnhState, R> {
+    pub fn inner(&self) -> &XChainComplex2<KhGen, R> {
         &self.inner
     }
 }
@@ -200,7 +200,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> ChainComplexTrait<isize2> for KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     type R = R;
-    type Element = Lc<KhEnhState, R>;
+    type Element = Lc<KhGen, R>;
 
     delegate! { 
         to self.inner { 
