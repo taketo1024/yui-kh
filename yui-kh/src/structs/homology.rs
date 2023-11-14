@@ -33,13 +33,13 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> GridTrait<isize> for KhHomology<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     type Itr = std::vec::IntoIter<isize>;
-    type E = XHomologySummand<KhEnhState, R>;
+    type Output = XHomologySummand<KhEnhState, R>;
 
     delegate! { 
         to self.inner { 
             fn support(&self) -> Self::Itr;
             fn is_supported(&self, i: isize) -> bool;
-            fn get(&self, i: isize) -> &Self::E;
+            fn get(&self, i: isize) -> &Self::Output;
         }
     }
 }
@@ -74,13 +74,13 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> GridTrait<isize2> for KhHomologyBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     type Itr = std::vec::IntoIter<isize2>;
-    type E = XHomologySummand<KhEnhState, R>;
+    type Output = XHomologySummand<KhEnhState, R>;
 
     delegate! { 
         to self.inner { 
             fn support(&self) -> Self::Itr;
             fn is_supported(&self, i: isize2) -> bool;
-            fn get(&self, i: isize2) -> &Self::E;
+            fn get(&self, i: isize2) -> &Self::Output;
         }
     }
 }
