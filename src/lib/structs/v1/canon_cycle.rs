@@ -69,8 +69,8 @@ mod tests {
 
         for z in zs { 
             let dz = c.d(0, &z);
-            assert_eq!(z.is_zero(), false);
-            assert_eq!(dz.is_zero(), true);
+            assert!(!z.is_zero());
+            assert!(dz.is_zero());
         }
     }
  
@@ -85,8 +85,8 @@ mod tests {
 
         for z in zs { 
             let dz = c.d(0, &z);
-            assert_eq!(z.is_zero(), false);
-            assert_eq!(dz.is_zero(), true);
+            assert!(!z.is_zero());
+            assert!(dz.is_zero());
         }
     }
 }

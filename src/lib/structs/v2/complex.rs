@@ -289,7 +289,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let v_in = v.in_edges.iter().cloned().collect_vec();
         for j in v_in.iter() { 
-            v.in_edges.remove(&j);
+            v.in_edges.remove(j);
             let u = self.vertices.get_mut(j).unwrap();
 
             let f_old = if remove {
@@ -299,7 +299,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             };
 
             let (h, t) = (&self.h, &self.t);
-            let f_new = f_old.cap_off(Bottom::Tgt, &c, death_dot).part_eval(h, t);
+            let f_new = f_old.cap_off(Bottom::Tgt, c, death_dot).part_eval(h, t);
 
             if !f_new.is_zero() {
                 u.out_edges.insert(k_new, f_new);
@@ -314,10 +314,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 w.in_edges.remove(&k_old);
             }
 
-            let f_old = v.out_edges.remove(&l).unwrap();
+            let f_old = v.out_edges.remove(l).unwrap();
 
             let (h, t) = (&self.h, &self.t);
-            let f_new = f_old.cap_off(Bottom::Src, &c, birth_dot).part_eval(h, t);
+            let f_new = f_old.cap_off(Bottom::Src, c, birth_dot).part_eval(h, t);
 
             if !f_new.is_zero() { 
                 v.out_edges.insert(*l, f_new);
@@ -400,9 +400,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let c = &self.vertex(k0).out_edges[l1];
             
             let cab = c * &ainv * b;
-            let v1 = self.vertices.get_mut(&k1).unwrap();
+            let v1 = self.vertices.get_mut(k1).unwrap();
 
-            let d = if let Some(d) = v1.out_edges.get(&l1) { 
+            let d = if let Some(d) = v1.out_edges.get(l1) { 
                 d - cab
             } else { 
                 -cab
@@ -537,7 +537,7 @@ macro_rules! modify {
     }};
 }
 
-pub(self) use modify;
+use modify;
 
 #[cfg(test)]
 mod tests { 
@@ -559,7 +559,7 @@ mod tests {
         assert_eq!(f.inv(), Some(f.clone()));
 
         let f = Mor::from((c.clone(), 2));
-        assert_eq!(f.is_invertible(), false);
+        assert!(!f.is_invertible());
         assert_eq!(f.inv(), None);
     }
 

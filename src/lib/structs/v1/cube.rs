@@ -113,7 +113,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let n = l.crossing_num();
         let vertices: HashMap<_, _> = State::generate(n).into_iter().map(|s| { 
-            let v = KhCubeVertex::new(&l, s.clone());
+            let v = KhCubeVertex::new(l, s);
             (s, v)
         }).collect();
 
@@ -123,7 +123,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 let w = &vertices[&t];
                 (t, KhCubeEdge::edge_between(v, w))
             }).collect_vec();
-            (s.clone(), edges)
+            (*s, edges)
         }).collect();
 
         let base_pt = l.first_edge();
@@ -229,12 +229,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             Merge((i, j), k) => {
                 let (x_i, x_j) = (x.label[i], x.label[j]);
                 self.str.prod(x_i, x_j).into_iter().map(|(y_k, a)| { 
-                    let mut label = x.label.clone();
+                    let mut label = x.label;
                     label.remove(j);
                     label.remove(i);
                     label.insert(k, y_k);
 
-                    let t = to.clone();
+                    let t = *to;
                     let y = KhEnhState::new(t, label);
                     let r = &sign * &a;
                     (y, r)
@@ -243,12 +243,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             Split(i, (j, k)) => {
                 let x_i = x.label[i];
                 self.str.coprod(x_i).into_iter().map(|(y_j, y_k, a)| { 
-                    let mut label = x.label.clone();
+                    let mut label = x.label;
                     label.remove(i);
                     label.insert(j, y_j);
                     label.insert(k, y_k);
 
-                    let t = to.clone();
+                    let t = *to;
                     let y = KhEnhState::new(t, label);
                     let r = &sign * &a;
 
@@ -288,7 +288,7 @@ mod tests {
     fn empty() { 
         let l = Link::empty();
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s.clone());
+        let v = KhCubeVertex::new(&l, s);
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 0);
@@ -299,7 +299,7 @@ mod tests {
     fn unknot() { 
         let l = Link::unknot();
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s.clone());
+        let v = KhCubeVertex::new(&l, s);
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 1);
@@ -310,7 +310,7 @@ mod tests {
     fn unlink_2() {
         let l = Link::from_pd_code([[0, 0, 1, 1]]).resolved_at(0, Bit::Bit0);
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s.clone());
+        let v = KhCubeVertex::new(&l, s);
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 2);

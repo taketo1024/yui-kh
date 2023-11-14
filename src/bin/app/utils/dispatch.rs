@@ -42,7 +42,7 @@ pub(crate) enum PolyVars {
 pub(crate) fn poly_vars(c_value: &String) -> PolyVars { 
     use std::collections::HashSet;
     
-    let s: HashSet<_> = c_value.split(",").collect();
+    let s: HashSet<_> = c_value.split(',').collect();
     match (s.contains("H"), s.contains("T")) { 
         (true,  true)  => PolyVars::HT,
         (true,  false) => PolyVars::H,

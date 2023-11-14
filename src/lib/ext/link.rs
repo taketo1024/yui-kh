@@ -58,6 +58,6 @@ impl LinkExt for Link {
     
         assert!(queue.is_empty());
     
-        zip(circles.into_iter(), colors.into_iter()).collect()
+        zip(circles, colors).collect()
     }
 }

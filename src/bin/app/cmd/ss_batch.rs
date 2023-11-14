@@ -62,7 +62,7 @@ pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
         let mut row = vec![name.to_string()];
 
         for config in configs.iter() { 
-            let ss_args = make_args(&link, &config, args.debug);
+            let ss_args = make_args(link, config, args.debug);
             let ss_res = ss_run(&ss_args);
 
             let val = if let Ok(val) = ss_res { 
@@ -95,6 +95,6 @@ fn make_args(link: &String, config: &Config, debug: bool) -> SSArgs {
         order:   config.order.unwrap_or(1),
         reduced: config.reduced,
         old:     false,
-        debug:   debug,
+        debug,
     }
 }

@@ -33,7 +33,7 @@ pub fn load_link(input: &String, mirror: bool) -> Result<Link, Box<dyn std::erro
     type PDCode = Vec<[Edge; 4]>;
     
     let l = { 
-        if let Ok(pd_code) = serde_json::from_str::<PDCode>(&input) { 
+        if let Ok(pd_code) = serde_json::from_str::<PDCode>(input) { 
             Link::from_pd_code(pd_code)
         } else if let Ok(link) = Link::load(input) { 
             link
@@ -55,7 +55,7 @@ pub fn parse_pair<R: FromStr + Zero>(s: &String) -> Result<(R, R), Box<dyn std::
     }
 
     let r = regex::Regex::new(r"^(.+),(.+)$").unwrap();
-    if let Some(m) = r.captures(&s) { 
+    if let Some(m) = r.captures(s) { 
         let (s1, s2) = (&m[1], &m[2]);
         if let (Ok(a), Ok(b)) = (R::from_str(s1), R::from_str(s2)) {
             return Ok((a, b))
@@ -71,7 +71,7 @@ pub fn csv_writer(path: &String) -> Result<csv::Writer<std::fs::File>, Box<dyn s
     let file = OpenOptions::new()
         .write(true)
         .create(true)
-        .open(&path)?;
+        .open(path)?;
 
     let wtr = csv::Writer::from_writer(file);
 

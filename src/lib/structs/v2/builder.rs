@@ -27,7 +27,7 @@ impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         let base_pt = if reduced { 
-            assert!(l.components().len() > 0);
+            assert!(!l.components().is_empty());
             l.first_edge()
         } else { 
             None
@@ -58,7 +58,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
             for (i, x) in remain.iter().enumerate() { 
                 if let Some(e) = base_pt { 
-                    if x.edges().contains(&e) { 
+                    if x.edges().contains(e) { 
                         continue
                     }
                 }
@@ -130,7 +130,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn deloop(&mut self, k: &KhEnhState, r: usize, reduced: bool) {
         let c = self.complex.vertex(k).tng().comp(r);
         for e in self.canon_cycles.iter_mut() { 
-            e.deloop(k, &c, reduced);
+            e.deloop(k, c, reduced);
         }
 
         let keys = self.complex.deloop(k, r, reduced);
@@ -290,16 +290,16 @@ mod tests {
 
         for i in [1,6,7,8] {
             assert_eq!(h[i].rank(), 0);
-            assert_eq!(h[i].is_free(), true);
+            assert!(h[i].is_free());
         }
 
         for i in [0,4,5] {
             assert_eq!(h[i].rank(), 2);
-            assert_eq!(h[i].is_free(), true);
+            assert!(h[i].is_free());
         }
 
         assert_eq!(h[2].rank(), 1);
-        assert_eq!(h[2].is_free(), true);
+        assert!(h[2].is_free());
 
         assert_eq!(h[3].rank(), 1);
         assert_eq!(h[3].tors(), &vec![2]);

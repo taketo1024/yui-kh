@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::hash::Hash;
 use itertools::Itertools;
 use yui_link::{Edge, Crossing, LinkComp};
 use yui::bitseq::Bit;
 
-#[derive(Clone, Copy, Eq, Hash, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, Eq, PartialOrd, Ord, Debug)]
 pub enum TngComp { 
     Arc(Edge, Edge, Edge), // the middle edge keeps the min edge-id.
     Circ(Edge)
@@ -55,7 +56,9 @@ impl TngComp {
     }
 
     pub fn connect(&mut self, other: Self) { 
+        use std::cmp::Ordering::*;
         use TngComp::Arc;
+
         let Arc(l0, l1, l2) = *self  else { panic!() };
         let Arc(r0, r1, r2) = other else { panic!() };
 
@@ -73,12 +76,10 @@ impl TngComp {
             panic!()
         };
 
-        *self = if e0 == e2 { 
-            TngComp::circ(e1)
-        } else if e0 < e2 { 
-            TngComp::Arc(e0, e1, e2)
-        } else { 
-            TngComp::Arc(e2, e1, e0)
+        *self = match Ord::cmp(&e0, &e2) {
+            Equal   => TngComp::circ(e1),
+            Less    => TngComp::Arc(e0, e1, e2),
+            Greater => TngComp::Arc(e2, e1, e0)
         }
     }
 }
@@ -88,8 +89,23 @@ impl PartialEq for TngComp {
         use TngComp::{Arc, Circ};
         match (self, other) {
             (Arc(l0, _, l2), Arc(r0, _, r2)) => l0 == r0 && l2 == r2,
-            (Circ(l0), Circ(r0)) => l0 == r0,
+            (Circ(l), Circ(r)) => l == r,
             _ => false,
+        }
+    }
+}
+
+impl Hash for TngComp {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        use TngComp::{Arc, Circ};
+        match self { 
+            Arc(e0, _, e2) => {
+                e0.hash(state);
+                e2.hash(state);
+            }
+            Circ(e) => {
+                e.hash(state)
+            }
         }
     }
 }
@@ -106,14 +122,13 @@ impl Display for TngComp {
 
 impl From<&LinkComp> for TngComp {
     fn from(c: &LinkComp) -> Self {
+        use std::cmp::Ordering::*;
         let e = c.min_edge();
         if let Some((l, r)) = c.ends() { 
-            if l == r { 
-                Self::Circ(e)
-            } else if l < r { 
-                Self::Arc(l, e, r)
-            } else { 
-                Self::Arc(r, e, l)
+            match Ord::cmp(&l, &r) { 
+                Equal   => Self::Circ(e),
+                Less    => Self::Arc(l, e, r),
+                Greater => Self::Arc(r, e, l)
             }
         } else { 
             Self::Circ(e)
@@ -179,13 +194,13 @@ impl Tng {
     pub fn sub<I>(&self, iter: I) -> Self 
     where I: IntoIterator<Item = usize> { 
         Self::new(
-            iter.into_iter().map(|i| self.comp(i).clone()).collect()
+            iter.into_iter().map(|i| *self.comp(i)).collect()
         )
     }
 
     pub fn endpts(&self) -> HashSet<Edge> { 
         self.comps.iter().flat_map(|c| 
-            c.endpts().map(|(e0, e1)| vec![e0, e1]).unwrap_or(vec![])
+            c.endpts().map(|(e0, e1)| vec![e0, e1]).unwrap_or_default()
         ).collect()
     }
 

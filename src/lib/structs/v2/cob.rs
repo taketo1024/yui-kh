@@ -45,7 +45,7 @@ impl CobComp {
 
     pub fn id(c: TngComp) -> Self { 
         Self::plain(
-            Tng::from(c.clone()), 
+            Tng::from(c), 
             Tng::from(c),
         )
     }
@@ -242,14 +242,14 @@ impl CobComp {
 
                 let c0 = self.src.comp(i0);
                 let Some(j) = tgt_arcs.iter().find(|&&j| { 
-                    self.tgt.comp(j).is_connectable(&c0)
+                    self.tgt.comp(j).is_connectable(c0)
                 }).cloned() else { panic!() };
 
                 tgt_arcs.remove(&j);
 
                 let c1 = self.tgt.comp(j);
                 if let Some(i1) = src_arcs.iter().find(|&&i| { 
-                    i != i0 && self.src.comp(i).is_connectable(&c1)
+                    i != i0 && self.src.comp(i).is_connectable(c1)
                 }).cloned() { 
                     i0 = i1;
                 } else { 
@@ -409,7 +409,7 @@ impl Display for CobComp {
         let dots = if self.has_dots() { 
             let (p, q) = self.dots;
             let m = BiVar::<'X','Y', _>::from((p, q));
-            format!("{}.", m.to_string())
+            format!("{}.", m)
         } else { 
             String::new()
         };
@@ -495,7 +495,7 @@ impl Cob {
     
     pub fn id(v: &Tng) -> Self { 
         let comps = (0..v.ncomps()).map(|i| {
-            let c = v.comp(i).clone();
+            let c = *v.comp(i);
             CobComp::id(c)
         }).collect();
         Self::new(comps)
@@ -528,7 +528,7 @@ impl Cob {
     }
 
     pub fn is_zero(&self) -> bool { 
-        self.comps.iter().find(|c| c.is_zero()).is_some()
+        self.comps.iter().any(|c| c.is_zero())
     }
 
     pub fn is_closed(&self) -> bool { 
@@ -575,11 +575,7 @@ impl Cob {
 
     fn find_comp(&mut self, b: Bottom, c: &TngComp) -> Option<(usize, &mut CobComp, usize)> { 
         self.comps.iter_mut().enumerate().filter_map(|(i, comp)| 
-            if let Some(p) = comp.index_of(b, c) { 
-                Some((i, comp, p))
-            } else { 
-                None
-            }
+            comp.index_of(b, c).map(|p| (i, comp, p))
         ).next()
     }
 
@@ -609,7 +605,7 @@ impl Cob {
         self.comps.iter().fold(0, |n, c| n + c.tgt.ncomps()) == 
         other.comps.iter().fold(0, |n, c| n + c.src.ncomps()) && 
         self.comps.iter().all(|c| c.tgt.comps().iter().all(|a|
-            other.comps.iter().any(|c| c.contains(Bottom::Src, &a))
+            other.comps.iter().any(|c| c.contains(Bottom::Src, a))
         ))
     }
 
@@ -623,7 +619,7 @@ impl Cob {
             return;
         }
 
-        let mut bot = std::mem::replace(&mut self.comps, vec![]);
+        let mut bot = std::mem::take(&mut self.comps);
         let mut top = other.comps;
 
         while !(bot.is_empty() && top.is_empty()) { 
@@ -661,7 +657,7 @@ impl Cob {
         while !(q_bot.is_empty() && q_top.is_empty()) {
             while let Some(b) = q_bot.pop_front() {
                 for c in b.tgt.comps().iter() { 
-                    if let Some(i) = top.iter().position(|t| t.src.contains(&c)) {
+                    if let Some(i) = top.iter().position(|t| t.src.contains(c)) {
                         let t = top.remove(i);
                         q_top.push_back(t);
                     }
@@ -670,7 +666,7 @@ impl Cob {
             }
             while let Some(t) = q_top.pop_front() {
                 for c in t.src.comps().iter() { 
-                    if let Some(i) = bot.iter().position(|b| b.tgt.contains(&c)) {
+                    if let Some(i) = bot.iter().position(|b| b.tgt.contains(c)) {
                         let b = bot.remove(i);
                         q_bot.push_back(b);
                     }
@@ -1028,10 +1024,10 @@ mod tests {
             Tng::from(TngComp::circ(3))
         );
 
-        assert_eq!(cc0.is_invertible(), true);
+        assert!(cc0.is_invertible());
         assert_eq!(cc0.inv(), Some(cc0.clone()));
 
-        assert_eq!(cc1.is_invertible(), true);
+        assert!(cc1.is_invertible());
         assert_eq!(cc1.inv(), Some(CobComp::plain(
             Tng::from(TngComp::circ(3)), 
             Tng::from(TngComp::circ(2))
@@ -1039,7 +1035,7 @@ mod tests {
 
         let c0 = Cob::new(vec![cc0, cc1]);
 
-        assert_eq!(c0.is_invertible(), true);
+        assert!(c0.is_invertible());
         assert_eq!(c0.inv(), Some(Cob::new(vec![
             c0.comp(0).inv().unwrap(),
             c0.comp(1).inv().unwrap()
@@ -1052,19 +1048,19 @@ mod tests {
             )
         );
 
-        assert_eq!(c1.is_invertible(), false);
+        assert!(!c1.is_invertible());
         assert_eq!(c1.inv(), None);
 
         let mut c2 = c0.clone();
         c2.comps[0].add_dot(Dot::X);
 
-        assert_eq!(c2.is_invertible(), false);
+        assert!(!c2.is_invertible());
         assert_eq!(c2.inv(), None);
 
         let mut c3 = c0.clone();
         c3.comps[0].genus += 1;
 
-        assert_eq!(c3.is_invertible(), false);
+        assert!(!c3.is_invertible());
         assert_eq!(c3.inv(), None);
     }
 
@@ -1195,7 +1191,7 @@ mod tests {
     fn eval() { 
         type R = Poly2<'H', 'T', i32>;
         
-        let ht = |i, j| R::mono(i, j);
+        let ht = R::mono;
         let h = R::variable(0);
         let t = R::variable(1);
 

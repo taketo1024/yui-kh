@@ -68,9 +68,7 @@ impl KhLabel {
     }
 
     pub fn generate(len: usize) -> Vec<Self> { 
-        BitSeq::generate(len).into_iter().map(|b| 
-            Self(b)
-        ).collect()
+        BitSeq::generate(len).into_iter().map(KhLabel).collect()
     }
 }
 
@@ -144,7 +142,7 @@ impl KhEnhState {
 #[auto_ops]
 impl MulAssign<&KhEnhState> for KhEnhState {
     fn mul_assign(&mut self, rhs: &KhEnhState) {
-        self.append(rhs.clone())
+        self.append(*rhs)
     }
 }
 

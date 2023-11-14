@@ -58,11 +58,11 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     }).collect_vec();
 
     let v = &vs[0];
-    let Some(d) = div_vec(&v, &c) else { 
+    let Some(d) = div_vec(v, c) else { 
         panic!("invalid divisibility for v = {}, c = {}", v, c)
     };
 
-    let w = l.writhe() as i32;
+    let w = l.writhe();
     let r = l.seifert_circles().len() as i32;
     let n = n as i32;
 
@@ -82,7 +82,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     let a1 = c.d_matrix( 0);
 
     let vs = c.canon_cycles().iter().map(|z| 
-        c[0].vectorize(&z)
+        c[0].vectorize(z)
     ).collect_vec();
 
     (a0, a1, vs)
@@ -119,7 +119,7 @@ mod tests {
     fn test(l: &Link, c: i32, value: i32) { 
         let ver = 2;
         for &r in cartesian!([true, false].iter()) { 
-            assert_eq!(compute_ss(&l, &c, 1, r, ver), value);
+            assert_eq!(compute_ss(l, &c, 1, r, ver), value);
             assert_eq!(compute_ss(&l.mirror(), &c, 1, r, ver), -value);
         }
     }

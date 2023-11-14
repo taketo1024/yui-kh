@@ -110,7 +110,7 @@ mod tests {
         assert_eq!(h.h_range(), 0..=0);
 
         assert_eq!(h[0].rank(), 1);
-        assert_eq!(h[0].is_free(), true);
+        assert!(h[0].is_free());
     }
 
     #[test]
@@ -121,7 +121,7 @@ mod tests {
         assert_eq!(h.h_range(), 0..=0);
         
         assert_eq!(h[0].rank(), 2);
-        assert_eq!(h[0].is_free(), true);
+        assert!(h[0].is_free());
     }
 
     #[test]
@@ -132,15 +132,15 @@ mod tests {
         assert_eq!(h.h_range(), -3..=0);
 
         assert_eq!(h[-3].rank(), 1);
-        assert_eq!(h[-3].is_free(), true);
+        assert!(h[-3].is_free());
 
         assert_eq!(h[-2].rank(), 1);
         assert_eq!(h[-2].tors(), &vec![2]);
 
-        assert_eq!(h[-1].is_zero(), true);
+        assert!(h[-1].is_zero());
 
         assert_eq!(h[ 0].rank(), 2);
-        assert_eq!(h[ 0].is_free(), true);
+        assert!(h[ 0].is_free());
     }
 
     #[test]
@@ -151,12 +151,12 @@ mod tests {
         assert_eq!(h.h_range(), 0..=3);
 
         assert_eq!(h[0].rank(), 2);
-        assert_eq!(h[0].is_free(), true);
+        assert!(h[0].is_free());
 
-        assert_eq!(h[1].is_zero(), true);
+        assert!(h[1].is_zero());
 
         assert_eq!(h[2].rank(), 1);
-        assert_eq!(h[2].is_free(), true);
+        assert!(h[2].is_free());
 
         assert_eq!(h[3].rank(), 1);
         assert_eq!(h[3].tors(), &vec![2]);
@@ -170,16 +170,16 @@ mod tests {
         assert_eq!(h.h_range(), -2..=2);
 
         assert_eq!(h[-2].rank(), 1);
-        assert_eq!(h[-2].is_free(), true);
+        assert!(h[-2].is_free());
 
         assert_eq!(h[-1].rank(), 1);
         assert_eq!(h[-1].tors(), &vec![2]);
 
         assert_eq!(h[0].rank(), 2);
-        assert_eq!(h[0].is_free(), true);
+        assert!(h[0].is_free());
 
         assert_eq!(h[1].rank(), 1);
-        assert_eq!(h[1].is_free(), true);
+        assert!(h[1].is_free());
 
         assert_eq!(h[2].rank(), 1);
         assert_eq!(h[2].tors(), &vec![2]);
@@ -191,7 +191,7 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, false);
 
         assert_eq!(h[(0,0)].rank(), 1);
-        assert_eq!(h[(0,0)].is_free(), true);
+        assert!(h[(0,0)].is_free());
     }
 
     #[test]
@@ -200,9 +200,9 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, false);
 
         assert_eq!(h[(0,-1)].rank(), 1);
-        assert_eq!(h[(0,-1)].is_free(), true);
+        assert!(h[(0,-1)].is_free());
         assert_eq!(h[(0, 1)].rank(), 1);
-        assert_eq!(h[(0, 1)].is_free(), true);
+        assert!(h[(0, 1)].is_free());
     }
 
     #[test]
@@ -211,7 +211,7 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, true);
 
         assert_eq!(h[(0, 0)].rank(), 1);
-        assert_eq!(h[(0, 0)].is_free(), true);
+        assert!(h[(0, 0)].is_free());
     }
 
     #[test]
@@ -220,15 +220,15 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, false);
 
         assert_eq!(h[(-3,-9)].rank(), 1);
-        assert_eq!(h[(-3,-9)].is_free(), true);
+        assert!(h[(-3,-9)].is_free());
         assert_eq!(h[(-2,-7)].rank(), 0);
         assert_eq!(h[(-2,-7)].tors(), &vec![2]);
         assert_eq!(h[(-2,-5)].rank(), 1);
-        assert_eq!(h[(-2,-5)].is_free(), true);
+        assert!(h[(-2,-5)].is_free());
         assert_eq!(h[( 0,-3)].rank(), 1);
-        assert_eq!(h[( 0,-3)].is_free(), true);
+        assert!(h[( 0,-3)].is_free());
         assert_eq!(h[( 0,-1)].rank(), 1);
-        assert_eq!(h[( 0,-1)].is_free(), true);
+        assert!(h[( 0,-1)].is_free());
     }
 
     #[test]
@@ -237,15 +237,15 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, false);
 
         assert_eq!(h[(0, 1)].rank(), 1);
-        assert_eq!(h[(0, 1)].is_free(), true);
+        assert!(h[(0, 1)].is_free());
         assert_eq!(h[(0, 3)].rank(), 1);
-        assert_eq!(h[(0, 3)].is_free(), true);
+        assert!(h[(0, 3)].is_free());
         assert_eq!(h[(2, 5)].rank(), 1);
-        assert_eq!(h[(2, 5)].is_free(), true);
+        assert!(h[(2, 5)].is_free());
         assert_eq!(h[(3, 7)].rank(), 0);
         assert_eq!(h[(3, 7)].tors(), &vec![2]);
         assert_eq!(h[(3, 9)].rank(), 1);
-        assert_eq!(h[(3, 9)].is_free(), true);
+        assert!(h[(3, 9)].is_free());
     }
 
     #[test]
@@ -254,11 +254,11 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, true);
 
         assert_eq!(h[(-3,-8)].rank(), 1);
-        assert_eq!(h[(-3,-8)].is_free(), true);
+        assert!(h[(-3,-8)].is_free());
         assert_eq!(h[(-2,-6)].rank(), 1);
-        assert_eq!(h[(-2,-6)].is_free(), true);
+        assert!(h[(-2,-6)].is_free());
         assert_eq!(h[( 0,-2)].rank(), 1);
-        assert_eq!(h[( 0,-2)].is_free(), true);
+        assert!(h[( 0,-2)].is_free());
     }
 
     #[test]
@@ -267,21 +267,21 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, false);
 
         assert_eq!(h[(-2,-5)].rank(), 1);
-        assert_eq!(h[(-2,-5)].is_free(), true);
+        assert!(h[(-2,-5)].is_free());
         assert_eq!(h[(-1,-3)].rank(), 0);
         assert_eq!(h[(-1,-3)].tors(), &vec![2]);
         assert_eq!(h[(-1,-1)].rank(), 1);
-        assert_eq!(h[(-1,-1)].is_free(), true);
+        assert!(h[(-1,-1)].is_free());
         assert_eq!(h[( 0,-1)].rank(), 1);
-        assert_eq!(h[( 0,-1)].is_free(), true);
+        assert!(h[( 0,-1)].is_free());
         assert_eq!(h[( 0, 1)].rank(), 1);
-        assert_eq!(h[( 0, 1)].is_free(), true);
+        assert!(h[( 0, 1)].is_free());
         assert_eq!(h[( 1, 1)].rank(), 1);
-        assert_eq!(h[( 1, 1)].is_free(), true);
+        assert!(h[( 1, 1)].is_free());
         assert_eq!(h[( 2, 3)].rank(), 0);
         assert_eq!(h[( 2, 3)].tors(), &vec![2]);
         assert_eq!(h[( 2, 5)].rank(), 1);
-        assert_eq!(h[( 2, 5)].is_free(), true);
+        assert!(h[( 2, 5)].is_free());
    }
 
     #[test]
@@ -290,14 +290,14 @@ mod tests {
         let h = KhHomologyBigraded::<i32>::new(l, true);
 
         assert_eq!(h[(-2,-4)].rank(), 1);
-        assert_eq!(h[(-2,-4)].is_free(), true);
+        assert!(h[(-2,-4)].is_free());
         assert_eq!(h[(-1,-2)].rank(), 1);
-        assert_eq!(h[(-1,-2)].is_free(), true);
+        assert!(h[(-1,-2)].is_free());
         assert_eq!(h[( 0, 0)].rank(), 1);
-        assert_eq!(h[( 0, 0)].is_free(), true);
+        assert!(h[( 0, 0)].is_free());
         assert_eq!(h[( 1, 2)].rank(), 1);
-        assert_eq!(h[( 1, 2)].is_free(), true);
+        assert!(h[( 1, 2)].is_free());
         assert_eq!(h[( 2, 4)].rank(), 1);
-        assert_eq!(h[( 2, 4)].is_free(), true);
+        assert!(h[( 2, 4)].is_free());
    }
 }

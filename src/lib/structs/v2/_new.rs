@@ -70,15 +70,15 @@ mod tests {
         assert_eq!(h.h_range(), -3..=0);
 
         assert_eq!(h[-3].rank(), 1);
-        assert_eq!(h[-3].is_free(), true);
+        assert!(h[-3].is_free());
 
         assert_eq!(h[-2].rank(), 1);
         assert_eq!(h[-2].tors(), &vec![2]);
 
-        assert_eq!(h[-1].is_zero(), true);
+        assert!(h[-1].is_zero());
 
         assert_eq!(h[ 0].rank(), 2);
-        assert_eq!(h[ 0].is_free(), true);
+        assert!(h[ 0].is_free());
 
         h.print_seq();
     }
