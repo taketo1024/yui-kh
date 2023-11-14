@@ -3,10 +3,9 @@ use std::ops::RangeInclusive;
 use itertools::Itertools;
 use yui::{Ring, RingOps, PowMod2, Sign, GetSign};
 use yui_homology::{XChainComplex, Grid, XModStr};
-use yui::lc::Lc;
 use yui_link::{Link, State, LinkComp, Edge};
 
-use crate::{KhAlgStr, KhLabel, KhGen};
+use crate::{KhAlgStr, KhLabel, KhGen, KhChain};
 
 #[derive(Debug)]
 pub struct KhCubeVertex { 
@@ -187,7 +186,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn d(&self, x: &KhGen) -> Lc<KhGen, R> {
+    pub fn d(&self, x: &KhGen) -> KhChain<R> {
         let edges = self.edges_from(&x.state);
         edges.iter().flat_map(|(t, e)| { 
             self.apply(x, t, e)
