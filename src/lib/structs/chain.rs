@@ -4,7 +4,7 @@ use itertools::join;
 use auto_impl_ops::auto_ops;
 use yui::Elem;
 use yui::bitseq::BitSeq;
-use yui::lc::{Gen, LinComb};
+use yui::lc::{Gen, Lc};
 use yui_link::State;
 
 use crate::KhAlgGen;
@@ -166,4 +166,4 @@ impl Display for KhEnhState {
 
 impl Gen for KhEnhState {}
 
-pub type KhChain<R> = LinComb<KhEnhState, R>;
+pub type KhChain<R> = Lc<KhEnhState, R>;

@@ -3,7 +3,7 @@ use cartesian::cartesian;
 
 use delegate::delegate;
 use yui::{Ring, RingOps, EucRing, EucRingOps, isize2};
-use yui::lc::LinComb;
+use yui::lc::Lc;
 use yui_link::Link;
 use yui_homology::{ChainComplexTrait, XChainComplex, XChainComplex2, GridTrait, XChainComplexSummand, Grid2, XModStr};
 use yui_matrix::sparse::SpMat;
@@ -131,7 +131,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> ChainComplexTrait<isize> for KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     type R = R;
-    type Element = LinComb<KhEnhState, R>;
+    type Element = Lc<KhEnhState, R>;
 
     delegate! { 
         to self.inner { 
@@ -200,7 +200,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> ChainComplexTrait<isize2> for KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     type R = R;
-    type Element = LinComb<KhEnhState, R>;
+    type Element = Lc<KhEnhState, R>;
 
     delegate! { 
         to self.inner { 

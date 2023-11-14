@@ -1,10 +1,10 @@
 use yui::{Ring, RingOps};
-use yui::lc::LinComb;
+use yui::lc::Lc;
 
 use super::cob::{Cob, Dot, Bottom, CobComp};
 use super::tng::{Tng, TngComp};
 
-pub type Mor<R> = LinComb<Cob, R>; // R-linear combination of cobordisms.
+pub type Mor<R> = Lc<Cob, R>; // R-linear combination of cobordisms.
 
 pub trait MorTrait: Sized {
     type R;

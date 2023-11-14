@@ -3,7 +3,7 @@ use std::ops::RangeInclusive;
 use itertools::Itertools;
 use yui::{Ring, RingOps, PowMod2, Sign, GetSign};
 use yui_homology::{XChainComplex, Grid, XModStr};
-use yui::lc::LinComb;
+use yui::lc::Lc;
 use yui_link::{Link, State, LinkComp, Edge};
 
 use crate::{KhAlgStr, KhLabel, KhEnhState};
@@ -187,7 +187,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn d(&self, x: &KhEnhState) -> LinComb<KhEnhState, R> {
+    pub fn d(&self, x: &KhEnhState) -> Lc<KhEnhState, R> {
         let edges = self.edges_from(&x.state);
         edges.iter().flat_map(|(t, e)| { 
             self.apply(x, t, e)

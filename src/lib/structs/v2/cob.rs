@@ -9,7 +9,7 @@ use itertools::Itertools;
 use num_traits::Zero;
 use cartesian::cartesian;
 use yui::{Elem, Ring, RingOps};
-use yui::lc::{Gen, OrdForDisplay, LinComb};
+use yui::lc::{Gen, OrdForDisplay, Lc};
 use yui::poly::BiVar;
 use yui_link::{Edge, Crossing};
 use yui::bitseq::Bit;
@@ -330,14 +330,14 @@ impl CobComp {
         self.dots.1 >= 2
     }
 
-    pub fn part_eval<R>(&self, h: &R, t: &R) -> LinComb<CobComp, R>
+    pub fn part_eval<R>(&self, h: &R, t: &R) -> Lc<CobComp, R>
     where R: Ring, for<'x> &'x R: RingOps<R> {
 
         fn cob(c: &CobComp, x: usize, y: usize) -> CobComp { 
             CobComp { src: c.src.clone(), tgt: c.tgt.clone(), genus: 0, dots: (x, y) }
         }
 
-        fn eval<R>(c: &CobComp, g: usize, x: usize, y: usize, h: &R, t: &R) -> LinComb<CobComp, R>
+        fn eval<R>(c: &CobComp, g: usize, x: usize, y: usize, h: &R, t: &R) -> Lc<CobComp, R>
         where R: Ring, for<'x> &'x R: RingOps<R> { 
             match (g, x, y) { 
                 (g, _, _) if g > 0 => { // neck-cut
@@ -353,9 +353,9 @@ impl CobComp {
                     eval(c, 0, 0, y-1, h, t) * -h + 
                     eval(c, 0, 0, y-2, h, t) *  t,
                 (0, 0, 0) if c.is_closed() => // ε.ι = 0
-                    LinComb::zero(),
+                    Lc::zero(),
                 _ =>
-                    LinComb::from(cob(c, x, y))
+                    Lc::from(cob(c, x, y))
             }
         }
 
@@ -722,10 +722,10 @@ impl Cob {
         self.comps.iter().any(|c| c.should_part_eval())
     }
 
-    pub fn part_eval<R>(self, h: &R, t: &R) -> LinComb<Cob, R>
+    pub fn part_eval<R>(self, h: &R, t: &R) -> Lc<Cob, R>
     where R: Ring, for<'x> &'x R: RingOps<R> {
         if self.should_part_eval() { 
-            let init = LinComb::from(Cob::empty());
+            let init = Lc::from(Cob::empty());
             self.comps.iter().fold(init, |res, c| { 
                 let eval = c.part_eval(h, t);
                 let all = cartesian!(res.iter(), eval.iter());
@@ -740,7 +740,7 @@ impl Cob {
                 prod.collect()
             })
         } else { 
-            LinComb::from(self)
+            Lc::from(self)
         }
     }
 
