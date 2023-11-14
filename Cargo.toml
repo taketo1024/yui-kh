@@ -36,10 +36,10 @@ serde = { version = "1.0.188", features = ["derive"] }
 cfg-if = "1.0.0"
 itertools = "0.11.0"
 
-yui  =         { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
-yui-link =     { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
-yui-matrix =   { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
-yui-homology = { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui  =         { git = "https://github.com/taketo1024/yui", branch = "develop" }
+yui-link =     { git = "https://github.com/taketo1024/yui", branch = "develop" }
+yui-matrix =   { git = "https://github.com/taketo1024/yui", branch = "develop" }
+yui-homology = { git = "https://github.com/taketo1024/yui", branch = "develop" }
 # yui  =         { path = "../yui/yui" }
 # yui-link =     { path = "../yui/yui-link" }
 # yui-matrix =   { path = "../yui/yui-matrix" }
@@ -48,10 +48,10 @@ yui-homology = { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
 yui-kh       = { path = "yui-kh" }
 
 [workspace.dependencies]
-yui  =         { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
-yui-link =     { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
-yui-matrix =   { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
-yui-homology = { version = "0.2.0", git = "https://github.com/taketo1024/yui" }
+yui  =         { git = "https://github.com/taketo1024/yui", branch = "develop" }
+yui-link =     { git = "https://github.com/taketo1024/yui", branch = "develop" }
+yui-matrix =   { git = "https://github.com/taketo1024/yui", branch = "develop" }
+yui-homology = { git = "https://github.com/taketo1024/yui", branch = "develop" }
 # yui  =         { path = "../yui/yui" }
 # yui-link =     { path = "../yui/yui-link" }
 # yui-matrix =   { path = "../yui/yui-matrix" }
