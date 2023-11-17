@@ -2,9 +2,9 @@ use std::ops::{RangeInclusive, Index};
 use cartesian::cartesian;
 
 use delegate::delegate;
-use yui::{Ring, RingOps, EucRing, EucRingOps, isize2};
+use yui::{Ring, RingOps, EucRing, EucRingOps};
 use yui_link::Link;
-use yui_homology::{ChainComplexTrait, XChainComplex, XChainComplex2, GridTrait, XChainComplexSummand, Grid2, XModStr};
+use yui_homology::{ChainComplexTrait, XChainComplex, XChainComplex2, GridTrait, XChainComplexSummand, Grid2, XModStr, isize2};
 use yui_matrix::sparse::SpMat;
 
 use crate::{KhGen, KhChain, KhHomology, KhHomologyBigraded};

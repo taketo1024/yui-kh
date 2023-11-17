@@ -4,7 +4,7 @@ use itertools::Itertools;
 use num_traits::Zero;
 use yui::{Ring, RingOps};
 use yui_link::{State, Crossing};
-use yui::macros::map;
+use yui::util::macros::map;
 
 use crate::{KhGen, KhAlgGen, KhChain};
 

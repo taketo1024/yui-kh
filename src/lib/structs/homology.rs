@@ -1,8 +1,8 @@
 use std::ops::{RangeInclusive, Index};
 use delegate::delegate;
 
-use yui_homology::{GridTrait, XHomology, XHomologySummand, XHomology2};
-use yui::{EucRing, EucRingOps, isize2};
+use yui_homology::{GridTrait, XHomology, XHomologySummand, XHomology2, isize2};
+use yui::{EucRing, EucRingOps};
 use yui_link::Link;
 
 use crate::KhGen;

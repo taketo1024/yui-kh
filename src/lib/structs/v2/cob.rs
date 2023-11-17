@@ -401,7 +401,7 @@ impl Display for CobComp {
         };
 
         let g = if self.genus > 0 { 
-            yui::format::subscript(self.genus as isize)
+            yui::util::format::subscript(self.genus as isize)
         } else { 
             "".to_string()
         };

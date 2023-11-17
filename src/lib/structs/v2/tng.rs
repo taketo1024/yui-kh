@@ -115,7 +115,7 @@ impl Display for TngComp {
         use TngComp::{Arc, Circ};
         match self { 
             Arc(e0, _, e2) => write!(f, "-{e0}-{e2}-"),
-            Circ(e)        => write!(f, "○{}", yui::format::subscript(*e as isize))
+            Circ(e)        => write!(f, "○{}", yui::util::format::subscript(*e as isize))
         }
     }
 }
