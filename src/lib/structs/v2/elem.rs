@@ -4,7 +4,7 @@ use itertools::Itertools;
 use num_traits::Zero;
 use yui::{Ring, RingOps};
 use yui_link::{State, Crossing};
-use yui::util::macros::map;
+use yui::util::macros::hashmap;
 
 use crate::{KhGen, KhAlgGen, KhChain};
 
@@ -25,7 +25,7 @@ impl<R> TngElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn init(state: State, value: Cob) -> Self { 
         let f = Mor::from(Cob::empty());
-        let mors = map! { KhGen::init() => f };
+        let mors = hashmap! { KhGen::init() => f };
         let x_count = 0;
 
         Self{ state, value, mors, x_count }
