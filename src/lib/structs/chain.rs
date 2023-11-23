@@ -69,8 +69,8 @@ impl KhLabel {
         self.0.is_sub(&other.0)
     }
 
-    pub fn generate(len: usize) -> Vec<Self> { 
-        BitSeq::generate(len).into_iter().map(KhLabel).collect()
+    pub fn generate(len: usize) -> impl Iterator<Item = Self> { 
+        BitSeq::generate(len).map(KhLabel)
     }
 }
 

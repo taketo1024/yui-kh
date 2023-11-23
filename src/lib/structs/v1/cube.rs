@@ -18,7 +18,7 @@ impl KhCubeVertex {
     pub fn new(l: &Link, state: State) -> Self {
         let circles = l.resolved_by(&state).components();
         let r = circles.len();
-        let gens = KhLabel::generate(r).into_iter().map(|label| { 
+        let gens = KhLabel::generate(r).map(|label| { 
             KhGen::new( state, label )
         }).collect();
         KhCubeVertex { state, circles, gens }
@@ -111,13 +111,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let str = KhAlgStr::new(h, t);
 
         let n = l.crossing_num();
-        let vertices: HashMap<_, _> = State::generate(n).into_iter().map(|s| { 
+        let vertices: HashMap<_, _> = State::generate(n).map(|s| { 
             let v = KhCubeVertex::new(l, s);
             (s, v)
         }).collect();
 
         let edges: HashMap<_, _> = vertices.keys().map(|s| { 
-            let edges = Self::targets(s).into_iter().map(|t| { 
+            let edges = Self::targets(s).map(|t| { 
                 let v = &vertices[s];
                 let w = &vertices[&t];
                 (t, KhCubeEdge::edge_between(v, w))
@@ -130,11 +130,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         KhCube { str, dim: n, vertices, edges, base_pt }
     }
 
-    fn targets(from: &State) -> Vec<State> { 
+    fn targets(from: &State) -> impl Iterator<Item = State> + '_ { 
         let n = from.len();
-        (0..n).filter(|&i| from[i].is_zero() ).map(|i| { 
+        (0..n).filter(|&i| from[i].is_zero() ).map(move |i| { 
             from.edit(|b| b.set_1(i))
-        }).collect()
+        })
     }
 
     pub fn structure(&self) -> &KhAlgStr<R> {
