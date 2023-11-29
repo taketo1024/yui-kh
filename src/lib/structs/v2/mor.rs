@@ -1,4 +1,4 @@
-use yui::{Ring, RingOps};
+use yui::{Ring, RingOps, AddMon};
 use yui::lc::Lc;
 
 use super::cob::{Cob, Dot, Bottom, CobComp};
@@ -87,17 +87,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn part_eval(self, h: &Self::R, t: &Self::R) -> Self {
         if self.gens().any(|c| c.should_part_eval()) { 
-            self.into_iter().map(|(cob, r)|
+            Mor::sum(self.into_iter().map(|(cob, r)|
                 cob.part_eval(h, t) * r
-            ).sum()
+            ))
         } else { 
             self
         }
     }
 
     fn eval(&self, h: &R, t: &R) -> R {
-        self.iter().map(|(c, a)| { 
+        R::sum(self.iter().map(|(c, a)| { 
             a * c.eval(h, t)
-        }).sum()
+        }))
     }
 }

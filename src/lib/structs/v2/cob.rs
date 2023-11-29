@@ -369,10 +369,10 @@ impl CobComp {
     where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.is_closed());
 
-        self.part_eval(h, t).into_iter().map(|(c, r)| {
+        R::sum(self.part_eval(h, t).into_iter().map(|(c, r)| {
             debug_assert!(c.is_removable()); // either ε.X.ι or ε.Y.ι .
             r
-        }).sum()
+        }))
     }
 }
 
@@ -746,9 +746,9 @@ impl Cob {
 
     pub fn eval<R>(&self, h: &R, t: &R) -> R
     where R: Ring, for<'x> &'x R: RingOps<R> {
-        self.comps.iter().map(|c| 
+        R::product(self.comps.iter().map(|c| 
             c.eval(h, t)
-        ).product()
+        ))
     }
 
     fn sort_comps(&mut self) { 
