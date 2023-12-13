@@ -67,10 +67,10 @@ where R: Ring + FromStr, for<'x> &'x R: RingOps<R> {
 
     if args.bigraded {
         let c = c.into_bigraded();
-        b.append(c.display_table() + "\n");
+        b.append(c.display_table("i", "j") + "\n");
         b.append(c.display_d() + "\n");
     } else { 
-        b.append(c.display_seq() + "\n");
+        b.append(c.display_seq("i") + "\n");
         b.append(c.display_d() + "\n");
     }
 

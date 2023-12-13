@@ -80,6 +80,6 @@ mod tests {
         assert_eq!(h[ 0].rank(), 2);
         assert!(h[ 0].is_free());
 
-        h.print_seq();
+        h.print_seq("i");
     }
 }

@@ -51,7 +51,7 @@ where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> {
         KhHomologyBigraded::new(l, args.reduced)
     };
 
-    let table = kh.display_table();
+    let table = kh.display_table("i", "j");
     Ok(table)
 }
 
@@ -70,7 +70,7 @@ where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> {
         KhHomology::new(&l, &h, &t, args.reduced)
     };
 
-    let res = kh.display_seq();
+    let res = kh.display_seq("i");
     Ok(res)
 }
 
