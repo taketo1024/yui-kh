@@ -1,98 +1,19 @@
-use std::ops::{RangeInclusive, Index};
-use delegate::delegate;
-
-use yui_homology::{GridTrait, XHomology, XHomologySummand, XHomology2, isize2};
 use yui::{EucRing, EucRingOps};
 use yui_link::Link;
 
-use crate::KhGen;
-
-pub struct KhHomology<R> 
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology<KhGen, R>
-}
+use crate::{KhComplex, KhComplexBigraded, KhHomology, KhHomologyBigraded};
 
 impl<R> KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhHomology::new_v2(l, h, t, reduced)
+    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
+        KhComplex::new_v2(l, h, t, reduced).homology(false)
     }
-
-    pub(crate) fn new_impl(inner: XHomology<KhGen, R>) -> Self { 
-        Self { inner }
-    }
-
-    pub fn h_range(&self) -> RangeInclusive<isize> { 
-        let h = &self.inner;
-        let h_min = h.support().min().unwrap_or(0);
-        let h_max = h.support().max().unwrap_or(0);
-        h_min ..= h_max
-    }
-}
-
-impl<R> GridTrait<isize> for KhHomology<R>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    type Itr = std::vec::IntoIter<isize>;
-    type Output = XHomologySummand<KhGen, R>;
-
-    delegate! { 
-        to self.inner { 
-            fn support(&self) -> Self::Itr;
-            fn is_supported(&self, i: isize) -> bool;
-            fn get(&self, i: isize) -> &Self::Output;
-        }
-    }
-}
-
-impl<R> Index<isize> for KhHomology<R> 
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    type Output = XHomologySummand<KhGen, R>;
-
-    delegate! { 
-        to self.inner { 
-            fn index(&self, index: isize) -> &Self::Output;
-        }
-    }
-}
-
-pub struct KhHomologyBigraded<R> 
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology2<KhGen, R>
 }
 
 impl<R> KhHomologyBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new(l: Link, reduced: bool) -> Self {
-        KhHomologyBigraded::new_v2(l, reduced)
-    }
-
-    pub(crate) fn new_impl(inner: XHomology2<KhGen, R>) -> Self { 
-        Self { inner }
-    }
-}
-
-impl<R> GridTrait<isize2> for KhHomologyBigraded<R>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    type Itr = std::vec::IntoIter<isize2>;
-    type Output = XHomologySummand<KhGen, R>;
-
-    delegate! { 
-        to self.inner { 
-            fn support(&self) -> Self::Itr;
-            fn is_supported(&self, i: isize2) -> bool;
-            fn get(&self, i: isize2) -> &Self::Output;
-        }
-    }
-}
-
-impl<R> Index<(isize, isize)> for KhHomologyBigraded<R>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    type Output = XHomologySummand<KhGen, R>;
-
-    delegate! { 
-        to self.inner { 
-            fn index(&self, index: (isize, isize)) -> &Self::Output;
-        }
+    pub fn new_v2(l: Link, reduced: bool) -> Self {
+        KhComplexBigraded::new_v2(l, reduced).homology(false)
     }
 }
 
@@ -105,7 +26,7 @@ mod tests {
     #[test]
     fn kh_empty() {
         let l = Link::empty();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new_v2(&l, &0, &0, false);
 
         assert_eq!(h.h_range(), 0..=0);
 
@@ -116,7 +37,7 @@ mod tests {
     #[test]
     fn kh_unknot() {
         let l = Link::unknot();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new_v2(&l, &0, &0, false);
 
         assert_eq!(h.h_range(), 0..=0);
         
@@ -127,7 +48,7 @@ mod tests {
     #[test]
     fn kh_trefoil() {
         let l = Link::trefoil();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new_v2(&l, &0, &0, false);
 
         assert_eq!(h.h_range(), -3..=0);
 
@@ -146,7 +67,7 @@ mod tests {
     #[test]
     fn kh_trefoil_mirror() {
         let l = Link::trefoil().mirror();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new_v2(&l, &0, &0, false);
 
         assert_eq!(h.h_range(), 0..=3);
 
@@ -165,7 +86,7 @@ mod tests {
     #[test]
     fn kh_figure8() {
         let l = Link::figure8();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new_v2(&l, &0, &0, false);
 
         assert_eq!(h.h_range(), -2..=2);
 

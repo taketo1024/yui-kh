@@ -1,10 +1,10 @@
 use itertools::Itertools;
 use num_traits::Zero;
-use yui::{Ring, RingOps, EucRing, EucRingOps};
+use yui::{Ring, RingOps};
 use yui_homology::ChainComplexTrait;
 use yui_link::Link;
 
-use crate::{KhComplex, KhComplexBigraded, KhHomology, KhHomologyBigraded};
+use crate::{KhComplex, KhComplexBigraded};
 
 use super::builder::TngComplexBuilder;
 
@@ -29,7 +29,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ));
 
         let deg_shift = Self::deg_shift_for(l, reduced);
-        Self::_new(complex, canon_cycles, reduced, deg_shift)
+        Self::new_impl(complex, canon_cycles, reduced, deg_shift)
     }        
 }
 
@@ -41,45 +41,25 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-impl<R> KhHomology<R> 
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhComplex::new_v2(l, h, t, reduced).homology(false)
-    }
-}
-
-impl<R> KhHomologyBigraded<R>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new_v2(l: Link, reduced: bool) -> Self {
-        KhComplexBigraded::new_v2(l, reduced).homology(false)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use yui_homology::{RModStr, DisplaySeq};
+    use yui_homology::{ChainComplexCommon, RModStr};
+    use yui_link::Link;
 
-    use super::*;
- 
+    use super::KhComplex;
+
     #[test]
-    fn kh_trefoil() {
+    fn ckh_trefoil() {
         let l = Link::trefoil();
         let c = KhComplex::new_v2(&l, &0, &0, false);
-        let h: KhHomology<_> = c.homology(false);
 
-        assert_eq!(h.h_range(), -3..=0);
+        assert_eq!(c.h_range(), -3..=0);
 
-        assert_eq!(h[-3].rank(), 1);
-        assert!(h[-3].is_free());
+        assert_eq!(c[-3].rank(), 2);
+        assert_eq!(c[-2].rank(), 2);
+        assert_eq!(c[-1].rank(), 0);
+        assert_eq!(c[ 0].rank(), 2);
 
-        assert_eq!(h[-2].rank(), 1);
-        assert_eq!(h[-2].tors(), &vec![2]);
-
-        assert!(h[-1].is_zero());
-
-        assert_eq!(h[ 0].rank(), 2);
-        assert!(h[ 0].is_free());
-
-        h.print_seq("i");
+        c.check_d_all();
     }
 }

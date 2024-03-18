@@ -25,7 +25,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Self::new_v2(link, h, t, reduced)
     }
 
-    pub(crate) fn _new(inner: XChainComplex<KhGen, R>, canon_cycles: Vec<KhChain<R>>, reduced: bool, deg_shift: (isize, isize)) -> Self { 
+    pub(crate) fn new_impl(inner: XChainComplex<KhGen, R>, canon_cycles: Vec<KhChain<R>>, reduced: bool, deg_shift: (isize, isize)) -> Self { 
         KhComplex { inner, canon_cycles, reduced, deg_shift }
     }
 
@@ -146,7 +146,7 @@ impl<R> KhComplex<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn homology(&self, with_trans: bool) -> KhHomology<R> {
         let h = self.inner.homology(with_trans);
-        KhHomology::_new(h)
+        KhHomology::new_impl(h)
     }
 }
 
@@ -215,6 +215,6 @@ impl<R> KhComplexBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn homology(&self, with_trans: bool) -> KhHomologyBigraded<R> {
         let h = self.inner.homology(with_trans);
-        KhHomologyBigraded::_new(h)
+        KhHomologyBigraded::new_impl(h)
     }
 }

@@ -7,4 +7,5 @@ mod tng_elem;
 mod tng_complex;
 mod builder;
 
-pub mod _new;
+pub mod complex;
+pub mod homology;
