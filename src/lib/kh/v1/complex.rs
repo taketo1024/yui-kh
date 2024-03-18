@@ -9,7 +9,14 @@ use crate::{KhComplex, KhChain, KhComplexBigraded};
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        assert!(!reduced || !l.is_empty());
+
         let deg_shift = Self::deg_shift_for(l, reduced);
+        let red_e = reduced.then(|| l.first_edge().unwrap());
+
+        let cube = KhCube::new(l, h, t);
+        let complex = cube.into_complex(deg_shift.0, red_e);
+
         let canon_cycles = if t.is_zero() && l.is_knot() {
             let ori = if reduced { vec![true] } else { vec![true, false] };
             ori.into_iter().map(|o| 
@@ -18,8 +25,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         } else { 
             vec![]
         };
-        let cube = KhCube::new(l, h, t);
-        let complex = cube.into_complex(deg_shift.0, reduced);
 
         KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
     }        

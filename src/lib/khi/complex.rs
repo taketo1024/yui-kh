@@ -5,7 +5,7 @@ use yui::bitseq::{Bit, BitSeq};
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
 use yui_homology::{Grid, XChainComplex, XHomology, XModStr};
-use yui_link::State;
+use yui_link::{Edge, State};
 
 use crate::v1::cube::KhCube;
 use crate::{KhComplex, KhGen, KhLabel};
@@ -16,12 +16,13 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     cube: KhCube<R>,
     state_map: HashMap<State, State>,
     label_map: HashMap<State, HashMap<usize, usize>>,
-    deg_shift: (isize, isize)
+    deg_shift: (isize, isize),
+    reduce_e: Option<Edge>
 }
 
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    pub fn new(l: &InvLink, h: &R) -> Self { 
+    pub fn new(l: &InvLink, h: &R, reduce_e: Option<Edge>) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
 
         let n = l.link().crossing_num();
@@ -66,7 +67,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             (s, map)
         }).collect::<HashMap<_, _>>();
 
-        Self { cube, state_map, label_map, deg_shift }
+        Self { cube, state_map, label_map, deg_shift, reduce_e }
     }
 
     fn t_state(&self, s: State) -> State { 
@@ -107,15 +108,16 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     }
 
     pub fn generators(&self, i: isize) -> Vec<KhIGen> { 
+        let red_e = self.reduce_e;
         let i0 = self.deg_shift.0;
         let i = i - i0;
 
-        let b_gens = self.cube.generators(i).iter().map(|&&x| 
+        let b_gens = self.cube.generators(i, red_e).iter().map(|&&x| 
             KhIGen::B(x)
         ).collect_vec();
 
         let q_gens = if i > 0 { 
-            self.cube.generators(i - 1).iter().map(|&&x|
+            self.cube.generators(i - 1, red_e).iter().map(|&&x|
                 KhIGen::Q(x)
             ).collect()
         } else { 
@@ -191,7 +193,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h);
+        let c = KhIComplex::new(&l, &h, None);
 
         assert_eq!(
             c.t_state(State::from([0,0,0])), 
@@ -245,7 +247,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h);
+        let c = KhIComplex::new(&l, &h, None);
 
         assert_eq!(
             c.t_label(State::from([0,0,0]), KhLabel::from([I, X])), 
@@ -277,7 +279,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h);
+        let c = KhIComplex::new(&l, &h, None);
 
         assert_eq!(c.generators(0).len(), 4);
         assert_eq!(c.generators(1).len(), 10);
@@ -297,7 +299,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h);
+        let c = KhIComplex::new(&l, &h, None);
 
         let x = KhIGen::B(
             KhGen::new(
@@ -342,7 +344,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h);
+        let c = KhIComplex::new(&l, &h, None);
 
         let x = KhIGen::B(
             KhGen::new(
@@ -396,7 +398,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h);
+        let c = KhIComplex::new(&l, &h, None);
 
         let x = KhIGen::Q(
             KhGen::new(
@@ -432,7 +434,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h).into_complex();
+        let c = KhIComplex::new(&l, &h, None).into_complex();
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -452,7 +454,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h).into_complex();
+        let c = KhIComplex::new(&l, &h, None).into_complex();
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -474,13 +476,34 @@ mod tests {
         type P = Poly<'H', R>;
         let h = P::variable();
 
-        let c = KhIComplex::new(&l, &h).into_complex();
+        let c = KhIComplex::new(&l, &h, None).into_complex();
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
         assert_eq!(c.rank(2), 18);
         assert_eq!(c.rank(3), 20);
         assert_eq!(c.rank(4), 8);
+        
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_red() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+        let red_e = Some(3);
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h, red_e).into_complex();
+
+        assert_eq!(c.rank(0), 2);
+        assert_eq!(c.rank(1), 5);
+        assert_eq!(c.rank(2), 9);
+        assert_eq!(c.rank(3), 10);
+        assert_eq!(c.rank(4), 4);
         
         c.check_d_all();
     }

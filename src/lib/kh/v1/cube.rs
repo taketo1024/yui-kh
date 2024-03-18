@@ -28,9 +28,9 @@ impl KhCubeVertex {
         self.gens.iter().collect()
     }
 
-    pub fn reduced_generators(&self, red_e: &Edge) -> Vec<&KhGen> { 
+    pub fn reduced_generators(&self, red_e: Edge) -> Vec<&KhGen> { 
         let red_i = self.circles.iter().position(|c| 
-            c.edges().contains(red_e)
+            c.edges().contains(&red_e)
         ).unwrap(); // must exist
 
         self.generators().into_iter().filter(|x| { 
@@ -105,8 +105,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     str: KhAlgStr<R>,
     dim: usize,
     vertices: HashMap<State, KhCubeVertex>,
-    edges: HashMap<State, Vec<(State, KhCubeEdge)>>,
-    base_pt: Option<Edge>
+    edges: HashMap<State, Vec<(State, KhCubeEdge)>>
 }
 
 impl<R> KhCube<R>
@@ -129,9 +128,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (*s, edges)
         }).collect();
 
-        let base_pt = l.first_edge();
-
-        KhCube { str, dim: n, vertices, edges, base_pt }
+        KhCube { str, dim: n, vertices, edges }
     }
 
     fn targets(from: &State) -> impl Iterator<Item = State> + '_ { 
@@ -167,15 +164,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         q0 ..= q1
     }
 
-    pub fn generators(&self, i: isize) -> Vec<&KhGen> { 
-        self.collect_generators(i, None)
-    }
-
-    pub fn reduced_generators(&self, i: isize, red_e: &Edge) -> Vec<&KhGen> { 
-        self.collect_generators(i, Some(red_e))
-    }
-
-    fn collect_generators(&self, i: isize, red_e: Option<&Edge>) -> Vec<&KhGen> { 
+    pub fn generators(&self, i: isize, red_e: Option<Edge>) -> Vec<&KhGen> { 
         if self.h_range().contains(&i) { 
             let i = i as usize;
             self.vertices_of_weight(i).into_iter().flat_map(|v| 
@@ -261,18 +250,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn into_complex(self, i0: isize, reduced: bool) -> XChainComplex<KhGen, R> {
+    pub fn into_complex(self, i0: isize, reduce_e: Option<Edge>) -> XChainComplex<KhGen, R> {
         let range = self.h_range();
         let range = (range.start() + i0) ..= (range.end() + i0);
 
         let summands = Grid::generate(range.clone(), |i| { 
             let i = i - i0;
-            let gens = if reduced {
-                let e = self.base_pt.unwrap();
-                self.reduced_generators(i, &e)
-            } else { 
-                self.generators(i) 
-            };
+            let gens = self.generators(i, reduce_e);
             XModStr::free(gens.into_iter().cloned())
         });
 
