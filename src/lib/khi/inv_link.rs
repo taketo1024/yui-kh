@@ -50,6 +50,10 @@ impl InvLink {
         Self { link, e_map, x_map }
     }
 
+    pub fn link(&self) -> &Link { 
+        &self.link
+    }
+
     pub fn inv_e(&self, e: Edge) -> Edge { 
         self.e_map.get(&e).cloned().unwrap()
     }
