@@ -1,44 +1,15 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
 
 use itertools::Itertools;
 use yui::bitseq::{Bit, BitSeq};
-use yui::lc::{Gen, Lc};
-use yui::{Elem, Ring, RingOps};
+use yui::lc::Lc;
+use yui::{Ring, RingOps};
 use yui_homology::{Grid, XChainComplex, XModStr};
 use yui_link::State;
 
 use crate::v1::cube::KhCube;
 use crate::{KhComplex, KhGen, KhLabel};
-use super::InvLink;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum KhIGen { 
-    B(KhGen), Q(KhGen)
-}
-
-impl Display for KhIGen {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self { 
-            KhIGen::B(x) => x.fmt(f),
-            KhIGen::Q(x) => write!(f, "Q{}", x)
-        }
-    }
-}
-
-impl Default for KhIGen {
-    fn default() -> Self {
-        KhIGen::B(KhGen::default())
-    }
-}
-
-impl Elem for KhIGen {
-    fn math_symbol() -> String {
-        String::new()
-    }
-}
-
-impl Gen for KhIGen {}
+use super::{InvLink, KhIGen};
 
 pub struct KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
