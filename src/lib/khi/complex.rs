@@ -1,19 +1,51 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 
 use itertools::Itertools;
 use yui::bitseq::{Bit, BitSeq};
-use yui::{Ring, RingOps};
+use yui::lc::{Gen, Lc};
+use yui::{Elem, Ring, RingOps};
+use yui_homology::{Grid, XChainComplex, XModStr};
 use yui_link::State;
 
 use crate::v1::cube::KhCube;
-use crate::{KhGen, KhLabel};
+use crate::{KhComplex, KhGen, KhLabel};
 use super::InvLink;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum KhIGen { 
+    B(KhGen), Q(KhGen)
+}
+
+impl Display for KhIGen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self { 
+            KhIGen::B(x) => x.fmt(f),
+            KhIGen::Q(x) => write!(f, "Q{}", x)
+        }
+    }
+}
+
+impl Default for KhIGen {
+    fn default() -> Self {
+        KhIGen::B(KhGen::default())
+    }
+}
+
+impl Elem for KhIGen {
+    fn math_symbol() -> String {
+        String::new()
+    }
+}
+
+impl Gen for KhIGen {}
 
 pub struct KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
     cube: KhCube<R>,
     state_map: HashMap<State, State>,
-    label_map: HashMap<State, HashMap<usize, usize>>
+    label_map: HashMap<State, HashMap<usize, usize>>,
+    deg_shift: (isize, isize)
 }
 
 impl<R> KhIComplex<R>
@@ -21,10 +53,12 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     pub fn new(l: &InvLink, h: &R) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
 
+        let n = l.link().crossing_num();
+        let deg_shift = KhComplex::deg_shift_for(l.link(), false);
+
         let t = R::zero();
         let cube = KhCube::new(l.link(), h, &t);
 
-        let n = cube.dim();
         let state_map = State::generate(n).map(|s| { 
             let xs = s.iter().enumerate().filter_map(|(i, b)| 
                 b.is_one().then_some(i)
@@ -61,14 +95,14 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             (s, map)
         }).collect::<HashMap<_, _>>();
 
-        Self { cube, state_map, label_map }
+        Self { cube, state_map, label_map, deg_shift }
     }
 
-    fn tau_state(&self, s: State) -> State { 
+    fn t_state(&self, s: State) -> State { 
         self.state_map.get(&s).cloned().unwrap()
     }
 
-    fn tau_label(&self, s: State, l: KhLabel) -> KhLabel { 
+    fn t_label(&self, s: State, l: KhLabel) -> KhLabel { 
         debug_assert_eq!(l.len(), self.cube.vertex(&s).circles().len());
 
         let map = self.label_map.get(&s).unwrap();
@@ -84,19 +118,89 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         KhLabel(seq)
     }
 
-    fn tau_gen(&self, x: KhGen) -> KhGen {
+    fn t(&self, x: &KhGen) -> KhGen {
         let s = x.state;
-        let t = self.tau_state(s);
-        let l = self.tau_label(s, x.label);
+        let t = self.t_state(s);
+        let l = self.t_label(s, x.label);
         KhGen::new(t, l)
     }
+
+    // f = 1 + τ
+    fn f(&self, x: &KhGen) -> Lc<KhIGen, R> { 
+        let qx = KhIGen::Q(x.clone());
+        let qtx = KhIGen::Q(self.t(x));
+        Lc::from_iter([
+            (qx,  R::one()), 
+            (qtx, R::one())
+        ])
+    }
+
+    pub fn generators(&self, i: isize) -> Vec<KhIGen> { 
+        let i0 = self.deg_shift.0;
+        let i = i - i0;
+
+        let b_gens = self.cube.generators(i).iter().map(|&&x| 
+            KhIGen::B(x)
+        ).collect_vec();
+
+        let q_gens = if i > 0 { 
+            self.cube.generators(i - 1).iter().map(|&&x|
+                KhIGen::Q(x)
+            ).collect()
+        } else { 
+            vec![]
+        };
+
+        let mut gens = b_gens;
+        gens.extend(q_gens);
+        gens
+    }
+
+    pub fn summand(&self, i: isize) -> XModStr<KhIGen, R> { 
+        XModStr::free(self.generators(i))
+    }
+
+    pub fn differentiate(&self, z: &Lc<KhIGen, R>) -> Lc<KhIGen, R> { 
+        z.apply(|x| self.d(x))
+    }
+
+    fn d(&self, x: &KhIGen) -> Lc<KhIGen, R> { 
+        match x {
+            KhIGen::B(x) => {
+                let dx = self.cube.d(x).map_gens(|&y| KhIGen::B(y));
+                let fx = self.f(x);
+                dx + fx
+            },
+            KhIGen::Q(x) => {
+                self.cube.d(x).map_gens(|&y| KhIGen::Q(y))
+            },
+        }
+    }
+
+    pub fn into_complex(self) -> XChainComplex<KhIGen, R> {
+        let i0 = self.deg_shift.0;
+        let range = self.cube.h_range();
+        let range = (range.start() + i0) ..= (range.end() + i0 + 1);
+
+        XChainComplex::new(
+            Grid::generate(range, |i| self.summand(i)),
+            1, 
+            move |_, z| self.differentiate(z)
+        )
+    }   
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(unused)]
+
+    use yui::poly::Poly;
     use yui::FF;
-    use num_traits::Zero;
+    use num_traits::{Zero, One};
+    use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq};
     use yui_link::Link;
+    use crate::KhHomology;
+
     use super::*;
  
     #[test]
@@ -111,42 +215,42 @@ mod tests {
         let c = KhIComplex::new(&l, &h);
 
         assert_eq!(
-            c.tau_state(State::from([0,0,0])), 
+            c.t_state(State::from([0,0,0])), 
             State::from([0,0,0])
         );
         
         assert_eq!(
-            c.tau_state(State::from([1,0,0])), 
+            c.t_state(State::from([1,0,0])), 
             State::from([1,0,0])
         );
 
         assert_eq!(
-            c.tau_state(State::from([0,1,0])), 
+            c.t_state(State::from([0,1,0])), 
             State::from([0,0,1])
         );
 
         assert_eq!(
-            c.tau_state(State::from([0,0,1])), 
+            c.t_state(State::from([0,0,1])), 
             State::from([0,1,0])
         );
 
         assert_eq!(
-            c.tau_state(State::from([1,1,0])), 
+            c.t_state(State::from([1,1,0])), 
             State::from([1,0,1])
         );
 
         assert_eq!(
-            c.tau_state(State::from([1,0,1])), 
+            c.t_state(State::from([1,0,1])), 
             State::from([1,1,0])
         );
 
         assert_eq!(
-            c.tau_state(State::from([0,1,1])), 
+            c.t_state(State::from([0,1,1])), 
             State::from([0,1,1])
         );
 
         assert_eq!(
-            c.tau_state(State::from([1,1,1])), 
+            c.t_state(State::from([1,1,1])), 
             State::from([1,1,1])
         );
     }
@@ -165,23 +269,240 @@ mod tests {
         let c = KhIComplex::new(&l, &h);
 
         assert_eq!(
-            c.tau_label(State::from([0,0,0]), KhLabel::from([I, X])), 
+            c.t_label(State::from([0,0,0]), KhLabel::from([I, X])), 
             KhLabel::from([I, X])
         );
 
         assert_eq!(
-            c.tau_label(State::from([0,1,0]), KhLabel::from([X])), 
+            c.t_label(State::from([0,1,0]), KhLabel::from([X])), 
             KhLabel::from([X])
         );
 
         assert_eq!(
-            c.tau_label(State::from([1,1,0]), KhLabel::from([I, X])), 
+            c.t_label(State::from([1,1,0]), KhLabel::from([I, X])), 
             KhLabel::from([X, I])
         );
 
         assert_eq!(
-            c.tau_label(State::from([1,1,1]), KhLabel::from([I, I, X])), 
+            c.t_label(State::from([1,1,1]), KhLabel::from([I, I, X])), 
             KhLabel::from([X, I, I])
         );
+    }
+
+    #[test]
+    fn generators() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h);
+
+        assert_eq!(c.generators(0).len(), 4);
+        assert_eq!(c.generators(1).len(), 10);
+        assert_eq!(c.generators(2).len(), 18);
+        assert_eq!(c.generators(3).len(), 20);
+        assert_eq!(c.generators(4).len(), 8);
+    }
+
+    #[test]
+    fn d_lower_sym() { 
+        use crate::KhAlgGen::*;
+
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h);
+
+        let x = KhIGen::B(
+            KhGen::new(
+                State::from([0,0,0]),
+                KhLabel::from([X, I])
+            )
+        );
+        let dx = c.d(&x);
+
+        assert_eq!(dx, Lc::from_iter([
+            (KhIGen::B(
+                KhGen::new(
+                    State::from([1,0,0]),
+                    KhLabel::from([X])
+                )
+            ), R::one()),
+
+            (KhIGen::B(
+                KhGen::new(
+                    State::from([0,1,0]),
+                    KhLabel::from([X])
+                )
+            ), R::one()),
+            
+            (KhIGen::B(
+                KhGen::new(
+                    State::from([0,0,1]),
+                    KhLabel::from([X])
+                )
+            ), R::one())
+        ]));
+    }
+
+    #[test]
+    fn d_lower_asym() { 
+        use crate::KhAlgGen::*;
+
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h);
+
+        let x = KhIGen::B(
+            KhGen::new(
+                State::from([0,1,0]),
+                KhLabel::from([X])
+            )
+        );
+        let dx = c.d(&x);
+
+        assert_eq!(dx, Lc::from_iter([
+            (KhIGen::B(
+                KhGen::new(
+                    State::from([1,1,0]),
+                    KhLabel::from([X,X])
+                )
+            ), R::one()),
+
+            (KhIGen::B(
+                KhGen::new(
+                    State::from([0,1,1]),
+                    KhLabel::from([X,X])
+                )
+            ), R::one()),
+            
+            (KhIGen::Q(
+                KhGen::new(
+                    State::from([0,1,0]),
+                    KhLabel::from([X])
+                )
+            ), R::one()),
+
+                        
+            (KhIGen::Q(
+                KhGen::new(
+                    State::from([0,0,1]),
+                    KhLabel::from([X])
+                )
+            ), R::one())
+        ]));
+    
+    }
+
+    #[test]
+    fn d_upper() { 
+        use crate::KhAlgGen::*;
+
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h);
+
+        let x = KhIGen::Q(
+            KhGen::new(
+                State::from([0,1,0]),
+                KhLabel::from([X])
+            )
+        );
+        let dx = c.d(&x);
+
+        assert_eq!(dx, Lc::from_iter([
+            (KhIGen::Q(
+                KhGen::new(
+                    State::from([1,1,0]),
+                    KhLabel::from([X,X])
+                )
+            ), R::one()),
+
+            (KhIGen::Q(
+                KhGen::new(
+                    State::from([0,1,1]),
+                    KhLabel::from([X,X])
+                )
+            ), R::one()),
+        ]));
+    }
+
+    #[test]
+    fn complex_kh() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h).into_complex();
+
+        assert_eq!(c.rank(0), 4);
+        assert_eq!(c.rank(1), 10);
+        assert_eq!(c.rank(2), 18);
+        assert_eq!(c.rank(3), 20);
+        assert_eq!(c.rank(4), 8);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_fbn() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::one();
+        let c = KhIComplex::new(&l, &h).into_complex();
+
+        assert_eq!(c.rank(0), 4);
+        assert_eq!(c.rank(1), 10);
+        assert_eq!(c.rank(2), 18);
+        assert_eq!(c.rank(3), 20);
+        assert_eq!(c.rank(4), 8);
+        
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_bn() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        type P = Poly<'H', R>;
+        let h = P::variable();
+
+        let c = KhIComplex::new(&l, &h).into_complex();
+
+        assert_eq!(c.rank(0), 4);
+        assert_eq!(c.rank(1), 10);
+        assert_eq!(c.rank(2), 18);
+        assert_eq!(c.rank(3), 20);
+        assert_eq!(c.rank(4), 8);
+        
+        c.check_d_all();
     }
 }
