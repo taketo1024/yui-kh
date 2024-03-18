@@ -37,6 +37,10 @@ impl KhCubeVertex {
             x.label[red_i].is_X()
         }).collect()
     }
+
+    pub fn circles(&self) -> &[LinkComp] { 
+        &self.circles
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
