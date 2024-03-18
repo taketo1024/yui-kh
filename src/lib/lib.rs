@@ -1,6 +1,6 @@
 mod ext;
-mod structs;
-mod derived;
+mod kh;
+mod numer;
 
-pub use structs::*;
-pub use derived::*;
+pub use kh::*;
+pub use numer::*;
