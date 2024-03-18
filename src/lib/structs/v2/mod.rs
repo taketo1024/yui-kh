@@ -3,8 +3,8 @@
 mod tng;
 mod cob;
 mod mor;
-mod elem;
-mod complex;
+mod tng_elem;
+mod tng_complex;
 mod builder;
 
 pub mod _new;

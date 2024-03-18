@@ -9,8 +9,8 @@ use crate::{KhComplex, KhGen};
 
 use super::tng::TngComp;
 use super::cob::{Cob, CobComp, Dot};
-use super::complex::TngComplex;
-use super::elem::TngElem;
+use super::tng_complex::TngComplex;
+use super::tng_elem::TngElem;
 
 pub struct TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
