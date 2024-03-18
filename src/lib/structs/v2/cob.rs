@@ -10,7 +10,7 @@ use num_traits::Zero;
 use cartesian::cartesian;
 use yui::{Elem, Ring, RingOps};
 use yui::lc::{Gen, OrdForDisplay, Lc};
-use yui::poly::BiVar;
+use yui::poly::Var2;
 use yui_link::{Edge, Crossing};
 use yui::bitseq::Bit;
 use super::tng::{Tng, TngComp};
@@ -408,7 +408,7 @@ impl Display for CobComp {
 
         let dots = if self.has_dots() { 
             let (p, q) = self.dots;
-            let m = BiVar::<'X','Y', _>::from((p, q));
+            let m = Var2::<'X','Y', _>::from((p, q));
             format!("{}.", m)
         } else { 
             String::new()
