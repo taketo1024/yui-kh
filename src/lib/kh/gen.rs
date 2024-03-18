@@ -10,7 +10,9 @@ use yui_link::State;
 use crate::KhAlgGen;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct KhLabel(BitSeq);
+pub struct KhLabel(
+    pub(crate) BitSeq
+);
 
 impl KhLabel { 
     pub fn empty() -> Self { 
@@ -76,6 +78,12 @@ impl From<KhAlgGen> for KhLabel {
     fn from(x: KhAlgGen) -> Self {
         let v = if x.is_X() { 0 } else { 1 };
         Self(BitSeq::from(v))
+    }
+}
+
+impl<const N: usize> From<[KhAlgGen; N]> for KhLabel {
+    fn from(xs: [KhAlgGen; N]) -> Self {
+        Self::from_iter(xs)
     }
 }
 
