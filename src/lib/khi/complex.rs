@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use itertools::Itertools;
 use yui::bitseq::{Bit, BitSeq};
 use yui::lc::Lc;
-use yui::{Ring, RingOps};
-use yui_homology::{Grid, XChainComplex, XModStr};
+use yui::{EucRing, EucRingOps, Ring, RingOps};
+use yui_homology::{Grid, XChainComplex, XHomology, XModStr};
 use yui_link::State;
 
 use crate::v1::cube::KhCube;
@@ -160,6 +160,14 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         )
     }   
 }
+
+impl<R> KhIComplex<R>
+where R: EucRing, for<'x> &'x R: EucRingOps<R> {
+    pub fn homology(self, with_trans: bool) -> XHomology<KhIGen, R> {
+        self.into_complex().reduced().homology(with_trans)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
