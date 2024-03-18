@@ -165,8 +165,23 @@ mod tests {
         let c = KhIComplex::new(&l, &h);
 
         assert_eq!(
+            c.tau_label(State::from([0,0,0]), KhLabel::from([I, X])), 
+            KhLabel::from([I, X])
+        );
+
+        assert_eq!(
             c.tau_label(State::from([0,1,0]), KhLabel::from([X])), 
             KhLabel::from([X])
+        );
+
+        assert_eq!(
+            c.tau_label(State::from([1,1,0]), KhLabel::from([I, X])), 
+            KhLabel::from([X, I])
+        );
+
+        assert_eq!(
+            c.tau_label(State::from([1,1,1]), KhLabel::from([I, I, X])), 
+            KhLabel::from([X, I, I])
         );
     }
 }
