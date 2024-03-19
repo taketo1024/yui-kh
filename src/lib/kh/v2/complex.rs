@@ -11,6 +11,7 @@ use super::builder::TngComplexBuilder;
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        let deg_shift = Self::deg_shift_for(l, reduced);
         let mut b = TngComplexBuilder::new(l, h, t, reduced);
 
         if t.is_zero() && l.is_knot() {
@@ -20,7 +21,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.process();
 
         let canon_cycles = b.canon_cycles().iter().map(|z| 
-            z.eval(h, t)
+            z.eval(h, t, deg_shift)
         ).collect_vec();
         let complex = b.into_complex().eval(h, t);
 
@@ -28,7 +29,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             complex.d(0, z).is_zero()
         ));
 
-        let deg_shift = Self::deg_shift_for(l, reduced);
         Self::new_impl(complex, canon_cycles, reduced, deg_shift)
     }        
 }

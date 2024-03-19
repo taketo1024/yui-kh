@@ -133,12 +133,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.mors = mors;
     }
 
-    pub fn eval(&self, h: &R, t: &R) -> KhChain<R> {
+    pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
         assert!(self.value.is_empty());
         assert!(self.mors.values().all(|f| f.is_closed()));
 
         KhChain::from_iter(self.mors.iter().map(|(k, f)| {
-            let x = KhGen::new(k.state, k.label);
+            let x = KhGen::new(k.state, k.label, deg_shift);
             (x, f.eval(h, t))
         }))
     }

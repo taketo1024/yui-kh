@@ -6,17 +6,17 @@ use crate::{KhAlgGen, KhLabel, KhGen, KhChain};
 
 pub trait CanonCycles<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    fn canon_cycle(l: &Link, a: &R, b: &R, ori: bool) -> KhChain<R>;
+    fn canon_cycle(l: &Link, a: &R, b: &R, ori: bool, deg_shift: (isize, isize)) -> KhChain<R>;
 }
 
 impl<R> CanonCycles<R> for KhChain<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    fn canon_cycle(l: &Link, a: &R, b: &R, ori: bool) -> KhChain<R> {
+    fn canon_cycle(l: &Link, a: &R, b: &R, ori: bool, deg_shift: (isize, isize)) -> KhChain<R> {
         let s = l.ori_pres_state();
         let colors = l.colored_seifert_circles(ori);
 
         let mut z = KhChain::from(
-            KhGen::new(s, KhLabel::empty())
+            KhGen::new(s, KhLabel::empty(), deg_shift)
         );
 
         let x_a = make_factor(a); // X - a
@@ -41,7 +41,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn init(x: KhAlgGen) -> KhGen { 
         KhGen::new(
             State::empty(),
-            KhLabel::from(x)
+            KhLabel::from(x),
+            (0, 0)
         )
     }
 
@@ -64,7 +65,7 @@ mod tests {
         let c = KhComplex::new_v1(&l, &1, &0, false);
 
         let zs = [true, false].map(|ori| 
-            KhChain::canon_cycle(&l, &0, &1, ori)
+            KhChain::canon_cycle(&l, &0, &1, ori, (0, 0))
         );
 
         for z in zs { 
@@ -80,7 +81,7 @@ mod tests {
         let c = KhComplex::new_v1(&l, &1, &0, false);
         
         let zs = [true, false].map(|ori| 
-            KhChain::canon_cycle(&l, &0, &1, ori)
+            KhChain::canon_cycle(&l, &0, &1, ori, (0, 0))
         );
 
         for z in zs { 

@@ -12,20 +12,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(!reduced || (!l.is_empty() && t.is_zero()));
 
         let red_e = reduced.then(|| l.first_edge().unwrap());
-        let cube = KhCube::new(l, h, t, red_e);
+        let deg_shift = Self::deg_shift_for(l, reduced);
+        
+        let cube = KhCube::new(l, h, t, red_e, deg_shift);
         let complex = cube.into_complex();
 
         let canon_cycles = if t.is_zero() && l.is_knot() {
             let ori = if reduced { vec![true] } else { vec![true, false] };
             ori.into_iter().map(|o| 
-                KhChain::canon_cycle(l, &R::zero(), h, o)
+                KhChain::canon_cycle(l, &R::zero(), h, o, deg_shift)
             ).collect()
         } else { 
             vec![]
         };
 
-        let deg_shift = Self::deg_shift_for(l, reduced);
-        
         KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
     }        
 }

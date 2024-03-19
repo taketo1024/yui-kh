@@ -26,8 +26,8 @@ impl TngKey {
         Self { state: State::empty(), label: KhLabel::empty() }
     }
 
-    fn as_gen(&self) -> KhGen { 
-        KhGen::new(self.state, self.label)
+    fn as_gen(&self, deg_shift: (isize, isize)) -> KhGen { 
+        KhGen::new(self.state, self.label, deg_shift)
     }
 }
 
@@ -39,7 +39,7 @@ impl From<&KhGen> for TngKey {
 
 impl Display for TngKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_gen().fmt(f)
+        self.as_gen((0, 0)).fmt(f)
     }
 }
 
@@ -489,7 +489,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let w = (i - i0) as usize;
             let gens = self.vertices.keys().filter_map(|k| 
                 (k.state.weight() == w).then(|| 
-                    k.as_gen()
+                    k.as_gen(self.deg_shift)
                 )
             ).sorted();
             XModStr::free(gens)
@@ -500,7 +500,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 let k = TngKey::from(x);
                 let v = self.vertex(&k);
                 v.out_edges.iter().map(|(l, f)|
-                    (l.as_gen(), f.eval(&h, &t))
+                    (l.as_gen(x.deg_shift), f.eval(&h, &t))
                 ).collect()
             })
         })

@@ -9,7 +9,7 @@ use yui_homology::{Grid, XChainComplex, XModStr};
 use yui_link::{Edge, State};
 
 use crate::v1::cube::KhCube;
-use crate::{KhComplex, KhGen, KhLabel};
+use crate::{KhGen, KhLabel};
 use super::{InvLink, KhIGen};
 
 pub struct KhICube<R>
@@ -22,14 +22,12 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
 impl<R> KhICube<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    pub fn new(l: &InvLink, h: &R, reduce_e: Option<Edge>) -> Self { 
+    pub fn new(l: &InvLink, h: &R, reduce_e: Option<Edge>, deg_shift: (isize, isize)) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
 
         let n = l.link().crossing_num();
-        let deg_shift = KhComplex::deg_shift_for(l.link(), false);
-
         let t = R::zero();
-        let cube = KhCube::new(l.link(), h, &t, reduce_e);
+        let cube = KhCube::new(l.link(), h, &t, reduce_e, deg_shift);
 
         let state_map = State::generate(n).map(|s| { 
             let xs = s.iter().enumerate().filter_map(|(i, b)| 
@@ -94,7 +92,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         let s = x.state;
         let t = self.t_state(s);
         let l = self.t_label(s, x.label);
-        KhGen::new(t, l)
+        KhGen::new(t, l, x.deg_shift)
     }
 
     // f = 1 + τ
@@ -198,7 +196,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None);
+        let c = KhICube::new(&l, &h, None, (0, 0));
 
         assert_eq!(
             c.t_state(State::from([0,0,0])), 
@@ -252,7 +250,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None);
+        let c = KhICube::new(&l, &h, None, (0, 0));
 
         assert_eq!(
             c.t_label(State::from([0,0,0]), KhLabel::from([I, X])), 
@@ -284,7 +282,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None);
+        let c = KhICube::new(&l, &h, None, (0, 0));
 
         assert_eq!(c.generators(0).len(), 4);
         assert_eq!(c.generators(1).len(), 10);
@@ -304,12 +302,13 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None);
+        let c = KhICube::new(&l, &h, None, (0, 0));
 
         let x = KhIGen::B(
             KhGen::new(
                 State::from([0,0,0]),
-                KhLabel::from([X, I])
+                KhLabel::from([X, I]),
+                c.deg_shift
             )
         );
         let dx = c.d(&x);
@@ -318,21 +317,24 @@ mod tests {
             (KhIGen::B(
                 KhGen::new(
                     State::from([1,0,0]),
-                    KhLabel::from([X])
+                    KhLabel::from([X]),
+                    c.deg_shift
                 )
             ), R::one()),
 
             (KhIGen::B(
                 KhGen::new(
                     State::from([0,1,0]),
-                    KhLabel::from([X])
+                    KhLabel::from([X]),
+                    c.deg_shift
                 )
             ), R::one()),
             
             (KhIGen::B(
                 KhGen::new(
                     State::from([0,0,1]),
-                    KhLabel::from([X])
+                    KhLabel::from([X]),
+                    c.deg_shift
                 )
             ), R::one())
         ]));
@@ -349,12 +351,13 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None);
+        let c = KhICube::new(&l, &h, None, (0, 0));
 
         let x = KhIGen::B(
             KhGen::new(
                 State::from([0,1,0]),
-                KhLabel::from([X])
+                KhLabel::from([X]),
+                c.deg_shift
             )
         );
         let dx = c.d(&x);
@@ -363,21 +366,24 @@ mod tests {
             (KhIGen::B(
                 KhGen::new(
                     State::from([1,1,0]),
-                    KhLabel::from([X,X])
+                    KhLabel::from([X,X]),
+                    c.deg_shift
                 )
             ), R::one()),
 
             (KhIGen::B(
                 KhGen::new(
                     State::from([0,1,1]),
-                    KhLabel::from([X,X])
+                    KhLabel::from([X,X]),
+                    c.deg_shift
                 )
             ), R::one()),
             
             (KhIGen::Q(
                 KhGen::new(
                     State::from([0,1,0]),
-                    KhLabel::from([X])
+                    KhLabel::from([X]),
+                    c.deg_shift
                 )
             ), R::one()),
 
@@ -385,7 +391,8 @@ mod tests {
             (KhIGen::Q(
                 KhGen::new(
                     State::from([0,0,1]),
-                    KhLabel::from([X])
+                    KhLabel::from([X]),
+                    c.deg_shift
                 )
             ), R::one())
         ]));
@@ -403,12 +410,13 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None);
+        let c = KhICube::new(&l, &h, None, (0, 0));
 
         let x = KhIGen::Q(
             KhGen::new(
                 State::from([0,1,0]),
-                KhLabel::from([X])
+                KhLabel::from([X]),
+                c.deg_shift
             )
         );
         let dx = c.d(&x);
@@ -417,14 +425,16 @@ mod tests {
             (KhIGen::Q(
                 KhGen::new(
                     State::from([1,1,0]),
-                    KhLabel::from([X,X])
+                    KhLabel::from([X,X]),
+                    c.deg_shift
                 )
             ), R::one()),
 
             (KhIGen::Q(
                 KhGen::new(
                     State::from([0,1,1]),
-                    KhLabel::from([X,X])
+                    KhLabel::from([X,X]),
+                    c.deg_shift
                 )
             ), R::one()),
         ]));

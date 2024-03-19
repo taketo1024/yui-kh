@@ -7,6 +7,8 @@ use yui_homology::{ChainComplexTrait, GridTrait, XChainComplex, XChainComplexSum
 use yui_link::Edge;
 use yui_matrix::sparse::SpMat;
 
+use crate::KhComplex;
+
 use super::{InvLink, KhIGen, KhICube};
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
@@ -22,7 +24,8 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     pub fn new(l: &InvLink, h: &R, reduce_e: Option<Edge>) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
 
-        let cube = KhICube::new(l, h, reduce_e);
+        let deg_shift = KhComplex::deg_shift_for(l.link(), reduce_e.is_some());
+        let cube = KhICube::new(l, h, reduce_e, deg_shift);
         let inner = cube.into_complex();
 
         Self { inner }

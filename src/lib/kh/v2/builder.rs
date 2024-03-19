@@ -317,7 +317,7 @@ mod tests {
         
         for i in [0, 1] { 
             let z = &b.canon_cycles[i];
-            let z = z.eval(&2, &0);
+            let z = z.eval(&2, &0, (0, 0));
             println!("a[{i}] = {z}");
         }
     }

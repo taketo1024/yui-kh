@@ -116,12 +116,13 @@ impl Display for KhLabel {
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct KhGen { 
     pub state: State,
-    pub label: KhLabel
+    pub label: KhLabel,
+    pub deg_shift: (isize, isize)
 }
 
 impl KhGen {
-    pub fn new(state: State, label: KhLabel) -> KhGen { 
-        KhGen { state, label }
+    pub fn new(state: State, label: KhLabel, deg_shift: (isize, isize)) -> KhGen { 
+        KhGen { state, label, deg_shift }
     }
 
     pub fn q_deg(&self) -> isize { 
