@@ -39,30 +39,27 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.canon_cycles[i]
     }
 
+    pub fn deg_shift(&self) -> (isize, isize) { 
+        self.deg_shift
+    }
+
     pub fn is_reduced(&self) -> bool { 
         self.reduced
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
-        let h_min = self.support().min().unwrap_or(0);
-        let h_max = self.support().max().unwrap_or(0);
+        let h0 = self.deg_shift.0;
+        let h_min = self.support().min().unwrap_or(h0);
+        let h_max = self.support().max().unwrap_or(h0);
         h_min ..= h_max
     }
 
-    pub fn q_range(&self) -> RangeInclusive<isize> { 
-        let q_min = self.support().filter_map(|i| self[i].gens().iter().map(|x| x.q_deg()).min()).min().unwrap_or(0);
-        let q_max = self.support().filter_map(|i| self[i].gens().iter().map(|x| x.q_deg()).max()).max().unwrap_or(0);
-        let q0 = self.deg_shift.1;
-        (q_min + q0) ..= (q_max + q0)
-    }
-
-    // TODO commonize with KhCube. 
-    pub fn h_deg_of(&self, x: &KhGen) -> isize { 
-        (x.state.weight() as isize) + self.deg_shift.0
-    }
-
-    pub fn q_deg_of(&self, x: &KhGen) -> isize { 
-        x.q_deg() + self.deg_shift.1
+    pub fn q_range(&self) -> RangeInclusive<isize> {
+        let q0 = self.deg_shift.1; 
+        let q_itr = || self.support().flat_map(|i| self[i].gens().iter().map(|x| x.q_deg())); 
+        let q_min = q_itr().min().unwrap_or(q0);
+        let q_max = q_itr().max().unwrap_or(q0);
+        q_min ..= q_max
     }
 
     pub fn inner(&self) -> &XChainComplex<KhGen, R> {
@@ -81,7 +78,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let summands = Grid2::generate(support, |idx| { 
             let isize2(i, j) = idx;
             let gens = self[i].gens().iter().filter(|x| { 
-                self.q_deg_of(x) == j
+                x.q_deg() == j
             }).cloned();
             XModStr::free(gens)
         });
@@ -100,8 +97,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let (n_pos, n_neg) = l.signed_crossing_nums();
         let (n_pos, n_neg) = (n_pos as isize, n_neg as isize);
         let h = -n_neg;
-        let q = n_pos - 2 * n_neg + (if reduced { 1 } else { 0 });
-        (h, q)
+        let q = n_pos - 2 * n_neg;
+        let e = if reduced { 1 } else { 0 };
+        (h, q + e)
     }
 
     delegate! { 

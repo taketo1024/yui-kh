@@ -113,20 +113,6 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         self.cube.q_range()
     }
 
-    pub fn h_deg_of(&self, x: &KhIGen) -> isize { 
-        match x {
-            KhIGen::B(x) => self.cube.h_deg_of(x),
-            KhIGen::Q(x) => self.cube.h_deg_of(x) + 1,
-        }
-    }
-
-    pub fn q_deg_of(&self, x: &KhIGen) -> isize { 
-        match x {
-            KhIGen::B(x) | 
-            KhIGen::Q(x) => self.cube.q_deg_of(x)
-        }
-    }
-
     pub fn generators(&self, i: isize) -> Vec<KhIGen> { 
         Iterator::chain(
             self.cube.generators(i).iter().map(|&&x| 

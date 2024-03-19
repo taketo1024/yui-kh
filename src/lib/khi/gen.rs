@@ -9,6 +9,22 @@ pub enum KhIGen {
     B(KhGen), Q(KhGen)
 }
 
+impl KhIGen { 
+    pub fn h_deg(&self) -> isize { 
+        match self {
+            KhIGen::B(x) => x.h_deg(),
+            KhIGen::Q(x) => x.h_deg() + 1,
+        }
+    }
+
+    pub fn q_deg(&self) -> isize { 
+        match self {
+            KhIGen::B(x) | 
+            KhIGen::Q(x) => x.q_deg()
+        }
+    }
+}
+
 impl Display for KhIGen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self { 

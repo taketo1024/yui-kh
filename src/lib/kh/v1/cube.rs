@@ -175,14 +175,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         q0 ..= q1
     }
 
-    pub fn h_deg_of(&self, x: &KhGen) -> isize { 
-        (x.state.weight() as isize) + self.deg_shift.0
-    }
-
-    pub fn q_deg_of(&self, x: &KhGen) -> isize { 
-        x.q_deg() + self.deg_shift.1
-    }
-
     pub fn generators(&self, i: isize) -> Vec<&KhGen> { 
         let i0 = self.deg_shift.0;
         if self.h_range().contains(&i) { 
