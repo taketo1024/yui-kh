@@ -77,6 +77,9 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         reducer.set_matrix(i, ckh.d_matrix(i))
     }
 
+    reducer.reduce_all(false);
+    reducer.reduce_all(true);
+
     let vs = vs.iter().map(|v| 
         reducer.trans(0).unwrap().forward(v)
     ).collect_vec();
