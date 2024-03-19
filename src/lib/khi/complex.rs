@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::ops::RangeInclusive;
 
 use itertools::Itertools;
 use yui::bitseq::{Bit, BitSeq};
@@ -97,27 +98,46 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     }
 
     // f = 1 + τ
-    fn f(&self, x: &KhGen) -> Lc<KhIGen, R> { 
-        let qx = KhIGen::Q(x.clone());
-        let qtx = KhIGen::Q(self.t(x));
+    fn f(&self, x: &KhGen) -> Lc<KhGen, R> { 
+        let x = x.clone();
+        let tx = self.t(&x);
         Lc::from_iter([
-            (qx,  R::one()), 
-            (qtx, R::one())
+            (x,  R::one()), 
+            (tx, R::one())
         ])
     }
 
+    pub fn h_range(&self) -> RangeInclusive<isize> { 
+        *self.cube.h_range().start() ..= self.cube.h_range().end() + 1
+    }
+
+    pub fn q_range(&self) -> RangeInclusive<isize> { 
+        self.cube.q_range()
+    }
+
+    pub fn h_deg_of(&self, x: &KhIGen) -> isize { 
+        match x {
+            KhIGen::B(x) => self.cube.h_deg_of(x),
+            KhIGen::Q(x) => self.cube.h_deg_of(x) + 1,
+        }
+    }
+
+    pub fn q_deg_of(&self, x: &KhIGen) -> isize { 
+        match x {
+            KhIGen::B(x) | 
+            KhIGen::Q(x) => self.cube.q_deg_of(x)
+        }
+    }
+
     pub fn generators(&self, i: isize) -> Vec<KhIGen> { 
-        let b_gens = self.cube.generators(i).iter().map(|&&x| 
-            KhIGen::B(x)
-        ).collect_vec();
-
-        let q_gens = self.cube.generators(i - 1).iter().map(|&&x|
-            KhIGen::Q(x)
-        ).collect_vec();
-
-        let mut gens = b_gens;
-        gens.extend(q_gens);
-        gens
+        Iterator::chain(
+            self.cube.generators(i).iter().map(|&&x| 
+                KhIGen::B(x)
+            ),
+            self.cube.generators(i - 1).iter().map(|&&x|
+                KhIGen::Q(x)
+            )
+        ).collect()
     }
 
     pub fn summand(&self, i: isize) -> XModStr<KhIGen, R> { 
@@ -131,22 +151,25 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     fn d(&self, x: &KhIGen) -> Lc<KhIGen, R> { 
         match x {
             KhIGen::B(x) => {
-                let dx = self.cube.d(x).map_gens(|&y| KhIGen::B(y));
-                let fx = self.f(x);
+                let dx = self.cube.d(x).map_gens(|&y| 
+                    KhIGen::B(y)
+                );
+                let fx = self.f(x).map_gens(|&y| 
+                    KhIGen::Q(y)
+                );
                 dx + fx
             },
             KhIGen::Q(x) => {
-                self.cube.d(x).map_gens(|&y| KhIGen::Q(y))
+                self.cube.d(x).map_gens(|&y| 
+                    KhIGen::Q(y)
+                )
             },
         }
     }
 
     pub fn into_complex(self) -> XChainComplex<KhIGen, R> {
-        let range = self.cube.h_range();
-        let range = *range.start() ..= (range.end() + 1);
-
         XChainComplex::new(
-            Grid::generate(range, |i| self.summand(i)),
+            Grid::generate(self.h_range(), |i| self.summand(i)),
             1, 
             move |_, z| self.differentiate(z)
         )
