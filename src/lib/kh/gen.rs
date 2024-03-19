@@ -130,23 +130,13 @@ impl KhGen {
         let s = self.state.weight() as isize;
         q + r + s
     }
-
-    pub fn append(&mut self, other: KhGen) { 
-        let KhGen { state, label } = other;
-        self.state.append(state);
-        self.label.append(label);
-    }
-
-    pub fn is_sub(&self, other: &Self) -> bool { 
-        self.state.is_sub(&other.state) && 
-        self.label.is_sub(&other.label)
-    }
 }
 
 #[auto_ops]
 impl MulAssign<&KhGen> for KhGen {
     fn mul_assign(&mut self, rhs: &KhGen) {
-        self.append(*rhs)
+        self.state.append(rhs.state);
+        self.label.append(rhs.label);
     }
 }
 
