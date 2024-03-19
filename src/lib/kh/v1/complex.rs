@@ -11,11 +11,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         assert!(!reduced || (!l.is_empty() && t.is_zero()));
 
-        let deg_shift = Self::deg_shift_for(l, reduced);
         let red_e = reduced.then(|| l.first_edge().unwrap());
-
         let cube = KhCube::new(l, h, t, red_e);
-        let complex = cube.into_complex(deg_shift.0);
+        let complex = cube.into_complex();
 
         let canon_cycles = if t.is_zero() && l.is_knot() {
             let ori = if reduced { vec![true] } else { vec![true, false] };
@@ -26,6 +24,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             vec![]
         };
 
+        let deg_shift = Self::deg_shift_for(l, reduced);
+        
         KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
     }        
 }

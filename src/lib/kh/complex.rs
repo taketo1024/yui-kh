@@ -56,13 +56,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (q_min + q0) ..= (q_max + q0)
     }
 
+    // TODO commonize with KhCube. 
+    pub fn h_deg_of(&self, x: &KhGen) -> isize { 
+        (x.state.weight() as isize) + self.deg_shift.0
+    }
+
+    pub fn q_deg_of(&self, x: &KhGen) -> isize { 
+        x.q_deg() + self.deg_shift.1
+    }
+
     pub fn inner(&self) -> &XChainComplex<KhGen, R> {
         &self.inner
     }
 
     pub fn into_bigraded(self) -> KhComplexBigraded<R> {
         let reduced = self.reduced;
-        let deg_shift = self.deg_shift;
 
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
@@ -72,9 +80,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let summands = Grid2::generate(support, |idx| { 
             let isize2(i, j) = idx;
-            let q = j - deg_shift.1;
             let gens = self[i].gens().iter().filter(|x| { 
-                x.q_deg() == q
+                self.q_deg_of(x) == j
             }).cloned();
             XModStr::free(gens)
         });

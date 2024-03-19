@@ -107,20 +107,13 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     }
 
     pub fn generators(&self, i: isize) -> Vec<KhIGen> { 
-        let i0 = self.deg_shift.0;
-        let i = i - i0;
-
         let b_gens = self.cube.generators(i).iter().map(|&&x| 
             KhIGen::B(x)
         ).collect_vec();
 
-        let q_gens = if i > 0 { 
-            self.cube.generators(i - 1).iter().map(|&&x|
-                KhIGen::Q(x)
-            ).collect()
-        } else { 
-            vec![]
-        };
+        let q_gens = self.cube.generators(i - 1).iter().map(|&&x|
+            KhIGen::Q(x)
+        ).collect_vec();
 
         let mut gens = b_gens;
         gens.extend(q_gens);
@@ -149,9 +142,8 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     }
 
     pub fn into_complex(self) -> XChainComplex<KhIGen, R> {
-        let i0 = self.deg_shift.0;
         let range = self.cube.h_range();
-        let range = (range.start() + i0) ..= (range.end() + i0 + 1);
+        let range = *range.start() ..= (range.end() + 1);
 
         XChainComplex::new(
             Grid::generate(range, |i| self.summand(i)),
