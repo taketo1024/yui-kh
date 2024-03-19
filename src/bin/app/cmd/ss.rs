@@ -17,9 +17,6 @@ pub struct Args {
     #[arg(short, long)]
     pub mirror: bool,
 
-    #[arg(short = 'n', long, default_value = "1")]
-    pub order: usize,
-
     #[arg(short, long)]
     pub reduced: bool,
 
@@ -47,9 +44,9 @@ where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> {
     };
 
     let ss = if args.old { 
-        ss_invariant_v1(&l, &c, args.order, args.reduced)
+        ss_invariant_v1(&l, &c, args.reduced)
     } else { 
-        ss_invariant(&l, &c, args.order, args.reduced)
+        ss_invariant(&l, &c, args.reduced)
     };
 
     Ok(ss)
@@ -66,7 +63,6 @@ mod tests {
         	c_value: "2".to_string(),
         	c_type: CType::Z,
             mirror: false,
-            order: 1,
             reduced: true,
             old: false,
             debug: false
@@ -84,7 +80,6 @@ mod tests {
         	c_value: "3".to_string(),
         	c_type: CType::Z,
             mirror: false,
-            order: 1,
             reduced: true,
             old: false,
             debug: false
@@ -105,7 +100,6 @@ mod tests {
                 c_value: "H".to_string(),
                 c_type: CType::Q,
                 mirror: false,
-                order: 1,
                 reduced: true,
                 old: false,
                 debug: false
