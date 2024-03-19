@@ -16,8 +16,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     cube: KhCube<R>,
     state_map: HashMap<State, State>,
     label_map: HashMap<State, HashMap<usize, usize>>,
-    deg_shift: (isize, isize),
-    reduce_e: Option<Edge>
+    deg_shift: (isize, isize)
 }
 
 impl<R> KhIComplex<R>
@@ -29,7 +28,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         let deg_shift = KhComplex::deg_shift_for(l.link(), false);
 
         let t = R::zero();
-        let cube = KhCube::new(l.link(), h, &t);
+        let cube = KhCube::new(l.link(), h, &t, reduce_e);
 
         let state_map = State::generate(n).map(|s| { 
             let xs = s.iter().enumerate().filter_map(|(i, b)| 
@@ -67,7 +66,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             (s, map)
         }).collect::<HashMap<_, _>>();
 
-        Self { cube, state_map, label_map, deg_shift, reduce_e }
+        Self { cube, state_map, label_map, deg_shift }
     }
 
     fn t_state(&self, s: State) -> State { 
@@ -108,16 +107,15 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     }
 
     pub fn generators(&self, i: isize) -> Vec<KhIGen> { 
-        let red_e = self.reduce_e;
         let i0 = self.deg_shift.0;
         let i = i - i0;
 
-        let b_gens = self.cube.generators(i, red_e).iter().map(|&&x| 
+        let b_gens = self.cube.generators(i).iter().map(|&&x| 
             KhIGen::B(x)
         ).collect_vec();
 
         let q_gens = if i > 0 { 
-            self.cube.generators(i - 1, red_e).iter().map(|&&x|
+            self.cube.generators(i - 1).iter().map(|&&x|
                 KhIGen::Q(x)
             ).collect()
         } else { 

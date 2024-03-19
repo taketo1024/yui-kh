@@ -15,27 +15,30 @@ pub struct KhCubeVertex {
 }
 
 impl KhCubeVertex { 
-    pub fn new(l: &Link, state: State) -> Self {
+    pub fn new(l: &Link, state: State, red_e: Option<Edge>) -> Self {
         let circles = l.resolved_by(&state).components();
         let r = circles.len();
-        let gens = KhLabel::generate(r).map(|label| { 
-            KhGen::new( state, label )
+
+        let red_i = red_e.and_then(|e| { 
+            circles.iter().position(|c| 
+                c.edges().contains(&e)
+            )
+        });
+
+        let gens = KhLabel::generate(r).filter_map(|label| { 
+            let ok = if let Some(red_i) = red_i { 
+                label[red_i].is_X()
+            } else { 
+                true
+            };
+            ok.then_some(KhGen::new( state, label ))
         }).collect();
+
         KhCubeVertex { state, circles, gens }
     }
 
     pub fn generators(&self) -> Vec<&KhGen> { 
         self.gens.iter().collect()
-    }
-
-    pub fn reduced_generators(&self, red_e: Edge) -> Vec<&KhGen> { 
-        let red_i = self.circles.iter().position(|c| 
-            c.edges().contains(&red_e)
-        ).unwrap(); // must exist
-
-        self.generators().into_iter().filter(|x| { 
-            x.label[red_i].is_X()
-        }).collect()
     }
 
     pub fn circles(&self) -> &[LinkComp] { 
@@ -110,12 +113,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> KhCube<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn new(l: &Link, h: &R, t: &R) -> Self { 
-        let str = KhAlgStr::new(h, t);
+    pub fn new(l: &Link, h: &R, t: &R, reduce_e: Option<Edge>) -> Self { 
+        assert!(reduce_e.is_none() || t.is_zero());
 
+        let str = KhAlgStr::new(h, t);
         let n = l.crossing_num();
+
         let vertices: HashMap<_, _> = State::generate(n).map(|s| { 
-            let v = KhCubeVertex::new(l, s);
+            let v = KhCubeVertex::new(l, s, reduce_e);
             (s, v)
         }).collect();
 
@@ -164,15 +169,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         q0 ..= q1
     }
 
-    pub fn generators(&self, i: isize, red_e: Option<Edge>) -> Vec<&KhGen> { 
+    pub fn generators(&self, i: isize) -> Vec<&KhGen> { 
         if self.h_range().contains(&i) { 
             let i = i as usize;
             self.vertices_of_weight(i).into_iter().flat_map(|v| 
-                if let Some(red_e) = red_e { 
-                    v.reduced_generators(red_e)
-                } else { 
-                    v.generators() 
-                }
+                v.generators() 
             ).collect()
         } else {
             vec![]
@@ -250,13 +251,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn into_complex(self, i0: isize, reduce_e: Option<Edge>) -> XChainComplex<KhGen, R> {
+    pub fn into_complex(self, i0: isize) -> XChainComplex<KhGen, R> {
         let range = self.h_range();
         let range = (range.start() + i0) ..= (range.end() + i0);
 
         let summands = Grid::generate(range.clone(), |i| { 
             let i = i - i0;
-            let gens = self.generators(i, reduce_e);
+            let gens = self.generators(i);
             XModStr::free(gens.into_iter().cloned())
         });
 
@@ -275,7 +276,7 @@ mod tests {
     fn empty() { 
         let l = Link::empty();
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s);
+        let v = KhCubeVertex::new(&l, s, None);
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 0);
@@ -286,7 +287,7 @@ mod tests {
     fn unknot() { 
         let l = Link::unknot();
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s);
+        let v = KhCubeVertex::new(&l, s, None);
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 1);
@@ -294,10 +295,21 @@ mod tests {
     }
 
     #[test]
+    fn unknot_red() { 
+        let l = Link::unknot();
+        let s = State::empty();
+        let v = KhCubeVertex::new(&l, s, Some(0));
+
+        assert_eq!(v.state, s);
+        assert_eq!(v.circles.len(), 1);
+        assert_eq!(v.generators().len(), 1);
+    }
+
+    #[test]
     fn unlink_2() {
         let l = Link::from_pd_code([[0, 0, 1, 1]]).resolved_at(0, Bit::Bit0);
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s);
+        let v = KhCubeVertex::new(&l, s, None);
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 2);
@@ -309,8 +321,8 @@ mod tests {
         let l = Link::from_pd_code([[0, 0, 1, 1]]);
         let s = State::from([0]);
         let t = State::from([1]);
-        let v = KhCubeVertex::new(&l, s);
-        let w = KhCubeVertex::new(&l, t);
+        let v = KhCubeVertex::new(&l, s, None);
+        let w = KhCubeVertex::new(&l, t, None);
         let e = KhCubeEdge::edge_between(&v, &w);
 
         assert!(e.sign.is_positive());
@@ -327,8 +339,8 @@ mod tests {
         let l = Link::from_pd_code([[0, 1, 1, 0]]);
         let s = State::from([0]);
         let t = State::from([1]);
-        let v = KhCubeVertex::new(&l, s);
-        let w = KhCubeVertex::new(&l, t);
+        let v = KhCubeVertex::new(&l, s, None);
+        let w = KhCubeVertex::new(&l, t, None);
         let e = KhCubeEdge::edge_between(&v, &w);
 
         assert!(e.sign.is_positive());
@@ -366,7 +378,7 @@ mod tests {
     #[test]
     fn cube_empty() { 
         let l = Link::empty();
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None);
 
         assert_eq!(cube.dim, 0);
         assert_eq!(cube.vertices.len(), 1);
@@ -384,7 +396,7 @@ mod tests {
     #[test]
     fn cube_unknot() { 
         let l = Link::unknot();
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None);
 
         assert_eq!(cube.dim, 0);
         assert_eq!(cube.vertices.len(), 1);
@@ -401,7 +413,7 @@ mod tests {
     #[test]
     fn cube_twist_unknot() { 
         let l = Link::from_pd_code([[0, 0, 1, 1]]);
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None);
 
         assert_eq!(cube.dim, 1);
         assert_eq!(cube.vertices.len(), 2);
@@ -427,7 +439,7 @@ mod tests {
     #[test]
     fn cube_hopf_link() { 
         let l = Link::hopf_link();
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None);
 
         assert_eq!(cube.dim, 2);
         assert_eq!(cube.vertices.len(), 4);
@@ -436,7 +448,7 @@ mod tests {
    #[test]
    fn cube_trefoil() { 
        let l = Link::trefoil();
-       let cube = KhCube::<i32>::new(&l, &0, &0);
+       let cube = KhCube::<i32>::new(&l, &0, &0, None);
 
        assert_eq!(cube.dim, 3);
        assert_eq!(cube.vertices.len(), 8);

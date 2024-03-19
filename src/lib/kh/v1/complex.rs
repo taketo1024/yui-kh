@@ -9,13 +9,13 @@ use crate::{KhComplex, KhChain, KhComplexBigraded};
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
-        assert!(!reduced || !l.is_empty());
+        assert!(!reduced || (!l.is_empty() && t.is_zero()));
 
         let deg_shift = Self::deg_shift_for(l, reduced);
         let red_e = reduced.then(|| l.first_edge().unwrap());
 
-        let cube = KhCube::new(l, h, t);
-        let complex = cube.into_complex(deg_shift.0, red_e);
+        let cube = KhCube::new(l, h, t, red_e);
+        let complex = cube.into_complex(deg_shift.0);
 
         let canon_cycles = if t.is_zero() && l.is_knot() {
             let ori = if reduced { vec![true] } else { vec![true, false] };
@@ -56,6 +56,21 @@ mod tests {
         assert_eq!(c[-2].rank(), 12);
         assert_eq!(c[-1].rank(), 6);
         assert_eq!(c[ 0].rank(), 4);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_trefoil_red() {
+        let l = Link::trefoil();
+        let c = KhComplex::new_v1(&l, &0, &0, true);
+
+        assert_eq!(c.h_range(), -3..=0);
+
+        assert_eq!(c[-3].rank(), 4);
+        assert_eq!(c[-2].rank(), 6);
+        assert_eq!(c[-1].rank(), 3);
+        assert_eq!(c[ 0].rank(), 2);
 
         c.check_d_all();
     }
