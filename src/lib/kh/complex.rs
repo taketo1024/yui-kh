@@ -2,13 +2,15 @@ use std::ops::{RangeInclusive, Index};
 use cartesian::cartesian;
 
 use delegate::delegate;
+use yui::lc::Lc;
 use yui::{Ring, RingOps, EucRing, EucRingOps};
 use yui_link::Link;
 use yui_homology::{ChainComplexTrait, XChainComplex, XChainComplex2, GridTrait, XChainComplexSummand, Grid2, XModStr, isize2};
 use yui_matrix::sparse::SpMat;
 
-use crate::{KhGen, KhChain, KhHomology, KhHomologyBigraded};
+use crate::{KhGen, KhHomology, KhHomologyBigraded};
 
+pub type KhChain<R> = Lc<KhGen, R>;
 pub type KhComplexSummand<R> = XChainComplexSummand<KhGen, R>;
 
 pub struct KhComplex<R>

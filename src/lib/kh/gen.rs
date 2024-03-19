@@ -4,12 +4,10 @@ use itertools::join;
 use auto_impl_ops::auto_ops;
 use yui::Elem;
 use yui::bitseq::BitSeq;
-use yui::lc::{Gen, Lc};
+use yui::lc::Gen;
 use yui_link::State;
 
 use crate::KhAlgGen;
-
-pub type KhChain<R> = Lc<KhGen, R>;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct KhLabel(BitSeq);
