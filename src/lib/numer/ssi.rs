@@ -181,10 +181,10 @@ mod tests {
     #[test]
     fn test_3_1_m() { 
         let l = InvLink::new( // negative
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]).mirror(), 
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
             [(1,5), (2,4)],
             Some(3)
-        );
+        ).mirror();
         let c = P::variable();
 
         let div = div(&l, &c);

@@ -26,5 +26,24 @@ fn knotJ() {
     let c = P::variable();
 
     let ssi = ssi_invariants(&l, &c);
-    println!("{:?}", ssi);
+
+    assert_eq!(ssi.0, 0);
+    assert_eq!(ssi.1, 2);
+}
+
+#[test]
+#[ignore]
+fn knotJm() { 
+    type R = FF<2>;
+    type P = HPoly<'H', R>;
+
+    init_logger();
+    
+    let l = InvLink::knotJ().mirror();
+    let c = P::variable();
+
+    let ssi = ssi_invariants(&l, &c);
+    
+    assert_eq!(ssi.0, -2);
+    assert_eq!(ssi.1, 0);
 }
