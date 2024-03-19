@@ -124,10 +124,6 @@ impl KhGen {
         KhGen { state, label }
     }
 
-    pub fn init() -> Self { 
-        Self::new(State::empty(), KhLabel::empty())
-    }
-
     pub fn q_deg(&self) -> isize { 
         let q = self.label.iter().map(|x| x.q_deg()).sum::<isize>();
         let r = self.label.len() as isize;

@@ -5,11 +5,11 @@ use yui::{Ring, RingOps};
 use yui_link::{Link, Crossing, Edge};
 
 use crate::ext::LinkExt;
-use crate::{KhComplex, KhGen};
+use crate::KhComplex;
 
 use super::tng::TngComp;
 use super::cob::{Cob, CobComp, Dot};
-use super::tng_complex::TngComplex;
+use super::tng_complex::{TngComplex, TngKey};
 use super::tng_elem::TngElem;
 
 pub struct TngComplexBuilder<R>
@@ -127,7 +127,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn deloop(&mut self, k: &KhGen, r: usize, reduced: bool) {
+    fn deloop(&mut self, k: &TngKey, r: usize, reduced: bool) {
         let c = self.complex.vertex(k).tng().comp(r);
         for e in self.canon_cycles.iter_mut() { 
             e.deloop(k, c, reduced);
@@ -142,7 +142,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn eliminate(&mut self, k: &KhGen) {
+    fn eliminate(&mut self, k: &TngKey) {
         if let Some((i, j)) = self.complex.find_inv_edge(k) { 
             let i_out = self.complex.vertex(&i).out_edges();
             for e in self.canon_cycles.iter_mut() { 
