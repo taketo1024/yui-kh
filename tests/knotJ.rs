@@ -6,7 +6,7 @@ use yui_kh::{ssi_invariants, InvLink};
 fn init_logger() { 
     use simplelog::*;
     TermLogger::init(
-        LevelFilter::Trace,
+        LevelFilter::Debug,
         Config::default(),
         TerminalMode::Mixed,
         ColorChoice::Always
