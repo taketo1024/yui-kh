@@ -1,9 +1,10 @@
-use std::ops::Index;
+use std::ops::{Index, RangeInclusive};
+use cartesian::cartesian;
 use delegate::delegate;
 
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
-use yui_homology::{ChainComplexTrait, GridTrait, XChainComplex, XChainComplexSummand, XHomology};
+use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XHomology, XModStr};
 use yui_link::Edge;
 use yui_matrix::sparse::SpMat;
 
@@ -16,7 +17,9 @@ pub type KhIComplexSummand<R> = XChainComplexSummand<KhIGen, R>;
 
 pub struct KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
+    h: R,
     inner: XChainComplex<KhIGen, R>,
+    deg_shift: (isize, isize)
 }
 
 impl<R> KhIComplex<R>
@@ -28,7 +31,47 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         let cube = KhICube::new(l, h, reduce_e, deg_shift);
         let inner = cube.into_complex();
 
-        Self { inner }
+        Self { h: h.clone(), inner, deg_shift }
+    }
+
+    pub fn h_range(&self) -> RangeInclusive<isize> { 
+        let h0 = self.deg_shift.0;
+        let h_min = self.support().min().unwrap_or(h0);
+        let h_max = self.support().max().unwrap_or(h0);
+        h_min ..= h_max
+    }
+
+    pub fn q_range(&self) -> RangeInclusive<isize> {
+        let q0 = self.deg_shift.1; 
+        let q_itr = || self.support().flat_map(|i| self[i].gens().iter().map(|x| x.q_deg())); 
+        let q_min = q_itr().min().unwrap_or(q0);
+        let q_max = q_itr().max().unwrap_or(q0);
+        q_min ..= q_max
+    }
+
+    pub fn into_bigraded(self) -> XChainComplex2<KhIGen, R> {
+        assert!(self.h.is_zero());
+
+        let h_range = self.h_range();
+        let q_range = self.q_range().step_by(2);
+        let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
+            isize2(i, j)
+        );
+
+        let summands = Grid2::generate(support, |idx| { 
+            let isize2(i, j) = idx;
+            let gens = self[i].gens().iter().filter(|x| { 
+                x.q_deg() == j
+            }).cloned();
+            XModStr::free(gens)
+        });
+
+        XChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
+            let i = idx.0;
+            let x = KhIChain::from(x.clone());
+            let dx = self.d(i, &x);
+            dx.into_iter().collect()
+        })
     }
 }
 
@@ -86,7 +129,7 @@ mod tests {
     use yui::poly::Poly;
     use yui::FF;
     use num_traits::{Zero, One};
-    use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq};
+    use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
     use yui_link::Link;
     use crate::KhHomology;
 
@@ -172,6 +215,34 @@ mod tests {
         assert_eq!(c.rank(3), 10);
         assert_eq!(c.rank(4), 4);
         
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_kh_bigr() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h, None).into_bigraded();
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_kh_red_bigr() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h, Some(3)).into_bigraded();
+
         c.check_d_all();
     }
 }
