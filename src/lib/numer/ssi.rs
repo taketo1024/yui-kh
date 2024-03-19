@@ -97,14 +97,14 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 #[cfg(test)]
 mod tests {
-    use yui::poly::Poly;
+    use yui::poly::HPoly;
     use yui::FF;
     use yui_link::Link;
 
     use super::*;
 
     type R = FF<2>;
-    type P = Poly<'H', R>;
+    type P = HPoly<'H', R>;
 
     #[test]
     fn test_unknot_pos_twist() { 

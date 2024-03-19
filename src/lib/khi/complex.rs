@@ -143,7 +143,7 @@ mod tests {
     #![allow(unused)]
 
     use itertools::Itertools;
-    use yui::poly::Poly;
+    use yui::poly::HPoly;
     use yui::FF;
     use num_traits::{Zero, One};
     use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
@@ -203,7 +203,7 @@ mod tests {
         );
 
         type R = FF<2>;
-        type P = Poly<'H', R>;
+        type P = HPoly<'H', R>;
         let h = P::variable();
 
         let c = KhIComplex::new(&l, &h, false);
@@ -327,7 +327,7 @@ mod tests {
         );
 
         type R = FF<2>;
-        type P = Poly<'H', R>;
+        type P = HPoly<'H', R>;
         let h = P::variable();
         let c = KhIComplex::new(&l, &h, false);
 
@@ -354,7 +354,7 @@ mod tests {
         );
 
         type R = FF<2>;
-        type P = Poly<'H', R>;
+        type P = HPoly<'H', R>;
         let h = P::variable();
         let c = KhIComplex::new(&l, &h, true);
         
