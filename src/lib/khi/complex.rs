@@ -19,19 +19,32 @@ pub struct KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
     h: R,
     inner: XChainComplex<KhIGen, R>,
+    canon_cycles: Vec<KhIChain<R>>,
     deg_shift: (isize, isize)
 }
 
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    pub fn new(l: &InvLink, h: &R, reduce_e: Option<Edge>) -> Self { 
+    pub fn new(l: &InvLink, h: &R, reduced: bool, base_e: Option<Edge>) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
 
-        let deg_shift = KhComplex::deg_shift_for(l.link(), reduce_e.is_some());
+        let deg_shift = KhComplex::deg_shift_for(l.link(), reduced);
+        let reduce_e = if reduced { base_e } else { None };
         let cube = KhICube::new(l, h, reduce_e, deg_shift);
         let inner = cube.into_complex();
 
-        Self { h: h.clone(), inner, deg_shift }
+        let canon_cycles = if base_e.is_some() && l.link().is_knot() {
+            let p = base_e.unwrap();
+            let zs = KhComplex::make_canon_cycles(l.link(), p, &R::zero(), h, reduced, deg_shift);
+            Iterator::chain(
+                zs.iter().map(|z| z.map_gens(|x| KhIGen::B(*x))),
+                zs.iter().map(|z| z.map_gens(|x| KhIGen::Q(*x)))
+            ).collect()
+        } else { 
+            vec![]
+        };
+
+        Self { h: h.clone(), inner, canon_cycles, deg_shift }
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
@@ -47,6 +60,10 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         let q_min = q_itr().min().unwrap_or(q0);
         let q_max = q_itr().max().unwrap_or(q0);
         q_min ..= q_max
+    }
+
+    pub fn canon_cycles(&self) -> &[KhIChain<R>] { 
+        &self.canon_cycles
     }
 
     pub fn into_bigraded(self) -> XChainComplex2<KhIGen, R> {
@@ -126,6 +143,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 mod tests {
     #![allow(unused)]
 
+    use itertools::Itertools;
     use yui::poly::Poly;
     use yui::FF;
     use num_traits::{Zero, One};
@@ -144,7 +162,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, None);
+        let c = KhIComplex::new(&l, &h, false, None);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -164,7 +182,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h, None);
+        let c = KhIComplex::new(&l, &h, false, None);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -186,7 +204,7 @@ mod tests {
         type P = Poly<'H', R>;
         let h = P::variable();
 
-        let c = KhIComplex::new(&l, &h, None);
+        let c = KhIComplex::new(&l, &h, false, None);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -207,7 +225,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, red_e);
+        let c = KhIComplex::new(&l, &h, true, red_e);
 
         assert_eq!(c.rank(0), 2);
         assert_eq!(c.rank(1), 5);
@@ -227,7 +245,7 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, None).into_bigraded();
+        let c = KhIComplex::new(&l, &h, false, None).into_bigraded();
 
         c.check_d_all();
     }
@@ -241,8 +259,106 @@ mod tests {
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, Some(3)).into_bigraded();
+        let c = KhIComplex::new(&l, &h, true, Some(3)).into_bigraded();
 
         c.check_d_all();
+    }
+
+    #[test]
+    fn canon_fbn() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::one();
+        let c = KhIComplex::new(&l, &h, false, Some(3));
+
+        let zs = c.canon_cycles.clone();
+
+        assert_eq!(zs.len(), 4);
+        assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+        assert!(zs[1].gens().all(|x| x.h_deg() == 0));
+        assert!(zs[2].gens().all(|x| x.h_deg() == 1));
+        assert!(zs[3].gens().all(|x| x.h_deg() == 1));
+
+        for (i, z) in zs.iter().enumerate() { 
+            let i = (i / 2) as isize;
+            assert!(c.d(i, z).is_zero());
+        }
+    }
+
+    #[test]
+    fn canon_fbn_red() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        let h = R::one();
+        let c = KhIComplex::new(&l, &h, true, Some(3));
+
+        let zs = c.canon_cycles.clone();
+
+        assert_eq!(zs.len(), 2);
+        assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+        assert!(zs[1].gens().all(|x| x.h_deg() == 1));
+
+        for (i, z) in zs.iter().enumerate() { 
+            let i = i as isize;
+            assert!(c.d(i, z).is_zero());
+        }
+    }
+
+    #[test]
+    fn canon_bn() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        type P = Poly<'H', R>;
+        let h = P::variable();
+        let c = KhIComplex::new(&l, &h, false, Some(3));
+
+        let zs = c.canon_cycles.clone();
+
+        assert_eq!(zs.len(), 4);
+        assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+        assert!(zs[1].gens().all(|x| x.h_deg() == 0));
+        assert!(zs[2].gens().all(|x| x.h_deg() == 1));
+        assert!(zs[3].gens().all(|x| x.h_deg() == 1));
+
+        for (i, z) in zs.iter().enumerate() { 
+            let i = (i / 2) as isize;
+            assert!(c.d(i, z).is_zero());
+        }
+    }
+
+    #[test]
+    fn canon_bn_red() { 
+        let l = InvLink::new(
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)]
+        );
+
+        type R = FF<2>;
+        type P = Poly<'H', R>;
+        let h = P::variable();
+        let c = KhIComplex::new(&l, &h, true, Some(3));
+        
+        let zs = c.canon_cycles.clone();
+
+        assert_eq!(zs.len(), 2);
+        assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+        assert!(zs[1].gens().all(|x| x.h_deg() == 1));
+
+        for (i, z) in zs.iter().enumerate() { 
+            let i = i as isize;
+            assert!(c.d(i, z).is_zero());
+        }
     }
 }
