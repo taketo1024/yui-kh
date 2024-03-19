@@ -66,6 +66,15 @@ impl InvLink {
     pub fn inv_x(&self, i: usize) -> usize { 
         self.x_map.get(&i).cloned().unwrap()
     }
+
+    pub fn mirror(&self) -> Self { 
+        Self { 
+            link: self.link.mirror(),
+            base_pt: self.base_pt,
+            e_map: self.e_map.clone(),
+            x_map: self.x_map.clone(), 
+        }
+    }
 }
 
 impl InvLink { 
