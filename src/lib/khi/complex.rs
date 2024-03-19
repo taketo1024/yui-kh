@@ -144,7 +144,7 @@ mod tests {
 
     use itertools::Itertools;
     use yui::poly::HPoly;
-    use yui::FF;
+    use yui::FF2;
     use num_traits::{Zero, One};
     use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
     use yui_link::Link;
@@ -160,7 +160,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhIComplex::new(&l, &h, false);
 
@@ -181,7 +181,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::one();
         let c = KhIComplex::new(&l, &h, false);
 
@@ -202,7 +202,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         type P = HPoly<'H', R>;
         let h = P::variable();
 
@@ -225,7 +225,7 @@ mod tests {
             Some(3)
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhIComplex::new(&l, &h, true);
 
@@ -246,7 +246,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhIComplex::new(&l, &h, false).into_bigraded();
 
@@ -261,7 +261,7 @@ mod tests {
             Some(3)
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhIComplex::new(&l, &h, true).into_bigraded();
 
@@ -276,7 +276,7 @@ mod tests {
             Some(3)
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::one();
         let c = KhIComplex::new(&l, &h, false);
 
@@ -302,7 +302,7 @@ mod tests {
             Some(3)
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::one();
         let c = KhIComplex::new(&l, &h, true);
 
@@ -326,7 +326,7 @@ mod tests {
             Some(3)
         );
 
-        type R = FF<2>;
+        type R = FF2;
         type P = HPoly<'H', R>;
         let h = P::variable();
         let c = KhIComplex::new(&l, &h, false);
@@ -353,7 +353,7 @@ mod tests {
             Some(3)
         );
 
-        type R = FF<2>;
+        type R = FF2;
         type P = HPoly<'H', R>;
         let h = P::variable();
         let c = KhIComplex::new(&l, &h, true);

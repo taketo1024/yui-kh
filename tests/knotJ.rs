@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 use yui::poly::HPoly;
-use yui::FF;
+use yui::FF2;
 use yui_kh::{ssi_invariants, InvLink};
 
 fn init_logger() { 
@@ -17,7 +17,7 @@ fn init_logger() {
 #[test]
 #[ignore]
 fn knotJ() { 
-    type R = FF<2>;
+    type R = FF2;
     type P = HPoly<'H', R>;
 
     init_logger();
@@ -34,7 +34,7 @@ fn knotJ() {
 #[test]
 #[ignore]
 fn knotJm() { 
-    type R = FF<2>;
+    type R = FF2;
     type P = HPoly<'H', R>;
 
     init_logger();

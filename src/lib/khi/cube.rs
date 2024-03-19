@@ -167,7 +167,7 @@ mod tests {
     #![allow(unused)]
 
     use yui::poly::Poly;
-    use yui::FF;
+    use yui::FF2;
     use num_traits::{Zero, One};
     use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq};
     use yui_link::Link;
@@ -183,7 +183,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhICube::new(&l, &h, false, (0, 0));
 
@@ -238,7 +238,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhICube::new(&l, &h, false, (0, 0));
 
@@ -271,7 +271,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhICube::new(&l, &h, false, (0, 0));
 
@@ -292,7 +292,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhICube::new(&l, &h, false, (0, 0));
 
@@ -342,7 +342,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhICube::new(&l, &h, false, (0, 0));
 
@@ -402,7 +402,7 @@ mod tests {
             None
         );
 
-        type R = FF<2>;
+        type R = FF2;
         let h = R::zero();
         let c = KhICube::new(&l, &h, false, (0, 0));
 
