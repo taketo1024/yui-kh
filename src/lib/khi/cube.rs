@@ -6,7 +6,7 @@ use yui::bitseq::{Bit, BitSeq};
 use yui::lc::Lc;
 use yui::{Ring, RingOps};
 use yui_homology::{Grid, XChainComplex, XModStr};
-use yui_link::{Edge, State};
+use yui_link::State;
 
 use crate::v1::cube::KhCube;
 use crate::{KhGen, KhLabel};
@@ -22,11 +22,13 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
 impl<R> KhICube<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    pub fn new(l: &InvLink, h: &R, reduce_e: Option<Edge>, deg_shift: (isize, isize)) -> Self { 
+    pub fn new(l: &InvLink, h: &R, reduced: bool, deg_shift: (isize, isize)) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
+        assert!(!reduced || l.base_pt().is_some());
 
         let n = l.link().crossing_num();
         let t = R::zero();
+        let reduce_e = if reduced { l.base_pt() } else { None };
         let cube = KhCube::new(l.link(), h, &t, reduce_e, deg_shift);
 
         let state_map = State::generate(n).map(|s| { 
@@ -177,12 +179,13 @@ mod tests {
     fn tau_state() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None, (0, 0));
+        let c = KhICube::new(&l, &h, false, (0, 0));
 
         assert_eq!(
             c.t_state(State::from([0,0,0])), 
@@ -231,12 +234,13 @@ mod tests {
 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None, (0, 0));
+        let c = KhICube::new(&l, &h, false, (0, 0));
 
         assert_eq!(
             c.t_label(State::from([0,0,0]), KhLabel::from([I, X])), 
@@ -263,12 +267,13 @@ mod tests {
     fn generators() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None, (0, 0));
+        let c = KhICube::new(&l, &h, false, (0, 0));
 
         assert_eq!(c.generators(0).len(), 4);
         assert_eq!(c.generators(1).len(), 10);
@@ -283,12 +288,13 @@ mod tests {
 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None, (0, 0));
+        let c = KhICube::new(&l, &h, false, (0, 0));
 
         let x = KhIGen::B(
             KhGen::new(
@@ -332,12 +338,13 @@ mod tests {
 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None, (0, 0));
+        let c = KhICube::new(&l, &h, false, (0, 0));
 
         let x = KhIGen::B(
             KhGen::new(
@@ -391,12 +398,13 @@ mod tests {
 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhICube::new(&l, &h, None, (0, 0));
+        let c = KhICube::new(&l, &h, false, (0, 0));
 
         let x = KhIGen::Q(
             KhGen::new(

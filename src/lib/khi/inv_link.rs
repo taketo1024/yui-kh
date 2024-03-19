@@ -7,12 +7,13 @@ use yui_link::{Edge, Link};
 #[derive(Debug, Clone)]
 pub struct InvLink { 
     link: Link,
+    base_pt: Option<Edge>,
     e_map: HashMap<Edge, Edge>,
     x_map: HashMap<usize, usize>
 }
 
 impl InvLink { 
-    pub fn new<I>(link: Link, e_pairs: I) -> InvLink
+    pub fn new<I>(link: Link, e_pairs: I, base_pt: Option<Edge>) -> InvLink
     where I: IntoIterator<Item = (Edge, Edge)> { 
         let mut edges = link.edges();
         let mut e_map = HashMap::new();
@@ -47,11 +48,15 @@ impl InvLink {
             x_map.insert(j, i);
         }
 
-        Self { link, e_map, x_map }
+        Self { link, base_pt, e_map, x_map }
     }
 
     pub fn link(&self) -> &Link { 
         &self.link
+    }
+
+    pub fn base_pt(&self) -> Option<Edge> {
+        self.base_pt
     }
 
     pub fn inv_e(&self, e: Edge) -> Edge { 
@@ -70,7 +75,7 @@ mod tests {
     #[test]
     fn inv_e() { 
         let l = Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
-        let l = InvLink::new(l, [(1,5), (2,4)]);
+        let l = InvLink::new(l, [(1,5), (2,4)], None);
 
         assert_eq!(l.inv_e(1), 5);
         assert_eq!(l.inv_e(2), 4);
@@ -83,7 +88,7 @@ mod tests {
     #[test]
     fn inv_x() { 
         let l = Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
-        let l = InvLink::new(l, [(1,5), (2,4)]);
+        let l = InvLink::new(l, [(1,5), (2,4)], None);
 
         assert_eq!(l.inv_x(0), 0);
         assert_eq!(l.inv_x(1), 2);

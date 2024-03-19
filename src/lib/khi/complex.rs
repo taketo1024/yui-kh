@@ -5,7 +5,6 @@ use delegate::delegate;
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
 use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XHomology, XModStr};
-use yui_link::Edge;
 use yui_matrix::sparse::SpMat;
 
 use crate::KhComplex;
@@ -25,16 +24,16 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    pub fn new(l: &InvLink, h: &R, reduced: bool, base_e: Option<Edge>) -> Self { 
+    pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
+        assert!(!reduced || l.base_pt().is_some());
 
         let deg_shift = KhComplex::deg_shift_for(l.link(), reduced);
-        let reduce_e = if reduced { base_e } else { None };
-        let cube = KhICube::new(l, h, reduce_e, deg_shift);
+        let cube = KhICube::new(l, h, reduced, deg_shift);
         let inner = cube.into_complex();
 
-        let canon_cycles = if base_e.is_some() && l.link().is_knot() {
-            let p = base_e.unwrap();
+        let canon_cycles = if l.base_pt().is_some() && l.link().is_knot() {
+            let p = l.base_pt().unwrap();
             let zs = KhComplex::make_canon_cycles(l.link(), p, &R::zero(), h, reduced, deg_shift);
             Iterator::chain(
                 zs.iter().map(|z| z.map_gens(|x| KhIGen::B(*x))),
@@ -157,12 +156,13 @@ mod tests {
     fn complex_kh() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, false, None);
+        let c = KhIComplex::new(&l, &h, false);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -177,12 +177,13 @@ mod tests {
     fn complex_fbn() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h, false, None);
+        let c = KhIComplex::new(&l, &h, false);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -197,14 +198,15 @@ mod tests {
     fn complex_bn() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         type P = Poly<'H', R>;
         let h = P::variable();
 
-        let c = KhIComplex::new(&l, &h, false, None);
+        let c = KhIComplex::new(&l, &h, false);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -219,13 +221,13 @@ mod tests {
     fn complex_red() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            Some(3)
         );
-        let red_e = Some(3);
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, true, red_e);
+        let c = KhIComplex::new(&l, &h, true);
 
         assert_eq!(c.rank(0), 2);
         assert_eq!(c.rank(1), 5);
@@ -240,12 +242,13 @@ mod tests {
     fn complex_kh_bigr() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            None
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, false, None).into_bigraded();
+        let c = KhIComplex::new(&l, &h, false).into_bigraded();
 
         c.check_d_all();
     }
@@ -254,12 +257,13 @@ mod tests {
     fn complex_kh_red_bigr() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            Some(3)
         );
 
         type R = FF<2>;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, true, Some(3)).into_bigraded();
+        let c = KhIComplex::new(&l, &h, true).into_bigraded();
 
         c.check_d_all();
     }
@@ -268,12 +272,13 @@ mod tests {
     fn canon_fbn() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            Some(3)
         );
 
         type R = FF<2>;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h, false, Some(3));
+        let c = KhIComplex::new(&l, &h, false);
 
         let zs = c.canon_cycles.clone();
 
@@ -293,12 +298,13 @@ mod tests {
     fn canon_fbn_red() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            Some(3)
         );
 
         type R = FF<2>;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h, true, Some(3));
+        let c = KhIComplex::new(&l, &h, true);
 
         let zs = c.canon_cycles.clone();
 
@@ -316,13 +322,14 @@ mod tests {
     fn canon_bn() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            Some(3)
         );
 
         type R = FF<2>;
         type P = Poly<'H', R>;
         let h = P::variable();
-        let c = KhIComplex::new(&l, &h, false, Some(3));
+        let c = KhIComplex::new(&l, &h, false);
 
         let zs = c.canon_cycles.clone();
 
@@ -342,13 +349,14 @@ mod tests {
     fn canon_bn_red() { 
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)]
+            [(1,5), (2,4)],
+            Some(3)
         );
 
         type R = FF<2>;
         type P = Poly<'H', R>;
         let h = P::variable();
-        let c = KhIComplex::new(&l, &h, true, Some(3));
+        let c = KhIComplex::new(&l, &h, true);
         
         let zs = c.canon_cycles.clone();
 
