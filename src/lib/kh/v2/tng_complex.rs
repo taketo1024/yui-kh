@@ -102,6 +102,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         TngComplex{ vertices, len, h, t, deg_shift }
     }
 
+    pub fn deg_shift(&self) -> (isize, isize) { 
+        self.deg_shift
+    }
+
     pub fn len(&self) -> usize { 
         self.len
     }

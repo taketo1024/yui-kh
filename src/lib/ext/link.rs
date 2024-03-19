@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::iter::zip;
 use itertools::Itertools;
-use yui_link::{Link, LinkComp};
+use yui_link::{Edge, Link, LinkComp};
 
 #[derive(PartialEq, Eq, Clone)]
 pub enum Color { A, B }
@@ -20,11 +20,11 @@ impl Color {
 }
 
 pub trait LinkExt { 
-    fn colored_seifert_circles(&self, ori: bool) -> Vec<(LinkComp, Color)>;
+    fn colored_seifert_circles(&self, base: Edge) -> Vec<(LinkComp, Color)>;
 }
 
 impl LinkExt for Link { 
-    fn colored_seifert_circles(&self, ori: bool) -> Vec<(LinkComp, Color)> {
+    fn colored_seifert_circles(&self, base: Edge) -> Vec<(LinkComp, Color)> {
         assert_eq!(self.components().len(), 1, "Only knots are supported.");
 
         let circles = self.seifert_circles();
@@ -34,11 +34,12 @@ impl LinkExt for Link {
         let mut queue = vec![];
         let mut remain: HashSet<_> = (0..n).collect();
     
-        let e = self.first_edge().unwrap();
-        let i = circles.iter().find_position(|c| c.edges().contains(&e)).unwrap().0;
+        let i = circles.iter().find_position(|c| 
+            c.edges().contains(&base)
+        ).unwrap().0;
     
         queue.push(i);
-        colors[i] = if ori { Color::A } else { Color::B };
+        colors[i] = Color::A;
     
         while !queue.is_empty() { 
             let i1 = queue.remove(0);

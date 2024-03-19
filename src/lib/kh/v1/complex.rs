@@ -1,10 +1,8 @@
 use yui::{Ring, RingOps};
 use yui_link::Link;
 
-use super::canon_cycle::CanonCycles;
 use super::cube::KhCube;
-
-use crate::{KhComplex, KhChain, KhComplexBigraded};
+use crate::{KhComplex, KhComplexBigraded};
 
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
@@ -18,10 +16,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let complex = cube.into_complex();
 
         let canon_cycles = if t.is_zero() && l.is_knot() {
-            let ori = if reduced { vec![true] } else { vec![true, false] };
-            ori.into_iter().map(|o| 
-                KhChain::canon_cycle(l, &R::zero(), h, o, deg_shift)
-            ).collect()
+            let p = l.first_edge().unwrap();
+            Self::make_canon_cycles(l, p, &R::zero(), h, reduced, deg_shift)
         } else { 
             vec![]
         };
