@@ -203,7 +203,6 @@ mod tests {
             [(6,12),(7,11),(1,17),(5,13),(2,16),(8,10),(4,14),(3,15)],
             Some(0)
         );
-        println!("{:?}", l.link().components());
         let c = P::variable();
 
         let ssi = ssi_invariants(&l, &c);
