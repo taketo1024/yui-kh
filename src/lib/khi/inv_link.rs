@@ -41,7 +41,7 @@ impl InvLink {
                 edges.iter().all(|e| y.edges().contains(e))
             );
 
-            assert!(find.is_some());
+            assert!(find.is_some(), "no match for x: {x} -> {edges:?}");
 
             let j = find.unwrap().0;
             x_map.insert(i, j);
