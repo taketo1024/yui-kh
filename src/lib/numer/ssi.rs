@@ -8,11 +8,12 @@ use log::info;
 use yui_homology::{ChainComplexTrait, RModStr};
 use yui_homology::utils::{ChainReducer, HomologyCalc};
 use yui::{EucRing, EucRingOps};
+use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 use yui_matrix::MatTrait;
 
 use crate::numer::misc::div_vec;
-use crate::{InvLink, KhIComplex};
+use crate::KhIComplex;
 
 #[allow(unused)]
 pub fn ssi_invariants<R>(l: &InvLink, c: &R) -> (i32, i32)

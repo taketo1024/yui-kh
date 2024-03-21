@@ -5,11 +5,12 @@ use delegate::delegate;
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
 use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XHomology, XModStr};
+use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
 use crate::KhComplex;
 
-use super::{InvLink, KhIGen, KhICube};
+use super::{KhIGen, KhICube};
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
 pub type KhIComplexSummand<R> = XChainComplexSummand<KhIGen, R>;

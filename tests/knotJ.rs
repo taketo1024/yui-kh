@@ -1,7 +1,8 @@
 #![allow(non_snake_case)]
 use yui::poly::HPoly;
 use yui::FF2;
-use yui_kh::{ssi_invariants, InvLink};
+use yui_link::InvLink;
+use yui_kh::ssi_invariants;
 
 fn init_logger() { 
     use simplelog::*;

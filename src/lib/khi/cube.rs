@@ -6,11 +6,11 @@ use yui::bitseq::{Bit, BitSeq};
 use yui::lc::Lc;
 use yui::{Ring, RingOps};
 use yui_homology::{Grid, XChainComplex, XModStr};
-use yui_link::State;
+use yui_link::{InvLink, State};
 
 use crate::v1::cube::KhCube;
 use crate::{KhGen, KhLabel};
-use super::{InvLink, KhIGen};
+use super::KhIGen;
 
 pub struct KhICube<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
