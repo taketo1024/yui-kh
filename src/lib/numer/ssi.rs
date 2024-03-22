@@ -9,8 +9,6 @@ use yui_homology::{ChainComplexTrait, RModStr};
 use yui_homology::utils::{ChainReducer, HomologyCalc};
 use yui::{EucRing, EucRingOps};
 use yui_link::InvLink;
-use yui_matrix::sparse::SpMat;
-use yui_matrix::MatTrait;
 
 use crate::numer::misc::div_vec;
 use crate::KhIComplex;
@@ -53,9 +51,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     let v1 = ckh[1].vectorize(&z1);
 
     let range = -1 ..= 2;
-    let mut reducer = ChainReducer::new(range.clone(), 1, true);
+    let mut reducer = ChainReducer::new(range.clone(), 1);
     for i in range { 
-        reducer.set_matrix(i, ckh.d_matrix(i))
+        let with_trans = i == 0 || i == 1;
+        reducer.set_matrix(i, ckh.d_matrix(i), with_trans);
     }
 
     reducer.reduce_all(false);
@@ -64,9 +63,9 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     let v0 = reducer.trans(0).unwrap().forward(&v0);
     let v1 = reducer.trans(1).unwrap().forward(&v1);
 
+    let dm = reducer.matrix(-1).unwrap().clone();
     let d0 = reducer.matrix( 0).unwrap().clone();
     let d1 = reducer.matrix( 1).unwrap().clone();
-    let dm = reducer.matrix(-1).cloned().unwrap_or(SpMat::zero((d0.ncols(), 0)));
 
     let kh0 = HomologyCalc::calculate(dm, d0.clone(), true);
     let kh1 = HomologyCalc::calculate(d0, d1, true);
