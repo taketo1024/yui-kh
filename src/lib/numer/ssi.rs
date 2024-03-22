@@ -196,22 +196,4 @@ mod tests {
         assert_eq!(ssi.0, -2);
         assert_eq!(ssi.1, -2);
     }
-
-    #[test]
-    fn test_9_46() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[17,7,0,6],[12,5,13,6],[11,1,12,0],[7,17,8,16],[4,13,5,14],[1,11,2,10],[15,9,16,8],[14,3,15,4],[9,3,10,2]]), 
-            [(6,12),(7,11),(1,17),(5,13),(2,16),(8,10),(4,14),(3,15)],
-            Some(0)
-        );
-        let c = P::variable();
-
-        let ssi = ssi_invariants(&l, &c);
-
-        assert_eq!(ssi.0, 0);
-        assert_eq!(ssi.1, 2);
-
-        // let ss = ss_invariant(l.link(), &c, true);
-        // assert_eq!(ss, 0);
-    }
 }

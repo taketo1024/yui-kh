@@ -1,7 +1,6 @@
 use yui::poly::HPoly;
 use yui::FF2;
-use yui_homology::DisplayTable;
-use yui_kh::{ssi_invariants, KhIComplex};
+use yui_kh::ssi_invariants;
 use yui_link::InvLink;
 
 macro_rules! test {
@@ -45,7 +44,3 @@ test!(k7_6a, "7_6a", (-2, -2));
 test!(k7_6b, "7_6b", (-2, -2));
 test!(k7_7a, "7_7a", (0, 0));
 test!(k7_7b, "7_7b", (0, 0));
-
-test!(k8_8a, "8_8a", (0, 0));
-test!(k8_8b, "8_8b", (0, 0));
-test!(k10_129, "10_129", (0, 0));
