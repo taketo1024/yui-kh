@@ -71,29 +71,30 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     let range = -1 ..= 1;
     let mut reducer = ChainReducer::new(range.clone(), 1);
+
     for i in range { 
-        let with_trans = i == 0;
-        reducer.set_matrix(i, ckh.d_matrix(i), with_trans)
+        reducer.set_matrix(i, ckh.d_matrix(i), false);
+    }
+
+    for v in vs { 
+        reducer.add_vec(0, v);
     }
 
     reducer.reduce_all(false);
     reducer.reduce_all(true);
 
-    let vs = vs.iter().map(|v| 
-        reducer.trans(0).unwrap().forward(v)
-    ).collect_vec();
-
     let dm = reducer.matrix(-1).unwrap().clone();
     let d0 = reducer.matrix( 0).unwrap().clone();
+    let vs = reducer.vecs(0).unwrap().clone();
+
     let kh = HomologyCalc::calculate(dm, d0, true);
 
     info!("homology: {}", kh.math_symbol());    
-
     assert_eq!(kh.rank(), r);
-    
+
     let t = kh.trans().unwrap();
     let vs = vs.iter().map(|v| {
-        t.forward(&v).subvec(0..r)
+        t.forward(v).subvec(0..r)
     }).collect_vec();
 
     let v = &vs[0];

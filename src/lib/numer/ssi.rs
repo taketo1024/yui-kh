@@ -52,20 +52,22 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     let range = -1 ..= 2;
     let mut reducer = ChainReducer::new(range.clone(), 1);
+
     for i in range { 
-        let with_trans = i == 0 || i == 1;
-        reducer.set_matrix(i, ckh.d_matrix(i), with_trans);
+        reducer.set_matrix(i, ckh.d_matrix(i), false);
     }
+    reducer.add_vec(0, v0);
+    reducer.add_vec(1, v1);
 
     reducer.reduce_all(false);
     reducer.reduce_all(true);
 
-    let v0 = reducer.trans(0).unwrap().forward(&v0);
-    let v1 = reducer.trans(1).unwrap().forward(&v1);
-
     let dm = reducer.matrix(-1).unwrap().clone();
     let d0 = reducer.matrix( 0).unwrap().clone();
     let d1 = reducer.matrix( 1).unwrap().clone();
+
+    let v0 = reducer.vecs(0).unwrap()[0].clone();
+    let v1 = reducer.vecs(1).unwrap()[0].clone();
 
     let kh0 = HomologyCalc::calculate(dm, d0.clone(), true);
     let kh1 = HomologyCalc::calculate(d0, d1, true);
