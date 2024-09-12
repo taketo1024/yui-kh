@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use yui::{EucRing, EucRingOps};
 use yui_homology::{DisplayTable, DisplaySeq};
-use yui_kh::{KhHomology, KhHomologyBigraded};
+use yui_kh::KhComplex;
 use crate::app::utils::*;
 
 #[derive(Debug, clap::Args)]
@@ -20,9 +20,6 @@ pub struct Args {
     #[arg(short, long)]
     reduced: bool,
 
-    #[arg(short, long)]
-    bigraded: bool,
-
     #[arg(long)]
     no_simplify: bool,
 
@@ -31,46 +28,34 @@ pub struct Args {
 }
 
 pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
-    if args.bigraded { 
-        dispatch_eucring!(&args.c_value, &args.c_type, compute_bigraded, args)
-    } else { 
-        dispatch_eucring!(&args.c_value, &args.c_type, compute_homology, args)
-    }
-}
-
-fn compute_bigraded<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>>
-where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> { 
-    let l = load_link(&args.link, args.mirror)?;
-    if args.c_value != "0" { 
-        return err!("--bigraded only supported for `c = 0`.")
-    }
-
-    let kh = if args.no_simplify { 
-        KhHomologyBigraded::new_v1(l, args.reduced)
-    } else {
-        KhHomologyBigraded::new(l, args.reduced)
-    };
-
-    let table = kh.display_table("i", "j");
-    Ok(table)
+    dispatch_eucring!(&args.c_value, &args.c_type, compute_homology, args)
 }
 
 fn compute_homology<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>>
 where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> { 
-    let l = load_link(&args.link, args.mirror)?;
     let (h, t) = parse_pair::<R>(&args.c_value)?;
+    let bigraded = h.is_zero() && t.is_zero();
 
     if args.reduced && !t.is_zero() { 
         return err!("{t} != 0 is not allowed for reduced.");
     }
 
-    let kh = if args.no_simplify { 
-        KhHomology::new_v1(&l, &h, &t, args.reduced)
+    let l = load_link(&args.link, args.mirror)?;
+    let ckh = if args.no_simplify { 
+        KhComplex::new_v1(&l, &h, &t, args.reduced)
     } else {
-        KhHomology::new(&l, &h, &t, args.reduced)
+        KhComplex::new(&l, &h, &t, args.reduced)
     };
 
-    let res = kh.display_seq("i");
+    let res = if bigraded { 
+        let ckh = ckh.into_bigraded();
+        let kh = ckh.homology(false);
+        kh.display_table("i", "j")
+    } else { 
+        let kh = ckh.homology(false);
+        kh.display_seq("i")
+    };
+
     Ok(res)
 }
 
@@ -86,7 +71,6 @@ mod tests {
             c_type: CType::Z, 
             mirror: false, 
             reduced: false, 
-            bigraded: false,
             no_simplify: false,
             debug: false
         };
@@ -102,7 +86,6 @@ mod tests {
             c_type: CType::Z,
             mirror: true,
             reduced: true,
-            bigraded: true,
             no_simplify: false,
             debug: false
         };
@@ -122,7 +105,6 @@ mod tests {
                 c_type: CType::Q,
                 mirror: false,
                 reduced: false,
-                bigraded: false,
                 no_simplify: false,
                 debug: false
             };
@@ -138,7 +120,6 @@ mod tests {
                 c_type: CType::Q,
                 mirror: false,
                 reduced: false,
-                bigraded: false,
                 no_simplify: false,
                 debug: false
             };
