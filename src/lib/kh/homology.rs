@@ -14,8 +14,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 impl<R> KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhHomology::new_v2(l, h, t, reduced)
+    pub fn new(l: &Link, h: &R, t: &R, reduced: bool, with_trans: bool) -> Self {
+        KhHomology::new_v2(l, h, t, reduced, with_trans)
     }
 
     pub(crate) fn new_impl(inner: XHomology<KhGen, R>) -> Self { 
@@ -62,8 +62,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 impl<R> KhHomologyBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new(l: Link, reduced: bool) -> Self {
-        KhHomologyBigraded::new_v2(l, reduced)
+    pub fn new(l: Link, reduced: bool, with_trans: bool) -> Self {
+        KhHomologyBigraded::new_v2(l, reduced, with_trans)
     }
 
     pub(crate) fn new_impl(inner: XHomology2<KhGen, R>) -> Self { 
@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn kh_empty() {
         let l = Link::empty();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new(&l, &0, &0, false, false);
 
         assert_eq!(h.h_range(), 0..=0);
 
@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn kh_unknot() {
         let l = Link::unknot();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new(&l, &0, &0, false, false);
 
         assert_eq!(h.h_range(), 0..=0);
         
@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn kh_trefoil() {
         let l = Link::trefoil();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new(&l, &0, &0, false, false);
 
         assert_eq!(h.h_range(), -3..=0);
 
@@ -146,7 +146,7 @@ mod tests {
     #[test]
     fn kh_trefoil_mirror() {
         let l = Link::trefoil().mirror();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new(&l, &0, &0, false, false);
 
         assert_eq!(h.h_range(), 0..=3);
 
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn kh_figure8() {
         let l = Link::figure8();
-        let h = KhHomology::new(&l, &0, &0, false);
+        let h = KhHomology::new(&l, &0, &0, false, false);
 
         assert_eq!(h.h_range(), -2..=2);
 
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn kh_empty_bigr() {
         let l = Link::empty();
-        let h = KhHomologyBigraded::<i32>::new(l, false);
+        let h = KhHomologyBigraded::<i32>::new(l, false, false);
 
         assert_eq!(h[(0,0)].rank(), 1);
         assert!(h[(0,0)].is_free());
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn kh_unknot_bigr() {
         let l = Link::unknot();
-        let h = KhHomologyBigraded::<i32>::new(l, false);
+        let h = KhHomologyBigraded::<i32>::new(l, false, false);
 
         assert_eq!(h[(0,-1)].rank(), 1);
         assert!(h[(0,-1)].is_free());
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn kh_unknot_bigr_red() {
         let l = Link::unknot();
-        let h = KhHomologyBigraded::<i32>::new(l, true);
+        let h = KhHomologyBigraded::<i32>::new(l, true, false);
 
         assert_eq!(h[(0, 0)].rank(), 1);
         assert!(h[(0, 0)].is_free());
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn kh_trefoil_bigr() {
         let l = Link::trefoil();
-        let h = KhHomologyBigraded::<i32>::new(l, false);
+        let h = KhHomologyBigraded::<i32>::new(l, false, false);
 
         assert_eq!(h[(-3,-9)].rank(), 1);
         assert!(h[(-3,-9)].is_free());
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn kh_trefoil_mirror_bigr() {
         let l = Link::trefoil().mirror();
-        let h = KhHomologyBigraded::<i32>::new(l, false);
+        let h = KhHomologyBigraded::<i32>::new(l, false, false);
 
         assert_eq!(h[(0, 1)].rank(), 1);
         assert!(h[(0, 1)].is_free());
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn kh_trefoil_bigr_red() {
         let l = Link::trefoil();
-        let h = KhHomologyBigraded::<i32>::new(l, true);
+        let h = KhHomologyBigraded::<i32>::new(l, true, false);
 
         assert_eq!(h[(-3,-8)].rank(), 1);
         assert!(h[(-3,-8)].is_free());
@@ -264,7 +264,7 @@ mod tests {
     #[test]
     fn kh_figure8_bigr() {
         let l = Link::figure8();
-        let h = KhHomologyBigraded::<i32>::new(l, false);
+        let h = KhHomologyBigraded::<i32>::new(l, false, false);
 
         assert_eq!(h[(-2,-5)].rank(), 1);
         assert!(h[(-2,-5)].is_free());
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn kh_figure8_bigr_red() {
         let l = Link::figure8();
-        let h = KhHomologyBigraded::<i32>::new(l, true);
+        let h = KhHomologyBigraded::<i32>::new(l, true, false);
 
         assert_eq!(h[(-2,-4)].rank(), 1);
         assert!(h[(-2,-4)].is_free());
