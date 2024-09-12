@@ -1,7 +1,8 @@
 use std::fmt::Display;
 use std::ops::{Mul, MulAssign, Index};
-use itertools::join;
+use itertools::{join, Itertools};
 use auto_impl_ops::auto_ops;
+use yui::util::format::subscript;
 use yui::Elem;
 use yui::bitseq::BitSeq;
 use yui::lc::Gen;
@@ -156,13 +157,7 @@ impl Elem for KhGen {
 
 impl Display for KhGen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.state.is_empty() {
-            write!(f, "()")
-        } else if self.label.is_empty() { 
-            write!(f, "({})", self.state)
-        } else { 
-            write!(f, "({}-{})", self.state, self.label)
-        }
+        write!(f, "({}){}", self.label, self.state.iter().map(|i| subscript(i as u8)).join("") )
     }
 }
 
