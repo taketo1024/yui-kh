@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{DisplayTable, DisplaySeq};
-use yui_kh::KhComplex;
+use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase};
+use yui_kh::{KhComplex, KhGen};
 use crate::app::utils::*;
 
 #[derive(Debug, clap::Args, Default)]
@@ -20,6 +20,9 @@ pub struct Args {
     #[arg(short, long)]
     reduced: bool,
 
+    #[arg(short, long)]
+    generators: bool,
+
     #[arg(long)]
     no_simplify: bool,
 
@@ -35,6 +38,7 @@ fn compute_homology<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>
 where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> { 
     let (h, t) = parse_pair::<R>(&args.c_value)?;
     let bigraded = h.is_zero() && t.is_zero();
+    let with_gens = args.generators;
 
     if args.reduced && !t.is_zero() { 
         return err!("{t} != 0 is not allowed for reduced.");
@@ -47,16 +51,50 @@ where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> {
         KhComplex::new(&l, &h, &t, args.reduced)
     };
 
-    let res = if bigraded { 
+    let mut b = string_builder::Builder::new(1024);
+
+    if bigraded { 
         let ckh = ckh.into_bigraded();
-        let kh = ckh.homology(false);
-        kh.display_table("i", "j")
+        let kh = ckh.homology(with_gens);
+
+        b.append(kh.display_table("i", "j"));
+
+        if with_gens { 
+            b.append(display_gens(kh.inner()));
+        }
     } else { 
-        let kh = ckh.homology(false);
-        kh.display_seq("i")
+        let kh = ckh.homology(with_gens);
+
+        b.append(kh.display_seq("i"));
+
+        if with_gens { 
+            b.append(display_gens(kh.inner()));
+        }
     };
 
+    let res = b.string()?;
     Ok(res)
+}
+
+fn display_gens<I, R>(kh: &XHomologyBase<I, KhGen, R>) -> String
+where I: GridDeg, R: EucRing, for<'x> &'x R: EucRingOps<R> { 
+    let mut res = String::new();
+
+    for i in kh.support() {
+        let h = &kh[i];
+        if h.is_zero() { continue }
+
+        res += "\n";
+        res += &format!("{i}: {}\n", h.display_for_grid());
+
+        let r = h.rank() + h.tors().len();
+        for i in 0..r { 
+            let z = h.gen_chain(i);
+            res += &format!("  {i}: {z}\n");
+        }
+    }
+
+    res
 }
 
 #[cfg(test)]
