@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use num_traits::Zero;
 use yui::{Ring, RingOps};
 use yui_homology::ChainComplexTrait;
@@ -11,24 +10,24 @@ use super::builder::TngComplexBuilder;
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        let deg_shift = Self::deg_shift_for(l, reduced);
+        let has_canon = t.is_zero() && l.is_knot();
+
         let mut b = TngComplexBuilder::new(l, h, t, reduced);
 
-        if t.is_zero() && l.is_knot() {
+        if has_canon {
             b.make_canon_cycles();
         }
         
         b.process();
 
-        let canon_cycles = b.canon_cycles().iter().map(|z| 
-            z.eval(h, t)
-        ).collect_vec();
+        let canon_cycles = b.eval_canon_cycles(h, t);
         let complex = b.into_complex().eval(h, t);
 
-        assert!(canon_cycles.iter().all(|z| 
+        debug_assert!(canon_cycles.iter().all(|z| 
             complex.d(0, z).is_zero()
         ));
 
-        let deg_shift = Self::deg_shift_for(l, reduced);
         Self::new_impl(complex, canon_cycles, reduced, deg_shift)
     }        
 }

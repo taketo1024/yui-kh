@@ -5,11 +5,11 @@ use yui::{Ring, RingOps};
 use yui_link::{Link, Crossing, Edge};
 
 use crate::ext::LinkExt;
-use crate::{KhComplex, KhGen};
+use crate::{KhChain, KhComplex};
 
 use super::tng::TngComp;
 use super::cob::{Cob, CobComp, Dot};
-use super::tng_complex::TngComplex;
+use super::tng_complex::{TngComplex, TngKey};
 use super::tng_elem::TngElem;
 
 pub struct TngComplexBuilder<R>
@@ -26,6 +26,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        let deg_shift = KhComplex::deg_shift_for(l, reduced);
         let base_pt = if reduced { 
             assert!(!l.components().is_empty());
             l.first_edge()
@@ -34,7 +35,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let crossings = Self::sort_crossings(l, &base_pt);
-        let deg_shift = KhComplex::<i64>::deg_shift_for(l, reduced);
         let complex = TngComplex::new(h, t, deg_shift);
 
         let auto_deloop = true;
@@ -127,7 +127,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn deloop(&mut self, k: &KhGen, r: usize, reduced: bool) {
+    fn deloop(&mut self, k: &TngKey, r: usize, reduced: bool) {
         let c = self.complex.vertex(k).tng().comp(r);
         for e in self.canon_cycles.iter_mut() { 
             e.deloop(k, c, reduced);
@@ -142,7 +142,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn eliminate(&mut self, k: &KhGen) {
+    fn eliminate(&mut self, k: &TngKey) {
         if let Some((i, j)) = self.complex.find_inv_edge(k) { 
             let i_out = self.complex.vertex(&i).out_edges();
             for e in self.canon_cycles.iter_mut() { 
@@ -170,7 +170,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         
         assert_eq!(l.components().len(), 1);
 
+        let p = l.first_edge().unwrap();
         let s = l.ori_pres_state();
+
         let ori = if self.reduced { 
             vec![true]
         } else { 
@@ -178,12 +180,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let cycles = ori.into_iter().map(|o| { 
-            let circles = l.colored_seifert_circles(o);
+            let circles = l.colored_seifert_circles(p);
             let f = Cob::new(
                 circles.iter().map(|(circ, col)| { 
                     let t = TngComp::from(circ);
                     let mut cup = CobComp::cup(t);
-                    let dot = if col.is_a() { Dot::X } else { Dot::Y };
+                    let dot = if col.is_a() == o { 
+                        Dot::X 
+                    } else { 
+                        Dot::Y 
+                    };
                     cup.add_dot(dot);
                     cup
                 }).collect()
@@ -197,11 +203,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         
         self.canon_cycles = cycles;
     }
+
+    pub fn eval_canon_cycles(&self, h: &R, t: &R) -> Vec<KhChain<R>> { 
+        self.canon_cycles.iter().map(|z|
+            z.eval(h, t, self.complex.deg_shift())
+        ).collect()
+    }
 }
 
 #[cfg(test)]
 mod tests { 
-    use yui_homology::{RModStr, ChainComplexCommon};
+    use num_traits::Zero;
+    use yui_homology::{ChainComplexCommon, ChainComplexTrait, RModStr};
+
     use super::*;
 
     #[test]
@@ -313,12 +327,16 @@ mod tests {
         b.make_canon_cycles();
         b.process();
 
-        assert_eq!(b.canon_cycles.len(), 2);
+        let zs = b.eval_canon_cycles(&2, &0);
+
+        assert_eq!(zs.len(), 2);
+        assert_ne!(zs[0], zs[1]);
         
-        for i in [0, 1] { 
-            let z = &b.canon_cycles[i];
-            let z = z.eval(&2, &0);
-            println!("a[{i}] = {z}");
+        let c = b.complex.eval(&2, &0);
+
+        for z in zs { 
+            assert!(z.gens().all(|x| x.h_deg() == 0));
+            assert!(c.d(0, &z).is_zero());
         }
     }
 }

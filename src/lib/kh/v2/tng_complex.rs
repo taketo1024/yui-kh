@@ -7,27 +7,55 @@ use num_traits::Zero;
 use cartesian::cartesian;
 use yui::{Ring, RingOps};
 use yui_homology::{XChainComplex, XModStr, Grid1};
-use yui_link::{Crossing, Edge};
+use yui_link::{Crossing, Edge, State};
 use yui::bitseq::Bit;
 
-use crate::{KhAlgGen, KhGen};
+use crate::{KhAlgGen, KhGen, KhLabel};
 use super::cob::{Cob, Dot, Bottom, CobComp};
 use super::tng::{Tng, TngComp};
 use super::mor::{Mor, MorTrait};
 
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub(crate) struct TngKey { 
+    pub(crate) state: State,
+    pub(crate) label: KhLabel
+}
+
+impl TngKey { 
+    pub(crate) fn init() -> Self { 
+        Self { state: State::empty(), label: KhLabel::empty() }
+    }
+
+    fn as_gen(&self, deg_shift: (isize, isize)) -> KhGen { 
+        KhGen::new(self.state, self.label, deg_shift)
+    }
+}
+
+impl From<&KhGen> for TngKey {
+    fn from(x: &KhGen) -> Self {
+        TngKey { state: x.state, label: x.label }
+    }
+}
+
+impl Display for TngKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_gen((0, 0)).fmt(f)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TngVertex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    key: KhGen,
+    key: TngKey,
     tng: Tng,
-    in_edges: HashSet<KhGen>,
-    out_edges: HashMap<KhGen, Mor<R>>
+    in_edges: HashSet<TngKey>,
+    out_edges: HashMap<TngKey, Mor<R>>
 }
 
 impl<R> TngVertex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn init() -> Self { 
-        let key = KhGen::init();
+        let key = TngKey::init();
         let tng = Tng::empty();
         let in_edges = HashSet::new();
         let out_edges = HashMap::new();
@@ -38,7 +66,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.tng
     }
 
-    pub fn out_edges(&self) -> &HashMap<KhGen, Mor<R>> {
+    pub fn out_edges(&self) -> &HashMap<TngKey, Mor<R>> {
         &self.out_edges
     }
 }
@@ -52,7 +80,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 pub struct TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    vertices: HashMap<KhGen, TngVertex<R>>,
+    vertices: HashMap<TngKey, TngVertex<R>>,
     len: usize,
     h: R,
     t: R,
@@ -63,7 +91,7 @@ impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new(h: &R, t: &R, deg_shift: (isize, isize)) -> Self { 
         let mut vertices = HashMap::new();
-        let k0 = KhGen::init();
+        let k0 = TngKey::init();
         let v0 = TngVertex::init();
         vertices.insert(k0, v0);
 
@@ -72,6 +100,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let t = t.clone();
 
         TngComplex{ vertices, len, h, t, deg_shift }
+    }
+
+    pub fn deg_shift(&self) -> (isize, isize) { 
+        self.deg_shift
     }
 
     pub fn len(&self) -> usize { 
@@ -86,7 +118,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }).count()
     }
 
-    pub fn vertex(&self, v: &KhGen) -> &TngVertex<R> { 
+    pub fn vertex(&self, v: &TngKey) -> &TngVertex<R> { 
         &self.vertices[v]
     }
 
@@ -94,15 +126,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.len()
     }
 
-    pub fn iter_verts(&self) -> impl Iterator<Item = (&KhGen, &TngVertex<R>)> {
+    pub fn iter_verts(&self) -> impl Iterator<Item = (&TngKey, &TngVertex<R>)> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
     }
 
-    pub fn edge(&self, k: &KhGen, l: &KhGen) -> &Mor<R> {
+    pub fn edge(&self, k: &TngKey, l: &TngKey) -> &Mor<R> {
         &self.vertices[k].out_edges[l]
     }
 
-    fn add_edge(&mut self, k: &KhGen, l: &KhGen, f: Mor<R>) { 
+    fn add_edge(&mut self, k: &TngKey, l: &TngKey, f: Mor<R>) { 
         let v = self.vertices.get_mut(k).unwrap();
         v.out_edges.insert(*l, f);
 
@@ -110,7 +142,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         w.in_edges.insert(*k);
     }
 
-    fn remove_edge(&mut self, k: &KhGen, l: &KhGen) { 
+    fn remove_edge(&mut self, k: &TngKey, l: &TngKey) { 
         let v = self.vertices.get_mut(k).unwrap();
         v.out_edges.remove(l);
 
@@ -180,7 +212,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices = verts.into_iter().map(|(k, mut v)| { 
             v.tng.connect(c.src());
 
-            modify!(v.out_edges, |edges: HashMap<KhGen, Mor<R>>| { 
+            modify!(v.out_edges, |edges: HashMap<TngKey, Mor<R>>| { 
                 edges.into_iter().map(|(k, f)| { 
                     (k, f.connect(&c))
                 }).collect()
@@ -213,7 +245,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         v.tng.connect(c.src());
 
         // append 0 / 1 to in_edges.
-        modify!(v.in_edges, |edges: HashSet<KhGen>| { 
+        modify!(v.in_edges, |edges: HashSet<TngKey>| { 
             edges.into_iter().map(|mut k| { 
                 k.state.push(r);
                 k
@@ -222,7 +254,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // append 0 / 1 to out_edges with id-cob connected.
         let e = if r.is_zero() { R::one() } else { -R::one() };
-        modify!(v.out_edges, |edges: HashMap<KhGen, Mor<R>>| { 
+        modify!(v.out_edges, |edges: HashMap<TngKey, Mor<R>>| { 
             edges.into_iter().map(|(mut k, f)| { 
                 k.state.push(r);
                 (k, f.connect(c) * &e)
@@ -236,7 +268,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         v1.in_edges.insert(v0.key);
     }
 
-    pub fn find_loop(&self, exclude: Option<Edge>) -> Option<(KhGen, usize, &TngComp)> { 
+    pub fn find_loop(&self, exclude: Option<Edge>) -> Option<(TngKey, usize, &TngComp)> { 
         for (k, v) in self.iter_verts() { 
             if let Some((r, c)) = v.tng.find_loop(exclude) { 
                 return Some((*k, r, c))
@@ -245,7 +277,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         None
     }
 
-    pub fn deloop(&mut self, k: &KhGen, r: usize, reduced: bool) -> Vec<KhGen> { 
+    pub fn deloop(&mut self, k: &TngKey, r: usize, reduced: bool) -> Vec<TngKey> { 
         info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
 
         let mut v = self.vertices.remove(k).unwrap();
@@ -326,7 +358,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn find_inv_edge(&self, k: &KhGen) -> Option<(KhGen, KhGen)> { 
+    pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
         let mut cand = None;
         let mut cand_s = usize::MAX;
 
@@ -369,7 +401,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn eliminate(&mut self, k0: &KhGen, l0: &KhGen) {
+    pub fn eliminate(&mut self, k0: &TngKey, l0: &TngKey) {
         let v0 = self.vertex(k0);
         let w0 = self.vertex(l0);
         let a = &v0.out_edges[l0];
@@ -459,17 +491,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let summands = Grid1::generate(i0..=i1, |i| { 
             let w = (i - i0) as usize;
-            let gens = self.vertices.keys().filter(|x| 
-                x.state.weight() == w
-            ).sorted().cloned();
+            let gens = self.vertices.keys().filter_map(|k| 
+                (k.state.weight() == w).then(|| 
+                    k.as_gen(self.deg_shift)
+                )
+            ).sorted();
             XModStr::free(gens)
         });
 
         XChainComplex::new(summands, 1, move |_, z| { 
             z.apply(|x| {
-                let v = self.vertex(x);
-                v.out_edges.iter().map(|(y, f)| 
-                    (*y, f.eval(&h, &t))
+                let k = TngKey::from(x);
+                let v = self.vertex(&k);
+                v.out_edges.iter().map(|(l, f)|
+                    (l.as_gen(x.deg_shift), f.eval(&h, &t))
                 ).collect()
             })
         })
@@ -641,10 +676,10 @@ mod tests {
 
         let Some((k, r, _)) = e else { panic!() };
 
-        assert_eq!(k, KhGen::new(
-            State::from([1,0]), 
-            KhLabel::from_iter([])
-        ));
+        assert_eq!(k, TngKey {
+            state: State::from([1,0]), 
+            label: KhLabel::from_iter([])
+        });
         assert_eq!(r, 2);
 
         c.deloop(&k, r, false);

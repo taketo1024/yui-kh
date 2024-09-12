@@ -1,13 +1,11 @@
 mod alg;
-pub use alg::{KhAlgGen, KhAlgStr};
-
-mod chain;
-pub use chain::{KhLabel, KhGen, KhChain};
-
+mod gen;
 mod complex;
-pub use complex::{KhComplex, KhComplexBigraded};
-
 mod homology;
+
+pub use alg::{KhAlgGen, KhAlgStr};
+pub use gen::{KhLabel, KhGen};
+pub use complex::{KhChain, KhComplex, KhComplexBigraded};
 pub use homology::{KhHomology, KhHomologyBigraded};
 
 pub mod v1;

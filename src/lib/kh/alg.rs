@@ -16,7 +16,7 @@ impl KhAlgGen {
         self == &KhAlgGen::I
     }
 
-    pub fn q_deg(&self) -> isize {
+    pub fn deg(&self) -> isize {
         match self { 
             KhAlgGen::I => 0,
             KhAlgGen::X => -2
@@ -90,8 +90,8 @@ pub mod tests {
     #[test]
     fn alg_gen() { 
         use KhAlgGen::{I, X};
-        assert_eq!(I.q_deg(), 0);
-        assert_eq!(X.q_deg(), -2);
+        assert_eq!(I.deg(), 0);
+        assert_eq!(X.deg(), -2);
     }
 
     #[test]

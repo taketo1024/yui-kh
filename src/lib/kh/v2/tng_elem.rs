@@ -11,13 +11,14 @@ use crate::{KhGen, KhAlgGen, KhChain};
 use super::cob::{Cob, Bottom, Dot};
 use super::mor::{Mor, MorTrait};
 use super::tng::{TngComp, Tng};
+use super::tng_complex::TngKey;
 
 // element in C as a cobordism ∅ → C.
 pub struct TngElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     state: State,
     value: Cob,                        // precomposed at the final step.
-    mors: HashMap<KhGen, Mor<R>>, // src must partially match init_cob. 
+    mors: HashMap<TngKey, Mor<R>>, // src must partially match init_cob. 
     x_count: usize
 }
 
@@ -25,7 +26,7 @@ impl<R> TngElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn init(state: State, value: Cob) -> Self { 
         let f = Mor::from(Cob::empty());
-        let mors = hashmap! { KhGen::init() => f };
+        let mors = hashmap! { TngKey::init() => f };
         let x_count = 0;
 
         Self{ state, value, mors, x_count }
@@ -72,7 +73,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }).collect();
     }
 
-    pub fn deloop(&mut self, k: &KhGen, c: &TngComp, reduced: bool) {
+    pub fn deloop(&mut self, k: &TngKey, c: &TngComp, reduced: bool) {
         let Some(f) = self.mors.remove(k) else { return };
 
         let (k0, f0) = self.deloop_for(k, &f, c, KhAlgGen::X, Dot::None);
@@ -84,7 +85,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn deloop_for(&self, k: &KhGen, f: &Mor<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (KhGen, Mor<R>) { 
+    fn deloop_for(&self, k: &TngKey, f: &Mor<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (TngKey, Mor<R>) { 
         let mut k_new = *k;
         k_new.label.push(label);
 
@@ -92,7 +93,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (k_new, f_new)
     }
 
-    pub fn eliminate(&mut self, i: &KhGen, j: &KhGen, i_out: &HashMap<KhGen, Mor<R>>) {
+    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey, i_out: &HashMap<TngKey, Mor<R>>) {
         // mors into i can be simply dropped.
         self.mors.remove(i);
 
@@ -132,13 +133,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.mors = mors;
     }
 
-    pub fn eval(&self, h: &R, t: &R) -> KhChain<R> {
+    pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
         assert!(self.value.is_empty());
         assert!(self.mors.values().all(|f| f.is_closed()));
 
-        KhChain::from_iter(self.mors.iter().map(|(k, f)|
-            (*k, f.eval(h, t))
-        ))
+        KhChain::from_iter(self.mors.iter().map(|(k, f)| {
+            let x = KhGen::new(k.state, k.label, deg_shift);
+            (x, f.eval(h, t))
+        }))
     }
 }
 

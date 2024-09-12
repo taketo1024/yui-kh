@@ -5,7 +5,7 @@ use yui::{Ring, RingOps, PowMod2, Sign, GetSign};
 use yui_homology::{XChainComplex, Grid, XModStr};
 use yui_link::{Link, State, LinkComp, Edge};
 
-use crate::{KhAlgStr, KhLabel, KhGen, KhChain};
+use crate::{KhAlgStr, KhChain, KhGen, KhLabel};
 
 #[derive(Debug)]
 pub struct KhCubeVertex { 
@@ -15,12 +15,27 @@ pub struct KhCubeVertex {
 }
 
 impl KhCubeVertex { 
-    pub fn new(l: &Link, state: State) -> Self {
+    pub fn new(l: &Link, state: State, red_e: Option<Edge>, deg_shift: (isize, isize)) -> Self {
         let circles = l.resolved_by(&state).components();
         let r = circles.len();
-        let gens = KhLabel::generate(r).map(|label| { 
-            KhGen::new( state, label )
+
+        let red_i = red_e.and_then(|e| { 
+            circles.iter().position(|c| 
+                c.edges().contains(&e)
+            )
+        });
+
+        let gens = KhLabel::generate(r).filter_map(|label| { 
+            let ok = if let Some(red_i) = red_i { 
+                label[red_i].is_X()
+            } else { 
+                true
+            };
+            ok.then(|| 
+                KhGen::new(state, label, deg_shift)
+            )
         }).collect();
+
         KhCubeVertex { state, circles, gens }
     }
 
@@ -28,14 +43,8 @@ impl KhCubeVertex {
         self.gens.iter().collect()
     }
 
-    pub fn reduced_generators(&self, red_e: &Edge) -> Vec<&KhGen> { 
-        let red_i = self.circles.iter().position(|c| 
-            c.edges().contains(red_e)
-        ).unwrap(); // must exist
-
-        self.generators().into_iter().filter(|x| { 
-            x.label[red_i].is_X()
-        }).collect()
+    pub fn circles(&self) -> &[LinkComp] { 
+        &self.circles
     }
 }
 
@@ -102,17 +111,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     dim: usize,
     vertices: HashMap<State, KhCubeVertex>,
     edges: HashMap<State, Vec<(State, KhCubeEdge)>>,
-    base_pt: Option<Edge>
+    deg_shift: (isize, isize)
 }
 
 impl<R> KhCube<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn new(l: &Link, h: &R, t: &R) -> Self { 
-        let str = KhAlgStr::new(h, t);
+    pub fn new(l: &Link, h: &R, t: &R, reduce_e: Option<Edge>, deg_shift: (isize, isize)) -> Self { 
+        assert!(reduce_e.is_none() || t.is_zero());
 
         let n = l.crossing_num();
+        let str = KhAlgStr::new(h, t);
+
         let vertices: HashMap<_, _> = State::generate(n).map(|s| { 
-            let v = KhCubeVertex::new(l, s);
+            let v = KhCubeVertex::new(l, s, reduce_e, deg_shift);
             (s, v)
         }).collect();
 
@@ -125,9 +136,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (*s, edges)
         }).collect();
 
-        let base_pt = l.first_edge();
-
-        KhCube { str, dim: n, vertices, edges, base_pt }
+        KhCube { str, dim: n, vertices, edges, deg_shift }
     }
 
     fn targets(from: &State) -> impl Iterator<Item = State> + '_ { 
@@ -146,40 +155,32 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
-        0 ..= (self.dim as isize)
+        let i0 = self.deg_shift.0;
+        let i1 = i0 + (self.dim as isize);
+        i0 ..= i1
     }
 
     pub fn q_range(&self) -> RangeInclusive<isize> { 
+        let j0 = self.deg_shift.1;
         let n = self.dim;
 
         let s0 = State::zeros(n);
         let v0 = self.vertex(&s0);
-        let q0 = -(v0.circles.len() as isize); // tensor factors are all X
+        let q0 = j0 - (v0.circles.len() as isize); // tensor factors are all X
 
         let s1 = State::ones(n);
         let v1 = self.vertex(&s1);
-        let q1 = (n + v1.circles.len()) as isize; // tensor factors are all 1
+        let q1 = j0 + (n + v1.circles.len()) as isize; // tensor factors are all 1
 
         q0 ..= q1
     }
 
     pub fn generators(&self, i: isize) -> Vec<&KhGen> { 
-        self.collect_generators(i, None)
-    }
-
-    pub fn reduced_generators(&self, i: isize, red_e: &Edge) -> Vec<&KhGen> { 
-        self.collect_generators(i, Some(red_e))
-    }
-
-    fn collect_generators(&self, i: isize, red_e: Option<&Edge>) -> Vec<&KhGen> { 
+        let i0 = self.deg_shift.0;
         if self.h_range().contains(&i) { 
-            let i = i as usize;
+            let i = (i - i0) as usize;
             self.vertices_of_weight(i).into_iter().flat_map(|v| 
-                if let Some(red_e) = red_e { 
-                    v.reduced_generators(red_e)
-                } else { 
-                    v.generators() 
-                }
+                v.generators() 
             ).collect()
         } else {
             vec![]
@@ -234,7 +235,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     label.insert(k, y_k);
 
                     let t = *to;
-                    let y = KhGen::new(t, label);
+                    let y = KhGen::new(t, label, x.deg_shift);
                     let r = &sign * &a;
                     (y, r)
                 }).collect_vec()
@@ -248,7 +249,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     label.insert(k, y_k);
 
                     let t = *to;
-                    let y = KhGen::new(t, label);
+                    let y = KhGen::new(t, label, x.deg_shift);
                     let r = &sign * &a;
 
                     (y, r)
@@ -257,18 +258,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn into_complex(self, i0: isize, reduced: bool) -> XChainComplex<KhGen, R> {
-        let range = self.h_range();
-        let range = (range.start() + i0) ..= (range.end() + i0);
-
-        let summands = Grid::generate(range.clone(), |i| { 
-            let i = i - i0;
-            let gens = if reduced {
-                let e = self.base_pt.unwrap();
-                self.reduced_generators(i, &e)
-            } else { 
-                self.generators(i) 
-            };
+    pub fn into_complex(self) -> XChainComplex<KhGen, R> {
+        let summands = Grid::generate(self.h_range(), |i| { 
+            let gens = self.generators(i);
             XModStr::free(gens.into_iter().cloned())
         });
 
@@ -287,7 +279,7 @@ mod tests {
     fn empty() { 
         let l = Link::empty();
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s);
+        let v = KhCubeVertex::new(&l, s, None, (0, 0));
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 0);
@@ -298,7 +290,7 @@ mod tests {
     fn unknot() { 
         let l = Link::unknot();
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s);
+        let v = KhCubeVertex::new(&l, s, None, (0, 0));
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 1);
@@ -306,10 +298,21 @@ mod tests {
     }
 
     #[test]
+    fn unknot_red() { 
+        let l = Link::unknot();
+        let s = State::empty();
+        let v = KhCubeVertex::new(&l, s, Some(0), (0, 0));
+
+        assert_eq!(v.state, s);
+        assert_eq!(v.circles.len(), 1);
+        assert_eq!(v.generators().len(), 1);
+    }
+
+    #[test]
     fn unlink_2() {
         let l = Link::from_pd_code([[0, 0, 1, 1]]).resolved_at(0, Bit::Bit0);
         let s = State::empty();
-        let v = KhCubeVertex::new(&l, s);
+        let v = KhCubeVertex::new(&l, s, None, (0, 0));
 
         assert_eq!(v.state, s);
         assert_eq!(v.circles.len(), 2);
@@ -321,8 +324,8 @@ mod tests {
         let l = Link::from_pd_code([[0, 0, 1, 1]]);
         let s = State::from([0]);
         let t = State::from([1]);
-        let v = KhCubeVertex::new(&l, s);
-        let w = KhCubeVertex::new(&l, t);
+        let v = KhCubeVertex::new(&l, s, None, (0, 0));
+        let w = KhCubeVertex::new(&l, t, None, (0, 0));
         let e = KhCubeEdge::edge_between(&v, &w);
 
         assert!(e.sign.is_positive());
@@ -339,8 +342,8 @@ mod tests {
         let l = Link::from_pd_code([[0, 1, 1, 0]]);
         let s = State::from([0]);
         let t = State::from([1]);
-        let v = KhCubeVertex::new(&l, s);
-        let w = KhCubeVertex::new(&l, t);
+        let v = KhCubeVertex::new(&l, s, None, (0, 0));
+        let w = KhCubeVertex::new(&l, t, None, (0, 0));
         let e = KhCubeEdge::edge_between(&v, &w);
 
         assert!(e.sign.is_positive());
@@ -378,7 +381,7 @@ mod tests {
     #[test]
     fn cube_empty() { 
         let l = Link::empty();
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None, (0, 0));
 
         assert_eq!(cube.dim, 0);
         assert_eq!(cube.vertices.len(), 1);
@@ -396,7 +399,7 @@ mod tests {
     #[test]
     fn cube_unknot() { 
         let l = Link::unknot();
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None, (0, 0));
 
         assert_eq!(cube.dim, 0);
         assert_eq!(cube.vertices.len(), 1);
@@ -413,7 +416,7 @@ mod tests {
     #[test]
     fn cube_twist_unknot() { 
         let l = Link::from_pd_code([[0, 0, 1, 1]]);
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None, (0, 0));
 
         assert_eq!(cube.dim, 1);
         assert_eq!(cube.vertices.len(), 2);
@@ -439,7 +442,7 @@ mod tests {
     #[test]
     fn cube_hopf_link() { 
         let l = Link::hopf_link();
-        let cube = KhCube::<i32>::new(&l, &0, &0);
+        let cube = KhCube::<i32>::new(&l, &0, &0, None, (0, 0));
 
         assert_eq!(cube.dim, 2);
         assert_eq!(cube.vertices.len(), 4);
@@ -448,7 +451,7 @@ mod tests {
    #[test]
    fn cube_trefoil() { 
        let l = Link::trefoil();
-       let cube = KhCube::<i32>::new(&l, &0, &0);
+       let cube = KhCube::<i32>::new(&l, &0, &0, None, (0, 0));
 
        assert_eq!(cube.dim, 3);
        assert_eq!(cube.vertices.len(), 8);

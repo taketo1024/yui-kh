@@ -39,9 +39,6 @@ struct Config {
 
     #[serde(default)]
     mirror: bool,
-
-    #[serde(default)]
-    order: Option<usize>,
 }
 
 pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
@@ -92,7 +89,6 @@ fn make_args(link: &String, config: &Config, debug: bool) -> SSArgs {
         c_value: config.c_value.clone(),
         c_type:  config.c_type.clone(),
         mirror:  config.mirror,
-        order:   config.order.unwrap_or(1),
         reduced: config.reduced,
         old:     false,
         debug,

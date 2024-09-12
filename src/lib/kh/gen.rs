@@ -4,15 +4,15 @@ use itertools::join;
 use auto_impl_ops::auto_ops;
 use yui::Elem;
 use yui::bitseq::BitSeq;
-use yui::lc::{Gen, Lc};
+use yui::lc::Gen;
 use yui_link::State;
 
 use crate::KhAlgGen;
 
-pub type KhChain<R> = Lc<KhGen, R>;
-
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct KhLabel(BitSeq);
+pub struct KhLabel(
+    pub(crate) BitSeq
+);
 
 impl KhLabel { 
     pub fn empty() -> Self { 
@@ -81,6 +81,12 @@ impl From<KhAlgGen> for KhLabel {
     }
 }
 
+impl<const N: usize> From<[KhAlgGen; N]> for KhLabel {
+    fn from(xs: [KhAlgGen; N]) -> Self {
+        Self::from_iter(xs)
+    }
+}
+
 impl FromIterator<KhAlgGen> for KhLabel {
     fn from_iter<I: IntoIterator<Item = KhAlgGen>>(iter: I) -> Self {
         Self(BitSeq::from_iter(iter.into_iter().map(|x| 
@@ -110,41 +116,35 @@ impl Display for KhLabel {
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct KhGen { 
     pub state: State,
-    pub label: KhLabel
+    pub label: KhLabel,
+    pub deg_shift: (isize, isize)
 }
 
 impl KhGen {
-    pub fn new(state: State, label: KhLabel) -> KhGen { 
-        KhGen { state, label }
+    pub fn new(state: State, label: KhLabel, deg_shift: (isize, isize)) -> KhGen { 
+        KhGen { state, label, deg_shift }
     }
 
-    pub fn init() -> Self { 
-        Self::new(State::empty(), KhLabel::empty())
+    pub fn h_deg(&self) -> isize { 
+        let h0 = self.deg_shift.0;
+        let s = self.state.weight() as isize;
+        h0 + s
     }
 
-    pub fn q_deg(&self) -> isize { 
-        let q = self.label.iter().map(|x| x.q_deg()).sum::<isize>();
+    pub fn q_deg(&self) -> isize {
+        let q0 = self.deg_shift.1;
+        let d = self.label.iter().map(|x| x.deg()).sum::<isize>();
         let r = self.label.len() as isize;
         let s = self.state.weight() as isize;
-        q + r + s
-    }
-
-    pub fn append(&mut self, other: KhGen) { 
-        let KhGen { state, label } = other;
-        self.state.append(state);
-        self.label.append(label);
-    }
-
-    pub fn is_sub(&self, other: &Self) -> bool { 
-        self.state.is_sub(&other.state) && 
-        self.label.is_sub(&other.label)
+        q0 + d + r + s
     }
 }
 
 #[auto_ops]
 impl MulAssign<&KhGen> for KhGen {
     fn mul_assign(&mut self, rhs: &KhGen) {
-        self.append(*rhs)
+        self.state.append(rhs.state);
+        self.label.append(rhs.label);
     }
 }
 

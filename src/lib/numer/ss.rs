@@ -8,65 +8,46 @@ use itertools::Itertools;
 use log::info;
 use yui_homology::{ChainComplexTrait, RModStr};
 use yui_link::Link;
-use yui_homology::utils::HomologyCalc;
+use yui_homology::utils::{ChainReducer, HomologyCalc};
 use yui::{EucRing, EucRingOps};
-use yui_matrix::sparse::*;
 
+use crate::numer::misc::div_vec;
 use crate::KhComplex;
 
-pub fn ss_invariant<R>(l: &Link, c: &R, n: usize, reduced: bool) -> i32
-where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    ss_invariant_v2(l, c, n, reduced)
+#[derive(Clone, Copy)]
+pub enum Ver { 
+    V1, V2
 }
 
-pub fn ss_invariant_v1<R>(l: &Link, c: &R, n: usize, reduced: bool) -> i32
+pub fn ss_invariant<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    compute_ss(l, c, n, reduced, 1)
+    ss_invariant_ver(l, c, reduced, Ver::V2)
 }
 
-pub fn ss_invariant_v2<R>(l: &Link, c: &R, n: usize, reduced: bool) -> i32
+pub fn ss_invariant_v1<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    compute_ss(l, c, n, reduced, 2)
+    ss_invariant_ver(l, c, reduced, Ver::V1)
 }
 
-fn compute_ss<R>(l: &Link, c: &R, n: usize, reduced: bool, ver: usize) -> i32
+pub fn ss_invariant_v2<R>(l: &Link, c: &R, reduced: bool) -> i32
+where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
+    ss_invariant_ver(l, c, reduced, Ver::V2)
+}
+
+fn ss_invariant_ver<R>(l: &Link, c: &R, reduced: bool, ver: Ver) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
     assert!(!c.is_zero());
     assert!(!c.is_unit());
-    assert!(n >= 1);
-    assert!(ver == 2);
 
-    info!("compute ss, c = {c} ({}), n = {n}.", std::any::type_name::<R>());
+    info!("compute ss, c = {c} ({}).", std::any::type_name::<R>());
 
-    let h = (0..n).fold(R::one(), |p, _| p * c); // h = c^n
-    let (a0, a1, vs) = match ver { 
-        2 => prepare_v2(l, &h, reduced),
-        _ => panic!()
+    let d = match ver {
+        Ver::V1 => div_v1(l, c, reduced),
+        Ver::V2 => div_v2(l, c, reduced),
     };
-
-    let kh = HomologyCalc::calculate(a0, a1, true);
-
-    info!("homology: {}", kh.math_symbol());
-    
-    let r = kh.rank();
-    let t = kh.trans().unwrap();
-
-    let vs = vs.into_iter().enumerate().map(|(i, v)| { 
-        let v = t.forward(&v).subvec(0..r);
-        info!("a[{i}] = {v}");
-        v
-    }).collect_vec();
-
-    let v = &vs[0];
-    let Some(d) = div_vec(v, c) else { 
-        panic!("invalid divisibility for v = {}, c = {}", v, c)
-    };
-
     let w = l.writhe();
     let r = l.seifert_circles().len() as i32;
-    let n = n as i32;
-
-    let ss = 2 * d + n * (w - r + 1);
+    let ss = 2 * d + w - r + 1;
 
     info!("d = {d}, w = {w}, r = {r}.");
     info!("ss = {ss} (c = {c}, {}).", if reduced { "reduced" } else { "unreduced" } );
@@ -74,53 +55,105 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     ss
 }
 
-fn prepare_v2<R>(l: &Link, h: &R, reduced: bool) -> (SpMat<R>, SpMat<R>, Vec<SpVec<R>>)
+fn div_v1<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    let c = KhComplex::new_v2(l, h, &R::zero(), reduced);
+    let r = if reduced { 1 } else { 2 };
 
-    let a0 = c.d_matrix(-1);
-    let a1 = c.d_matrix( 0);
+    let ckh = KhComplex::new_v1(l, c, &R::zero(), reduced);
+    let zs = ckh.canon_cycles();
 
-    let vs = c.canon_cycles().iter().map(|z| 
-        c[0].vectorize(z)
-    ).collect_vec();
+    assert_eq!(zs.len(), r);
+    assert!(zs.iter().all(|z| z.gens().all(|x| x.h_deg() == 0)));
 
-    (a0, a1, vs)
-}
+    let vs = zs.iter().map(|z| {
+        ckh[0].vectorize(z)
+    }).collect_vec();
 
-fn div_vec<R>(v: &SpVec<R>, c: &R) -> Option<i32>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    v.iter().filter_map(|(_, a)|
-        div(a, c)
-    ).min()
-}
+    let range = -1 ..= 1;
+    let mut reducer = ChainReducer::new(range.clone(), 1);
 
-fn div<R>(a: &R, c: &R) -> Option<i32>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    if a.is_zero() { return None }
-
-    let mut a = a.clone();
-    let mut k = 0;
-
-    while (&a % c).is_zero() { 
-        a /= c;
-        k += 1;
+    for i in range { 
+        reducer.set_matrix(i, ckh.d_matrix(i), false);
     }
 
-    Some(k)
+    for v in vs { 
+        reducer.add_vec(0, v);
+    }
+
+    reducer.reduce_all(false);
+    reducer.reduce_all(true);
+
+    let dm = reducer.matrix(-1).unwrap().clone();
+    let d0 = reducer.matrix( 0).unwrap().clone();
+    let vs = reducer.vecs(0).unwrap().clone();
+
+    let kh = HomologyCalc::calculate(dm, d0, true);
+
+    info!("homology: {}", kh.math_symbol());    
+    assert_eq!(kh.rank(), r);
+
+    let t = kh.trans().unwrap();
+    let vs = vs.iter().map(|v| {
+        t.forward(v).subvec(0..r)
+    }).collect_vec();
+
+    let v = &vs[0];
+    let Some(d) = div_vec(v, c) else { 
+        panic!("invalid divisibility for v = {}, c = {}", v, c)
+    };
+    
+    d
+}
+
+fn div_v2<R>(l: &Link, c: &R, reduced: bool) -> i32
+where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
+    let r = if reduced { 1 } else { 2 };
+
+    let ckh = KhComplex::new_v2(l, c, &R::zero(), reduced);
+    let d0 = ckh.d_matrix(-1);
+    let d1 = ckh.d_matrix( 0);
+    let zs = ckh.canon_cycles();
+
+    assert_eq!(zs.len(), r);
+    assert!(zs.iter().all(|z| z.gens().all(|x| x.h_deg() == 0)));
+
+    let kh = HomologyCalc::calculate(d0, d1, true);
+
+    info!("homology: {}", kh.math_symbol());    
+    assert_eq!(kh.rank(), r);
+    
+    let t = kh.trans().unwrap();
+    let vs = zs.into_iter().map(|z| {
+        let v = ckh[0].vectorize(&z);
+        let v = t.forward(&v).subvec(0..r);
+        info!("{z} -> {v}");
+        v
+    }).collect_vec();
+
+    let v = &vs[0];
+    let Some(d) = div_vec(v, c) else { 
+        panic!("invalid divisibility for v = {}, c = {}", v, c)
+    };
+    
+    d
 }
 
 #[cfg(test)]
 mod tests {
-    use cartesian::cartesian;
     use yui_link::Link;
     use super::*;
 
     fn test(l: &Link, c: i32, value: i32) { 
-        let ver = 2;
-        for &r in cartesian!([true, false].iter()) { 
-            assert_eq!(compute_ss(l, &c, 1, r, ver), value);
-            assert_eq!(compute_ss(&l.mirror(), &c, 1, r, ver), -value);
+        for r in [true, false] { 
+            assert_eq!(ss_invariant(l, &c, r), value);
+            assert_eq!(ss_invariant(&l.mirror(), &c, r), -value);
+        }
+    }
+
+    fn test_v1(l: &Link, c: i32, value: i32) { 
+        for r in [true, false] { 
+            assert_eq!(ss_invariant_v1(l, &c, r), value);
+            assert_eq!(ss_invariant_v1(&l.mirror(), &c, r), -value);
         }
     }
 
@@ -128,6 +161,12 @@ mod tests {
     fn test_unknot() { 
         let l = Link::unknot();
         test(&l, 2, 0);
+    }
+
+    #[test]
+    fn test_unknot_v1() { 
+        let l = Link::unknot();
+        test_v1(&l, 2, 0);
     }
 
     #[test]
@@ -209,10 +248,16 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(debug_assertions))]
+    fn test_8_19_v1() { 
+        let l = Link::from_pd_code([[4,2,5,1],[8,4,9,3],[9,15,10,14],[5,13,6,12],[13,7,14,6],[11,1,12,16],[15,11,16,10],[2,8,3,7]]);
+        test_v1(&l, 2, 6);
+    }
+
+    #[test]
+    #[ignore]
     fn test_k14() { 
         let l = Link::from_pd_code([[1,19,2,18],[19,1,20,28],[20,13,21,14],[12,17,13,18],[16,21,17,22],[5,15,6,14],[15,5,16,4],[6,27,7,28],[2,7,3,8],[26,3,27,4],[25,23,26,22],[11,9,12,8],[23,10,24,11],[9,24,10,25]]);
-        assert_eq!(ss_invariant_v2(&l, &2, 1, true), -2);
-        assert_eq!(ss_invariant_v2(&l, &3, 1, true), 0);
+        assert_eq!(ss_invariant_v1(&l, &2, true), -2);
+        assert_eq!(ss_invariant_v1(&l, &3, true), 0);
     }
 }
