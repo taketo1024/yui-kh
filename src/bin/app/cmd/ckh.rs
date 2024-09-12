@@ -21,9 +21,6 @@ pub struct Args {
     #[arg(short, long)]
     reduced: bool,
 
-    #[arg(short, long)]
-    bigraded: bool,
-
     #[arg(short = 'a', long)]
     with_alpha: bool,
 
@@ -41,11 +38,10 @@ pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
 fn describe_ckh<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>>
 where R: Ring + FromStr, for<'x> &'x R: RingOps<R> { 
     let (h, t) = parse_pair::<R>(&args.c_value)?;
+    let bigraded = h.is_zero() && t.is_zero();
+
     if args.reduced && !t.is_zero() { 
         return err!("{t} != 0 is not allowed for reduced.");
-    }
-    if args.bigraded && !(h.is_zero() && t.is_zero()) {
-        return err!("--bigraded only supported for `c = 0`.");
     }
     
     let l = load_link(&args.link, args.mirror)?;
@@ -65,7 +61,7 @@ where R: Ring + FromStr, for<'x> &'x R: RingOps<R> {
 
     let mut b = string_builder::Builder::new(1024);
 
-    if args.bigraded {
+    if bigraded {
         let c = c.into_bigraded();
         b.append(c.display_table("i", "j") + "\n");
         b.append(c.display_d() + "\n");
@@ -97,7 +93,6 @@ mod tests {
         	c_type: CType::Z,
         	mirror: false,
         	reduced: false,
-            bigraded: false,
         	with_alpha: false,
             no_simplify: false,
             debug: false
@@ -114,7 +109,6 @@ mod tests {
         	c_type: CType::Z,
         	mirror: true,
         	reduced: true,
-            bigraded: false,
         	with_alpha: true,
             no_simplify: false,
             debug: false
@@ -135,7 +129,6 @@ mod tests {
                 c_type: CType::Z,
                 mirror: false,
                 reduced: false,
-                bigraded: false,
                 with_alpha: false,
                 no_simplify: false,
                 debug: false
@@ -152,7 +145,6 @@ mod tests {
                 c_type: CType::Z,
                 mirror: false,
                 reduced: false,
-                bigraded: false,
                 with_alpha: false,
                 no_simplify: false,
                 debug: false
@@ -169,7 +161,6 @@ mod tests {
                 c_type: CType::Z,
                 mirror: false,
                 reduced: false,
-                bigraded: false,
                 with_alpha: false,
                 no_simplify: false,
                 debug: false
