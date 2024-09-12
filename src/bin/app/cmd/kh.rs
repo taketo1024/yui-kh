@@ -20,8 +20,8 @@ pub struct Args {
     #[arg(short, long)]
     reduced: bool,
 
-    #[arg(short, long)]
-    generators: bool,
+    #[arg(short = 'g', long)]
+    show_generators: bool,
 
     #[arg(long)]
     no_simplify: bool,
@@ -37,9 +37,10 @@ pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
 fn compute_homology<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>>
 where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> { 
     let (h, t) = parse_pair::<R>(&args.c_value)?;
+
     let bigraded = h.is_zero() && t.is_zero();
     let poly = ["H", "0,T"].contains(&args.c_value.as_str());
-    let with_gens = args.generators;
+    let show_gens = args.show_generators;
 
     if args.reduced && !t.is_zero() { 
         return err!("{t} != 0 is not allowed for reduced.");
@@ -54,30 +55,30 @@ where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> {
 
     let mut b = string_builder::Builder::new(1024);
 
-    if poly { 
+    if bigraded { 
+        let ckh = ckh.into_bigraded();
+        let kh = ckh.homology(show_gens);
+
+        b.append(kh.display_table("i", "j"));
+
+        if show_gens { 
+            b.append(display_gens(kh.inner()));
+        }
+    } else if poly { 
         let kh = ckh.homology(true);
         let gens = kh.gen_table();
 
         b.append(gens.display_table("i", "j"));
 
-        if with_gens { 
-            b.append(display_gens(kh.inner()));
-        }
-    } else if bigraded { 
-        let ckh = ckh.into_bigraded();
-        let kh = ckh.homology(with_gens);
-
-        b.append(kh.display_table("i", "j"));
-
-        if with_gens { 
+        if show_gens { 
             b.append(display_gens(kh.inner()));
         }
     } else { 
-        let kh = ckh.homology(with_gens);
+        let kh = ckh.homology(show_gens);
 
         b.append(kh.display_seq("i"));
 
-        if with_gens { 
+        if show_gens { 
             b.append(display_gens(kh.inner()));
         }
     };
