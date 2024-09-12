@@ -28,6 +28,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         let h_max = h.support().max().unwrap_or(0);
         h_min ..= h_max
     }
+
+    pub fn inner(&self) -> &XHomology<KhGen, R> { 
+        &self.inner
+    }
 }
 
 impl<R> GridTrait<isize> for KhHomology<R>
@@ -68,6 +72,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     pub(crate) fn new_impl(inner: XHomology2<KhGen, R>) -> Self { 
         Self { inner }
+    }
+
+    pub fn inner(&self) -> &XHomology2<KhGen, R> { 
+        &self.inner
     }
 }
 
