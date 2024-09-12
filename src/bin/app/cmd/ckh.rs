@@ -41,6 +41,7 @@ where
     for<'x> &'x R: RingOps<R>,
 {
     let (h, t) = parse_pair::<R>(&args.c_value)?;
+    let poly = ["H", "0,T", "H,T"].contains(&args.c_value.as_str());
     let bigraded = h.is_zero() && t.is_zero();
 
     if args.reduced && !t.is_zero() {
@@ -65,7 +66,10 @@ where
 
     let mut b = string_builder::Builder::new(1024);
 
-    if bigraded {
+    if poly {
+        b.append(c.gen_table().display_table("i", "j") + "\n");
+        b.append(c.display_d() + "\n");
+    } else if bigraded {
         let c = c.into_bigraded();
         b.append(c.display_table("i", "j") + "\n");
         b.append(c.display_d() + "\n");
