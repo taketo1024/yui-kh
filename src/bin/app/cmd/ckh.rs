@@ -66,12 +66,12 @@ where
 
     let mut b = string_builder::Builder::new(1024);
 
-    if poly {
-        b.append(c.gen_table().display_table("i", "j") + "\n");
-        b.append(c.display_d() + "\n");
-    } else if bigraded {
+    if bigraded {
         let c = c.into_bigraded();
         b.append(c.display_table("i", "j") + "\n");
+        b.append(c.display_d() + "\n");
+    } else if poly {
+        b.append(c.gen_table().display_table("i", "j") + "\n");
         b.append(c.display_d() + "\n");
     } else {
         b.append(c.display_seq("i") + "\n");
