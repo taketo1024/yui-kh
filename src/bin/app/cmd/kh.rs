@@ -38,6 +38,7 @@ fn compute_homology<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>
 where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> { 
     let (h, t) = parse_pair::<R>(&args.c_value)?;
     let bigraded = h.is_zero() && t.is_zero();
+    let poly = ["H", "0,T"].contains(&args.c_value.as_str());
     let with_gens = args.generators;
 
     if args.reduced && !t.is_zero() { 
@@ -53,7 +54,16 @@ where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> {
 
     let mut b = string_builder::Builder::new(1024);
 
-    if bigraded { 
+    if poly { 
+        let kh = ckh.homology(true);
+        let gens = kh.gen_table();
+
+        b.append(gens.display_table("i", "j"));
+
+        if with_gens { 
+            b.append(display_gens(kh.inner()));
+        }
+    } else if bigraded { 
         let ckh = ckh.into_bigraded();
         let kh = ckh.homology(with_gens);
 
