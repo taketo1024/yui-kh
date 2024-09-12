@@ -28,7 +28,7 @@ pub struct Args {
     no_simplify: bool,
 
     #[arg(long)]
-    pub debug: bool,
+    pub log: u8,
 }
 
 pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
