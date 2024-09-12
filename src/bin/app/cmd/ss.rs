@@ -4,7 +4,7 @@ use yui::{EucRing, EucRingOps};
 use yui_kh::{ss_invariant, ss_invariant_v1};
 use crate::app::utils::*;
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Default)]
 pub struct Args { 
     pub link: String,
 
@@ -17,8 +17,8 @@ pub struct Args {
     #[arg(short, long)]
     pub mirror: bool,
 
-    #[arg(short, long)]
-    pub reduced: bool,
+    #[arg(long)]
+    pub unreduced: bool,
 
     #[arg(long)]
     pub old: bool,
@@ -44,9 +44,9 @@ where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> {
     };
 
     let ss = if args.old { 
-        ss_invariant_v1(&l, &c, args.reduced)
+        ss_invariant_v1(&l, &c, !args.unreduced)
     } else { 
-        ss_invariant(&l, &c, args.reduced)
+        ss_invariant(&l, &c, !args.unreduced)
     };
 
     Ok(ss)
@@ -61,11 +61,7 @@ mod tests {
         let args = Args {
             link: "3_1".to_string(),
         	c_value: "2".to_string(),
-        	c_type: CType::Z,
-            mirror: false,
-            reduced: true,
-            old: false,
-            debug: false
+            ..Default::default()
         };
         let res = run(&args);
 
@@ -78,11 +74,7 @@ mod tests {
         let args = Args {
         	link: "[[1,4,2,5],[3,6,4,1],[5,2,6,3]]".to_string(),
         	c_value: "3".to_string(),
-        	c_type: CType::Z,
-            mirror: false,
-            reduced: true,
-            old: false,
-            debug: false
+            ..Default::default()
         };
         let res = run(&args);
 
@@ -99,10 +91,7 @@ mod tests {
                 link: "[[1,4,2,5],[3,6,4,1],[5,2,6,3]]".to_string(),
                 c_value: "H".to_string(),
                 c_type: CType::Q,
-                mirror: false,
-                reduced: true,
-                old: false,
-                debug: false
+                ..Default::default()
             };
             let res = run(&args);
             

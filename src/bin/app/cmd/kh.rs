@@ -4,7 +4,7 @@ use yui_homology::{DisplayTable, DisplaySeq};
 use yui_kh::KhComplex;
 use crate::app::utils::*;
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Default)]
 pub struct Args { 
     link: String,
 
@@ -68,11 +68,7 @@ mod tests {
         let args = Args { 
             link: "3_1".to_string(), 
             c_value: "0".to_string(), 
-            c_type: CType::Z, 
-            mirror: false, 
-            reduced: false, 
-            no_simplify: false,
-            debug: false
+            ..Default::default()
         };
         let res = run(&args);
         assert!(res.is_ok());
@@ -86,8 +82,7 @@ mod tests {
             c_type: CType::Z,
             mirror: true,
             reduced: true,
-            no_simplify: false,
-            debug: false
+            ..Default::default()
         };
         let res = run(&args);
         assert!(res.is_ok());
@@ -103,10 +98,7 @@ mod tests {
                 link: "3_1".to_string(),
                 c_value: "H".to_string(),
                 c_type: CType::Q,
-                mirror: false,
-                reduced: false,
-                no_simplify: false,
-                debug: false
+                ..Default::default()
             };
             let res = run(&args);
             assert!(res.is_ok());
@@ -118,10 +110,7 @@ mod tests {
                 link: "3_1".to_string(),
                 c_value: "0,T".to_string(),
                 c_type: CType::Q,
-                mirror: false,
-                reduced: false,
-                no_simplify: false,
-                debug: false
+                ..Default::default()
             };
             let res = run(&args);
             assert!(res.is_ok());
