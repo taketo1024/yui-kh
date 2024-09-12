@@ -11,6 +11,17 @@ use yui_matrix::sparse::SpMat;
 use crate::{KhGen, KhHomology, KhHomologyBigraded};
 
 pub type KhChain<R> = Lc<KhGen, R>;
+pub trait KhChainExt { 
+    fn q_deg(&self) -> isize;
+}
+
+impl<R> KhChainExt for KhChain<R>
+where R: Ring, for<'x> &'x R: RingOps<R> {
+    fn q_deg(&self) -> isize {
+        self.gens().map(|x| x.q_deg()).min().unwrap_or(0)
+    }
+}
+
 pub type KhComplexSummand<R> = XChainComplexSummand<KhGen, R>;
 
 pub struct KhComplex<R>
@@ -153,7 +164,7 @@ impl<R> KhComplex<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn homology(&self, with_trans: bool) -> KhHomology<R> {
         let h = self.inner.homology(with_trans);
-        KhHomology::new_impl(h)
+        KhHomology::new_impl(h, self.h_range(), self.q_range())
     }
 }
 
