@@ -18,35 +18,41 @@ pub enum Cmd {
     SS(ss::Args),
 }
 
-impl Cmd { 
-    fn debug(&self) -> bool { 
-        match self { 
-            Cmd::Kh(args)  => args.debug,
-            Cmd::Ckh(args) => args.debug,
-            Cmd::SS(args)  => args.debug,
+impl CliArgs { 
+    fn log_level(&self) -> log::LevelFilter { 
+        use log::LevelFilter::*;
+        let level = match &self.command { 
+            Cmd::Kh(args)  => args.log,
+            Cmd::Ckh(args) => args.log,
+            Cmd::SS(args)  => args.log,
+        };
+        match level {
+            1 => Info,
+            2 => Debug,
+            3 => Trace,
+            _ => Off,
         }
     }
 }
 
-pub struct App {}
+pub struct App {
+    pub args: CliArgs
+}
 
 impl App { 
     pub fn new() -> Self { 
-        App {}
+        let args = CliArgs::parse();
+        App { args }
     }
 
     pub fn run(&self) -> Result<String, i32> { 
-        let args = CliArgs::parse();
+        self.init_logger();
 
-        if args.command.debug() { 
-            self.init_logger();
-        }
-
-        info!("args: {:?}", args);
+        info!("args: {:?}", self.args);
         info!("int-type: {}", std::any::type_name::<super::utils::dispatch::Int>());
 
         let (res, time) = measure(||
-            self.dispatch(&args)
+            self.dispatch()
         );
 
         let res = res.map_err(|e| { 
@@ -63,19 +69,19 @@ impl App {
     fn init_logger(&self) {
         use simplelog::*;
         TermLogger::init(
-            LevelFilter::Info,
+            self.args.log_level(),
             Config::default(),
             TerminalMode::Mixed,
             ColorChoice::Auto
         ).unwrap()
     }
 
-    fn dispatch(&self, args: &CliArgs) -> Result<String, Box<dyn std::error::Error>> { 
+    fn dispatch(&self) -> Result<String, Box<dyn std::error::Error>> { 
         guard_panic(||
-            match &args.command { 
-                Cmd::Kh(args)      => kh::run(args),
-                Cmd::Ckh(args)     => ckh::run(args),
-                Cmd::SS(args)      => ss::run(args)
+            match &self.args.command { 
+                Cmd::Kh(args)  => kh::run(args),
+                Cmd::Ckh(args) => ckh::run(args),
+                Cmd::SS(args)  => ss::run(args)
             }
         )
     }
