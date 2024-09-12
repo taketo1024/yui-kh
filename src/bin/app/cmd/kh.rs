@@ -23,7 +23,7 @@ pub struct Args {
     #[arg(long)]
     no_simplify: bool,
 
-    #[arg(long)]
+    #[arg(long, default_value = "0")]
     pub log: u8,
 }
 
