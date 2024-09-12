@@ -1,7 +1,6 @@
 use core::panic;
 use std::hash::Hash;
 use std::collections::{HashSet, VecDeque};
-use std::fmt::Display;
 use std::ops::{Mul, MulAssign};
 use auto_impl_ops::auto_ops;
 use derive_more::Display;
