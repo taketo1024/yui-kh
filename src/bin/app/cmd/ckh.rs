@@ -1,99 +1,116 @@
 use crate::app::utils::*;
 use itertools::Itertools;
+use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
 use yui_homology::{ChainComplexCommon, DisplaySeq, DisplayTable};
 use yui_kh::KhComplex;
 
-#[derive(Debug, clap::Args, Default)]
-pub struct Args {
-    link: String,
+pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
+    dispatch_ring!(App, args)
+}
 
-    #[arg(short, long, default_value = "0")]
-    c_value: String,
+#[derive(Clone, Default, Debug, clap::Args)]
+pub struct Args {
+    pub link: String,
 
     #[arg(short = 't', long, default_value = "Z")]
-    c_type: CType,
+    pub c_type: CType,
+
+    #[arg(short, long, default_value = "0")]
+    pub c_value: String,
 
     #[arg(short, long)]
-    mirror: bool,
+    pub mirror: bool,
 
     #[arg(short, long)]
-    reduced: bool,
+    pub reduced: bool,
 
     #[arg(short = 'a', long)]
-    with_alpha: bool,
+    pub with_alpha: bool,
 
     #[arg(long)]
-    no_simplify: bool,
+    pub no_simplify: bool,
 
     #[arg(long, default_value = "0")]
     pub log: u8,
 }
 
-pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
-    dispatch_ring!(&args.c_value, &args.c_type, describe_ckh, args)
-}
-
-fn describe_ckh<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>>
+pub struct App<R>
 where
     R: Ring + FromStr,
     for<'x> &'x R: RingOps<R>,
 {
-    let (h, t) = parse_pair::<R>(&args.c_value)?;
-    let poly = ["H", "0,T", "H,T"].contains(&args.c_value.as_str());
-    let bigraded = h.is_zero() && t.is_zero();
+    args: Args,
+    _ring: PhantomData<R>
+}
 
-    if args.reduced && !t.is_zero() {
-        return err!("{t} != 0 is not allowed for reduced.");
+impl<R> App<R>
+where
+    R: Ring + FromStr,
+    for<'x> &'x R: RingOps<R>,
+{
+    pub fn new(args: Args) -> Self { 
+        App { args, _ring: PhantomData }
     }
 
-    let l = load_link(&args.link, args.mirror)?;
-    let c = if args.no_simplify {
-        KhComplex::new_v1(&l, &h, &t, args.reduced)
-    } else {
-        KhComplex::new(&l, &h, &t, args.reduced)
-    };
-
-    let vs = if args.with_alpha {
-        c.canon_cycles()
-            .iter()
-            .map(|z| (0, c[0].vectorize(z)))
-            .collect_vec()
-    } else {
-        vec![]
-    };
-
-    let mut b = string_builder::Builder::new(1024);
-
-    if bigraded {
-        let c = c.into_bigraded();
-        b.append(c.display_table("i", "j") + "\n");
-        b.append(c.display_d() + "\n");
-    } else if poly {
-        b.append(c.gen_table().display_table("i", "j") + "\n");
-        b.append(c.display_d() + "\n");
-    } else {
-        b.append(c.display_seq("i") + "\n");
-        b.append(c.display_d() + "\n");
-    }
-
-    if args.with_alpha {
-        b.append("\n");
-        for (i, (_, v)) in vs.iter().enumerate() {
-            b.append(format!(
-                "a[{i}] = [{}]\n",
-                v.to_dense()
-                    .iter()
-                    .map(|r| r.to_string())
-                    .collect_vec()
-                    .join(", ")
-            ));
+    pub fn run(&self) -> Result<String, Box<dyn std::error::Error>> {
+        let args = &self.args;
+        let (h, t) = parse_pair::<R>(&args.c_value)?;
+        let poly = ["H", "0,T", "H,T"].contains(&args.c_value.as_str());
+        let bigraded = h.is_zero() && t.is_zero();
+    
+        if args.reduced && !t.is_zero() {
+            return err!("{t} != 0 is not allowed for reduced.");
         }
+    
+        let l = load_link(&args.link, args.mirror)?;
+        let c = if args.no_simplify {
+            KhComplex::new_v1(&l, &h, &t, args.reduced)
+        } else {
+            KhComplex::new(&l, &h, &t, args.reduced)
+        };
+    
+        let vs = if args.with_alpha {
+            c.canon_cycles()
+                .iter()
+                .map(|z| (0, c[0].vectorize(z)))
+                .collect_vec()
+        } else {
+            vec![]
+        };
+    
+        let mut b = string_builder::Builder::new(1024);
+    
+        if bigraded {
+            let c = c.into_bigraded();
+            b.append(c.display_table("i", "j") + "\n");
+            b.append(c.display_d() + "\n");
+        } else if poly {
+            b.append(c.gen_table().display_table("i", "j") + "\n");
+            b.append(c.display_d() + "\n");
+        } else {
+            b.append(c.display_seq("i") + "\n");
+            b.append(c.display_d() + "\n");
+        }
+    
+        if args.with_alpha {
+            b.append("\n");
+            for (i, (_, v)) in vs.iter().enumerate() {
+                b.append(format!(
+                    "a[{i}] = [{}]\n",
+                    v.to_dense()
+                        .iter()
+                        .map(|r| r.to_string())
+                        .collect_vec()
+                        .join(", ")
+                ));
+            }
+        }
+    
+        let res = b.string()?;
+        Ok(res)
     }
-
-    let res = b.string()?;
-    Ok(res)
 }
 
 #[cfg(test)]
@@ -107,7 +124,7 @@ mod tests {
             c_value: "0".to_string(),
             ..Default::default()
         };
-        let res = run(&args);
+        let res = dispatch(&args);
         assert!(res.is_ok());
     }
 
@@ -121,7 +138,7 @@ mod tests {
             with_alpha: true,
             ..Default::default()
         };
-        let res = run(&args);
+        let res = dispatch(&args);
         assert!(res.is_ok());
     }
 
@@ -137,7 +154,7 @@ mod tests {
                 c_type: CType::Z,
                 ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
 
@@ -149,7 +166,7 @@ mod tests {
                 c_type: CType::Z,
                 ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
 
@@ -161,7 +178,7 @@ mod tests {
                 c_type: CType::Z,
                 ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
     }
