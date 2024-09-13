@@ -1,7 +1,7 @@
 use log::{info, error};
 use clap::{Parser, Subcommand};
 
-use super::cmd::{kh, ckh, ss};
+use super::cmd::{ckh, kh};
 use super::utils::*;
 
 #[derive(Parser, Debug)]
@@ -16,7 +16,6 @@ pub struct CliArgs {
 pub enum Cmd {
     Kh(kh::Args),
     Ckh(ckh::Args),
-    SS(ss::Args),
 }
 
 impl CliArgs { 
@@ -25,7 +24,6 @@ impl CliArgs {
         let level = match &self.command { 
             Cmd::Kh(args)  => args.log,
             Cmd::Ckh(args) => args.log,
-            Cmd::SS(args)  => args.log,
         };
         match level {
             1 => Info,
@@ -82,7 +80,6 @@ impl App {
             match &self.args.command { 
                 Cmd::Kh(args)  => kh::dispatch(args),
                 Cmd::Ckh(args) => ckh::dispatch(args),
-                Cmd::SS(args)  => ss::dispatch(args)
             }
         )
     }
