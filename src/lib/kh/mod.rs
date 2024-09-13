@@ -5,7 +5,7 @@ mod homology;
 
 pub use alg::{KhAlgGen, KhAlgStr};
 pub use gen::{KhLabel, KhGen};
-pub use complex::{KhChain, KhComplex, KhComplexBigraded};
+pub use complex::{KhChain, KhChainExt, KhComplex, KhComplexBigraded};
 pub use homology::{KhHomology, KhHomologyBigraded};
 
 pub mod v1;
