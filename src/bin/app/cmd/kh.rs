@@ -1,8 +1,10 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
+use itertools::Itertools;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase};
-use yui_kh::{KhComplex, KhGen};
+use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase, XModStr};
+use yui_kh::{KhChain, KhComplex, KhGen, KhChainExt};
+use yui_link::Link;
 use crate::app::utils::*;
 
 pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
@@ -26,7 +28,13 @@ pub struct Args {
     pub reduced: bool,
 
     #[arg(short = 'g', long)]
-    pub show_generators: bool,
+    pub show_gens: bool,
+
+    #[arg(short = 'a', long)]
+    pub show_alpha: bool,
+
+    #[arg(short = 's', long)]
+    pub show_ss: bool,
 
     #[arg(long)]
     pub no_simplify: bool,
@@ -41,6 +49,7 @@ where
     for<'x> &'x R: EucRingOps<R>,
 {
     args: Args,
+    buff: String,
     _ring: PhantomData<R>
 }
 
@@ -50,82 +59,149 @@ where
     for<'x> &'x R: EucRingOps<R>,
 {
     pub fn new(args: Args) -> Self { 
-        App { args, _ring: PhantomData }
+        let buff = String::with_capacity(1024);
+        App { args, buff, _ring: PhantomData }
     }
 
-    pub fn run(&self) -> Result<String, Box<dyn std::error::Error>> { 
-        let args = &self.args;
-        let (h, t) = parse_pair::<R>(&args.c_value)?;
+    pub fn run(&mut self) -> Result<String, Box<dyn std::error::Error>> { 
+        let (h, t) = parse_pair::<R>(&self.args.c_value)?;
     
         let bigraded = h.is_zero() && t.is_zero();
-        let poly = ["H", "0,T"].contains(&args.c_value.as_str());
-        let show_gens = args.show_generators;
+        let poly = ["H", "0,T"].contains(&self.args.c_value.as_str());
     
-        if args.reduced && !t.is_zero() { 
-            return err!("{t} != 0 is not allowed for reduced.");
+        if self.args.reduced { 
+            assert!(t.is_zero(), "`t` must be zero for reduced.");
+        }
+        if self.args.show_alpha { 
+            assert!(t.is_zero(), "`t` must be zero to have alpha.");
+        }
+        if self.args.show_ss { 
+            assert!(!h.is_zero() && !h.is_unit(), "`h` must be non-zero, non-invertible to compute ss.");
+            assert!(t.is_zero(), "`t` must be zero to compute ss.");
         }
     
-        let l = load_link(&args.link, args.mirror)?;
-        let ckh = if args.no_simplify { 
-            KhComplex::new_v1(&l, &h, &t, args.reduced)
+        let l = load_link(&self.args.link, self.args.mirror)?;
+        let ckh = if self.args.no_simplify { 
+            KhComplex::new_v1(&l, &h, &t, self.args.reduced)
         } else {
-            KhComplex::new(&l, &h, &t, args.reduced)
+            KhComplex::new(&l, &h, &t, self.args.reduced)
         };
-    
-        let mut b = string_builder::Builder::new(1024);
-    
+
         if bigraded { 
+            let with_trans = self.args.show_gens || self.args.show_alpha;
+
             let ckh = ckh.into_bigraded();
-            let kh = ckh.homology(show_gens);
+            let kh = ckh.homology(with_trans);
     
-            b.append(kh.display_table("i", "j"));
+            self.out(&kh.display_table("i", "j"));
     
-            if show_gens { 
-                b.append(display_gens(kh.inner()));
+            if self.args.show_gens { 
+                self.show_gens(kh.inner());
+            }
+
+            if self.args.show_alpha { 
+                let zs = ckh.canon_cycles();
+                let q = zs.first().map(|z| z.q_deg()).unwrap_or(0);
+                let kh0 = &kh[(0, q)];
+                
+                self.show_alpha(kh0, zs);
             }
         } else if poly { 
-            let kh = ckh.homology(true);
+            let with_trans = true;
+
+            let kh = ckh.homology(with_trans);
             let gens = kh.gen_table();
     
-            b.append(gens.display_table("i", "j"));
+            self.out(&gens.display_table("i", "j"));
     
-            if show_gens { 
-                b.append(display_gens(kh.inner()));
+            if self.args.show_gens { 
+                self.show_gens(kh.inner());
+            }
+
+            let zs = ckh.canon_cycles();
+
+            if self.args.show_alpha { 
+                self.show_alpha(&kh[0], zs);
+            }
+
+            if self.args.show_ss { 
+                self.show_ss(&l, &h, &kh[0], zs);
             }
         } else { 
-            let kh = ckh.homology(show_gens);
+            let with_trans = self.args.show_gens || self.args.show_alpha || self.args.show_ss;
+            let kh = ckh.homology(with_trans);
     
-            b.append(kh.display_seq("i"));
+            self.out(&kh.display_seq("i"));
     
-            if show_gens { 
-                b.append(display_gens(kh.inner()));
+            if self.args.show_gens { 
+                self.show_gens(kh.inner());
+            }
+
+            let zs = ckh.canon_cycles();
+
+            if self.args.show_alpha { 
+                self.show_alpha(&kh[0], zs);
+            }
+
+            if self.args.show_ss { 
+                self.show_ss(&l, &h, &kh[0], zs);
             }
         };
     
-        let res = b.string()?;
-        Ok(res)
+        Ok(self.flush())
     }
-}
 
-fn display_gens<I, R>(kh: &XHomologyBase<I, KhGen, R>) -> String
-where I: GridDeg, R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    let mut res = String::new();
+    fn show_gens<I>(&mut self, kh: &XHomologyBase<I, KhGen, R>)
+    where I: GridDeg { 
+        for i in kh.support() {
+            let h = &kh[i];
+            if h.is_zero() { continue }
 
-    for i in kh.support() {
-        let h = &kh[i];
-        if h.is_zero() { continue }
+            self.out(&format!("Kh[{i}]: {}", h.display_for_grid()));
 
-        res += "\n";
-        res += &format!("{i}: {}\n", h.display_for_grid());
-
-        let r = h.rank() + h.tors().len();
-        for i in 0..r { 
-            let z = h.gen_chain(i);
-            res += &format!("  {i}: {z}\n");
+            let r = h.rank() + h.tors().len();
+            for i in 0..r { 
+                let z = h.gen_chain(i);
+                self.out(&format!("  {i}: {z}"));
+            }
+            self.out("");
         }
     }
 
-    res
+    fn show_alpha(&mut self, kh0: &XModStr<KhGen, R>, zs: &[KhChain<R>]) { 
+        for (i, z) in zs.iter().enumerate() { 
+            self.out(&format!("a[{i}]: {z}"));
+
+            let v = kh0.vectorize(z).to_dense();
+            self.out(&format!("  [{}]", v.iter().map(|r| r.to_string()).join(", ")));
+            self.out("");
+        }
+    }
+
+    fn show_ss(&mut self, l: &Link, c: &R, kh0: &XModStr<KhGen, R>, zs: &[KhChain<R>]) { 
+        assert!(!c.is_unit() && !c.is_unit());
+
+        use yui_kh::misc::div_vec;
+        let Some(a) = zs.first() else { return };
+
+        let w = l.writhe();
+        let r = l.seifert_circles().len() as i32;
+        let v = kh0.vectorize(a).subvec(0..kh0.rank());
+        let d = div_vec(&v, c).unwrap();
+        let s = 2 * d + w - r + 1;
+
+        self.out(&format!("ss = {s} (d = {d}, w = {w}, r = {r})"));
+    }
+
+    fn out(&mut self, str: &str) { 
+        self.buff.push_str(str);
+        self.buff.push('\n');
+    }
+
+    fn flush(&mut self) -> String { 
+        let res = std::mem::take(&mut self.buff);
+        res.trim().to_string()
+    }
 }
 
 #[cfg(test)]
