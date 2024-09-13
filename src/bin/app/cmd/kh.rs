@@ -172,7 +172,7 @@ where
         for (i, z) in zs.iter().enumerate() { 
             self.out(&format!("a[{i}]: {z}"));
 
-            let v = kh0.vectorize(z).to_dense();
+            let v = kh0.vectorize_euc(z).to_dense();
             self.out(&format!("  [{}]", v.iter().map(|r| r.to_string()).join(", ")));
             self.out("");
         }
