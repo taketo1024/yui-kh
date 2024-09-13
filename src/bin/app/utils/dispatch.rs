@@ -189,7 +189,7 @@ macro_rules! try_noneuc_poly {
 
 macro_rules! run {
     ($c_type:ty, $app:ident, $args:expr) => {{
-        let app: $app<$c_type> = $app::new($args.clone());
+        let mut app: $app<$c_type> = $app::new($args.clone());
         Some(app.run())
     }}
 }

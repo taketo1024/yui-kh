@@ -3,7 +3,7 @@ use itertools::Itertools;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
-use yui_homology::{ChainComplexCommon, DisplaySeq, DisplayTable};
+use yui_homology::{ChainComplexCommon, DisplayForGrid, DisplayTable, GridTrait, RModStr};
 use yui_kh::KhComplex;
 
 pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
@@ -26,11 +26,17 @@ pub struct Args {
     #[arg(short, long)]
     pub reduced: bool,
 
-    #[arg(short = 'a', long)]
-    pub with_alpha: bool,
-
     #[arg(long)]
     pub no_simplify: bool,
+
+    #[arg(short = 'g', long)]
+    pub show_gens: bool,
+
+    #[arg(short = 'a', long)]
+    pub show_alpha: bool,
+
+    #[arg(short = 'd', long)]
+    pub show_diff: bool,
 
     #[arg(long, default_value = "0")]
     pub log: u8,
@@ -42,6 +48,7 @@ where
     for<'x> &'x R: RingOps<R>,
 {
     args: Args,
+    buff: String,
     _ring: PhantomData<R>
 }
 
@@ -51,65 +58,85 @@ where
     for<'x> &'x R: RingOps<R>,
 {
     pub fn new(args: Args) -> Self { 
-        App { args, _ring: PhantomData }
+        let buff = String::with_capacity(1024);
+        App { args, buff, _ring: PhantomData }
     }
 
-    pub fn run(&self) -> Result<String, Box<dyn std::error::Error>> {
-        let args = &self.args;
-        let (h, t) = parse_pair::<R>(&args.c_value)?;
-        let poly = ["H", "0,T", "H,T"].contains(&args.c_value.as_str());
+    pub fn run(&mut self) -> Result<String, Box<dyn std::error::Error>> {
+        let (h, t) = parse_pair::<R>(&self.args.c_value)?;
         let bigraded = h.is_zero() && t.is_zero();
     
-        if args.reduced && !t.is_zero() {
-            return err!("{t} != 0 is not allowed for reduced.");
+        if self.args.reduced && !t.is_zero() {
+            return err!("`t` must be zero for reduced.");
         }
     
-        let l = load_link(&args.link, args.mirror)?;
-        let c = if args.no_simplify {
-            KhComplex::new_v1(&l, &h, &t, args.reduced)
+        let l = load_link(&self.args.link, self.args.mirror)?;
+        let ckh = if self.args.no_simplify {
+            KhComplex::new_v1(&l, &h, &t, self.args.reduced)
         } else {
-            KhComplex::new(&l, &h, &t, args.reduced)
+            KhComplex::new(&l, &h, &t, self.args.reduced)
         };
-    
-        let vs = if args.with_alpha {
-            c.canon_cycles()
-                .iter()
-                .map(|z| (0, c[0].vectorize(z)))
-                .collect_vec()
-        } else {
-            vec![]
-        };
-    
-        let mut b = string_builder::Builder::new(1024);
-    
-        if bigraded {
-            let c = c.into_bigraded();
-            b.append(c.display_table("i", "j") + "\n");
-            b.append(c.display_d() + "\n");
-        } else if poly {
-            b.append(c.gen_table().display_table("i", "j") + "\n");
-            b.append(c.display_d() + "\n");
-        } else {
-            b.append(c.display_seq("i") + "\n");
-            b.append(c.display_d() + "\n");
+        
+        // CKh table
+        self.out(&ckh.gen_table().display_table("i", "j"));
+
+        // Generators
+        if self.args.show_gens { 
+            for i in ckh.support() {
+                let c = &ckh[i];
+                if c.is_zero() { continue }
+                
+                self.out(&format!("C[{i}]: {}", c.display_for_grid()));
+        
+                let r = c.rank() + c.tors().len();
+                for i in 0..r { 
+                    let z = c.gen_chain(i);
+                    self.out(&format!("  {i}: {z}"));
+                }
+                self.out("");
+            }
         }
+
+        // Alpha
+        if self.args.show_alpha { 
+            if !t.is_zero() {
+                return err!("`t` must be zero to have alpha.");
+            }
+            if l.components().len() > 1 {
+                return err!("only knots are supported for alpha.");
+            }
     
-        if args.with_alpha {
-            b.append("\n");
-            for (i, (_, v)) in vs.iter().enumerate() {
-                b.append(format!(
-                    "a[{i}] = [{}]\n",
-                    v.to_dense()
-                        .iter()
-                        .map(|r| r.to_string())
-                        .collect_vec()
-                        .join(", ")
-                ));
+            for (i, z) in ckh.canon_cycles().iter().enumerate() { 
+                self.out(&format!("a[{i}]: {z}"));
+
+                let v = ckh[0].vectorize(z).to_dense();
+                self.out(&format!("  [{}]", v.iter().map(|r| r.to_string()).join(", ")));
+                self.out("");
+            }
+        }
+
+        // Diff
+        if self.args.show_diff { 
+            if bigraded { 
+                let ckh = ckh.into_bigraded();
+                self.out(&ckh.display_d());
+            } else { 
+                self.out(&ckh.display_d());
             }
         }
     
-        let res = b.string()?;
+        let res = self.flush();
         Ok(res)
+    }
+
+    fn out(&mut self, str: &str) { 
+        self.buff.push_str(str);
+        self.buff.push('\n');
+    }
+
+    fn flush(&mut self) -> String { 
+        let res = std::mem::take(&mut self.buff);
+        res.trim().to_string()
     }
 }
 
@@ -135,7 +162,7 @@ mod tests {
             c_value: "2".to_string(),
             mirror: true,
             reduced: true,
-            with_alpha: true,
+            show_alpha: true,
             ..Default::default()
         };
         let res = dispatch(&args);
