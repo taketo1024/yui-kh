@@ -1,14 +1,14 @@
 use yui::{EucRing, EucRingOps};
 use yui_matrix::sparse::SpVec;
 
-pub(crate) fn div_vec<R>(v: &SpVec<R>, c: &R) -> Option<i32>
+pub fn div_vec<R>(v: &SpVec<R>, c: &R) -> Option<i32>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     v.iter().filter_map(|(_, a)|
         div(a, c)
     ).min()
 }
 
-pub(crate) fn div<R>(a: &R, c: &R) -> Option<i32>
+fn div<R>(a: &R, c: &R) -> Option<i32>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     if a.is_zero() { return None }
 

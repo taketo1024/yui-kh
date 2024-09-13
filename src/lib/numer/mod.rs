@@ -1,4 +1,4 @@
-mod misc;
+pub mod misc;
 mod ss;
 mod ssi;
 
