@@ -47,10 +47,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.canon_cycles
     }
 
-    pub fn canon_cycle(&self, i: usize) -> &KhChain<R> { 
-        &self.canon_cycles[i]
-    }
-
     pub fn deg_shift(&self) -> (isize, isize) { 
         self.deg_shift
     }
@@ -125,6 +121,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             XModStr::free(gens)
         });
 
+        let canon_cycles = self.canon_cycles.clone();
+
         let inner = XChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
             let i = idx.0;
             let x = KhChain::from(x.clone());
@@ -132,7 +130,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             dx.into_iter().collect()
         });
 
-        KhComplexBigraded { inner, reduced }
+        KhComplexBigraded { inner, canon_cycles, reduced }
     }
 
     pub fn deg_shift_for(l: &Link, reduced: bool) -> (isize, isize) {
@@ -202,6 +200,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 pub struct KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     inner: XChainComplex2<KhGen, R>,
+    canon_cycles: Vec<KhChain<R>>,
     reduced: bool,
 }
 
@@ -213,6 +212,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn is_reduced(&self) -> bool { 
         self.reduced
+    }
+
+    pub fn canon_cycles(&self) -> &Vec<KhChain<R>> { 
+        &self.canon_cycles
     }
 
     pub fn inner(&self) -> &XChainComplex2<KhGen, R> {
