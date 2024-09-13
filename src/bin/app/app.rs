@@ -1,5 +1,6 @@
 use log::{info, error};
 use clap::{Parser, Subcommand};
+
 use super::cmd::{kh, ckh, ss};
 use super::utils::*;
 
@@ -79,9 +80,9 @@ impl App {
     fn dispatch(&self) -> Result<String, Box<dyn std::error::Error>> { 
         guard_panic(||
             match &self.args.command { 
-                Cmd::Kh(args)  => kh::run(args),
-                Cmd::Ckh(args) => ckh::run(args),
-                Cmd::SS(args)  => ss::run(args)
+                Cmd::Kh(args)  => kh::dispatch(args),
+                Cmd::Ckh(args) => ckh::dispatch(args),
+                Cmd::SS(args)  => ss::dispatch(args)
             }
         )
     }

@@ -1,90 +1,110 @@
+use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{EucRing, EucRingOps};
 use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase};
 use yui_kh::{KhComplex, KhGen};
 use crate::app::utils::*;
 
-#[derive(Debug, clap::Args, Default)]
-pub struct Args { 
-    link: String,
+pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
+    dispatch_eucring!(App, args)
+}
 
-    #[arg(short, long, default_value = "0")]
-    c_value: String,
+#[derive(Clone, Default, Debug, clap::Args)]
+pub struct Args { 
+    pub link: String,
 
     #[arg(short = 't', long, default_value = "Z")]
-    c_type: CType,
+    pub c_type: CType,
+
+    #[arg(short, long, default_value = "0")]
+    pub c_value: String,
 
     #[arg(short, long)]
-    mirror: bool,
+    pub mirror: bool,
 
     #[arg(short, long)]
-    reduced: bool,
+    pub reduced: bool,
 
     #[arg(short = 'g', long)]
-    show_generators: bool,
+    pub show_generators: bool,
 
     #[arg(long)]
-    no_simplify: bool,
+    pub no_simplify: bool,
 
     #[arg(long, default_value = "0")]
     pub log: u8,
 }
 
-pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
-    dispatch_eucring!(&args.c_value, &args.c_type, compute_homology, args)
+pub struct App<R>
+where
+    R: EucRing + FromStr,
+    for<'x> &'x R: EucRingOps<R>,
+{
+    args: Args,
+    _ring: PhantomData<R>
 }
 
-fn compute_homology<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>>
-where R: EucRing + FromStr, for<'x> &'x R: EucRingOps<R> { 
-    let (h, t) = parse_pair::<R>(&args.c_value)?;
-
-    let bigraded = h.is_zero() && t.is_zero();
-    let poly = ["H", "0,T"].contains(&args.c_value.as_str());
-    let show_gens = args.show_generators;
-
-    if args.reduced && !t.is_zero() { 
-        return err!("{t} != 0 is not allowed for reduced.");
+impl<R> App<R>
+where
+    R: EucRing + FromStr,
+    for<'x> &'x R: EucRingOps<R>,
+{
+    pub fn new(args: Args) -> Self { 
+        App { args, _ring: PhantomData }
     }
 
-    let l = load_link(&args.link, args.mirror)?;
-    let ckh = if args.no_simplify { 
-        KhComplex::new_v1(&l, &h, &t, args.reduced)
-    } else {
-        KhComplex::new(&l, &h, &t, args.reduced)
-    };
-
-    let mut b = string_builder::Builder::new(1024);
-
-    if bigraded { 
-        let ckh = ckh.into_bigraded();
-        let kh = ckh.homology(show_gens);
-
-        b.append(kh.display_table("i", "j"));
-
-        if show_gens { 
-            b.append(display_gens(kh.inner()));
+    pub fn run(&self) -> Result<String, Box<dyn std::error::Error>> { 
+        let args = &self.args;
+        let (h, t) = parse_pair::<R>(&args.c_value)?;
+    
+        let bigraded = h.is_zero() && t.is_zero();
+        let poly = ["H", "0,T"].contains(&args.c_value.as_str());
+        let show_gens = args.show_generators;
+    
+        if args.reduced && !t.is_zero() { 
+            return err!("{t} != 0 is not allowed for reduced.");
         }
-    } else if poly { 
-        let kh = ckh.homology(true);
-        let gens = kh.gen_table();
-
-        b.append(gens.display_table("i", "j"));
-
-        if show_gens { 
-            b.append(display_gens(kh.inner()));
-        }
-    } else { 
-        let kh = ckh.homology(show_gens);
-
-        b.append(kh.display_seq("i"));
-
-        if show_gens { 
-            b.append(display_gens(kh.inner()));
-        }
-    };
-
-    let res = b.string()?;
-    Ok(res)
+    
+        let l = load_link(&args.link, args.mirror)?;
+        let ckh = if args.no_simplify { 
+            KhComplex::new_v1(&l, &h, &t, args.reduced)
+        } else {
+            KhComplex::new(&l, &h, &t, args.reduced)
+        };
+    
+        let mut b = string_builder::Builder::new(1024);
+    
+        if bigraded { 
+            let ckh = ckh.into_bigraded();
+            let kh = ckh.homology(show_gens);
+    
+            b.append(kh.display_table("i", "j"));
+    
+            if show_gens { 
+                b.append(display_gens(kh.inner()));
+            }
+        } else if poly { 
+            let kh = ckh.homology(true);
+            let gens = kh.gen_table();
+    
+            b.append(gens.display_table("i", "j"));
+    
+            if show_gens { 
+                b.append(display_gens(kh.inner()));
+            }
+        } else { 
+            let kh = ckh.homology(show_gens);
+    
+            b.append(kh.display_seq("i"));
+    
+            if show_gens { 
+                b.append(display_gens(kh.inner()));
+            }
+        };
+    
+        let res = b.string()?;
+        Ok(res)
+    }
 }
 
 fn display_gens<I, R>(kh: &XHomologyBase<I, KhGen, R>) -> String
@@ -119,7 +139,7 @@ mod tests {
             c_value: "0".to_string(), 
             ..Default::default()
         };
-        let res = run(&args);
+        let res = dispatch(&args);
         assert!(res.is_ok());
     }
 
@@ -133,7 +153,7 @@ mod tests {
             reduced: true,
             ..Default::default()
         };
-        let res = run(&args);
+        let res = dispatch(&args);
         assert!(res.is_ok());
     }
 
@@ -149,7 +169,7 @@ mod tests {
                 c_type: CType::Q,
                 ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
 
@@ -161,7 +181,7 @@ mod tests {
                 c_type: CType::Q,
                 ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
     }
