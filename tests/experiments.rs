@@ -3,7 +3,7 @@ use itertools::Itertools;
 use yui::poly::HPoly;
 use yui::FF2;
 use yui_link::InvLink;
-use yui_kh::ssi_invariants;
+use yui_kh::khi::ssi_invariants;
 
 type R = FF2;
 type P = HPoly<'H', R>;

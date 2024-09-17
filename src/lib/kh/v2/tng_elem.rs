@@ -6,7 +6,7 @@ use yui::{Ring, RingOps};
 use yui_link::{State, Crossing};
 use yui::util::macros::hashmap;
 
-use crate::{KhGen, KhAlgGen, KhChain};
+use crate::kh::{KhGen, KhAlgGen, KhChain};
 
 use super::cob::{Cob, Bottom, Dot};
 use super::mor::{Mor, MorTrait};

@@ -1,7 +1,7 @@
 use yui::{EucRing, EucRingOps};
 use yui_link::Link;
 
-use crate::{KhComplex, KhHomology, KhComplexBigraded, KhHomologyBigraded};
+use crate::kh::{KhComplex, KhHomology, KhComplexBigraded, KhHomologyBigraded};
 
 impl<R> KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {

@@ -3,7 +3,7 @@ use yui::{Ring, RingOps};
 use yui_homology::ChainComplexTrait;
 use yui_link::Link;
 
-use crate::{KhComplex, KhComplexBigraded};
+use crate::kh::{KhComplex, KhComplexBigraded};
 
 use super::builder::TngComplexBuilder;
 

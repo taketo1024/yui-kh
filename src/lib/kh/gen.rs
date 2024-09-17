@@ -8,7 +8,7 @@ use yui::bitseq::BitSeq;
 use yui::lc::Gen;
 use yui_link::State;
 
-use crate::KhAlgGen;
+use crate::kh::KhAlgGen;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct KhLabel(

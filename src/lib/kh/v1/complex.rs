@@ -2,7 +2,7 @@ use yui::{Ring, RingOps};
 use yui_link::Link;
 
 use super::cube::KhCube;
-use crate::{KhComplex, KhComplexBigraded};
+use crate::kh::{KhComplex, KhComplexBigraded};
 
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 

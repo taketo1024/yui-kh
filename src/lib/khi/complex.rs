@@ -8,8 +8,8 @@ use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, X
 use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
-use crate::{KhComplex, KhIHomology};
-
+use crate::kh::KhComplex;
+use crate::khi::KhIHomology;
 use super::{KhIGen, KhICube};
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
@@ -165,8 +165,6 @@ mod tests {
     use num_traits::{Zero, One};
     use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
     use yui_link::Link;
-    use crate::KhHomology;
-
     use super::*;
 
     #[test]

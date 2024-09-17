@@ -10,8 +10,8 @@ use yui_homology::utils::{ChainReducer, HomologyCalc};
 use yui::{EucRing, EucRingOps};
 use yui_link::InvLink;
 
-use crate::numer::misc::div_vec;
-use crate::KhIComplex;
+use crate::misc::div_vec;
+use crate::khi::KhIComplex;
 
 #[allow(unused)]
 pub fn ssi_invariants<R>(l: &InvLink, c: &R) -> (i32, i32)
