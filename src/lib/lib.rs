@@ -1,8 +1,5 @@
 mod ext;
-mod kh;
-mod khi;
-mod numer;
+pub mod misc;
 
-pub use kh::*;
-pub use khi::*;
-pub use numer::*;
+pub mod kh;
+pub mod khi;

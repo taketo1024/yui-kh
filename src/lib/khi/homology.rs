@@ -2,12 +2,10 @@ use std::collections::HashMap;
 use std::ops::{Index, RangeInclusive};
 use cartesian::cartesian;
 use delegate::delegate;
-
 use yui::{EucRing, EucRingOps};
 use yui_homology::{isize2, Grid2, GridTrait, RModStr, SimpleRModStr, XHomology, XHomologySummand};
 use yui_link::InvLink;
-
-use crate::{KhIChainExt, KhIComplex, KhIGen};
+use crate::khi::{KhIChainExt, KhIComplex, KhIGen};
 
 pub struct KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {

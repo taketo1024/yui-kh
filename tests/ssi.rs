@@ -1,6 +1,6 @@
 use yui::poly::HPoly;
 use yui::FF2;
-use yui_kh::ssi_invariants;
+use yui_kh::khi::ssi_invariants;
 use yui_link::InvLink;
 
 macro_rules! test {

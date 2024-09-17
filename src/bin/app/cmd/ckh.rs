@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
 use yui_homology::{ChainComplexCommon, DisplayForGrid, DisplayTable, GridTrait, RModStr};
-use yui_kh::KhComplex;
+use yui_kh::kh::KhComplex;
 
 pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
     dispatch_ring!(App, args)

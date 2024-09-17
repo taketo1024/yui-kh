@@ -8,8 +8,7 @@ use yui::{Ring, RingOps};
 use yui_homology::{Grid, XChainComplex, XModStr};
 use yui_link::{InvLink, State};
 
-use crate::v1::cube::KhCube;
-use crate::{KhGen, KhLabel};
+use crate::kh::{KhGen, KhLabel, v1::cube::KhCube};
 use super::KhIGen;
 
 pub struct KhICube<R>
@@ -171,7 +170,7 @@ mod tests {
     use num_traits::{Zero, One};
     use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq};
     use yui_link::Link;
-    use crate::KhHomology;
+    use crate::kh::{KhAlgGen, KhAlgGen::*, KhHomology};
 
     use super::*;
  
@@ -230,8 +229,6 @@ mod tests {
 
     #[test]
     fn tau_label() { 
-        use crate::KhAlgGen::*;
-
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
             [(1,5), (2,4)],
@@ -284,8 +281,6 @@ mod tests {
 
     #[test]
     fn d_lower_sym() { 
-        use crate::KhAlgGen::*;
-
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
             [(1,5), (2,4)],
@@ -334,8 +329,6 @@ mod tests {
 
     #[test]
     fn d_lower_asym() { 
-        use crate::KhAlgGen::*;
-
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
             [(1,5), (2,4)],
@@ -394,8 +387,6 @@ mod tests {
 
     #[test]
     fn d_upper() { 
-        use crate::KhAlgGen::*;
-
         let l = InvLink::new(
             Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
             [(1,5), (2,4)],

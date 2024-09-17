@@ -11,8 +11,8 @@ use yui_link::Link;
 use yui_homology::utils::{ChainReducer, HomologyCalc};
 use yui::{EucRing, EucRingOps};
 
-use crate::numer::misc::div_vec;
-use crate::KhComplex;
+use crate::misc::div_vec;
+use crate::kh::KhComplex;
 
 #[derive(Clone, Copy)]
 pub enum Ver { 

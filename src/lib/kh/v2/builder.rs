@@ -5,7 +5,7 @@ use yui::{Ring, RingOps};
 use yui_link::{Link, Crossing, Edge};
 
 use crate::ext::LinkExt;
-use crate::{KhChain, KhComplex};
+use crate::kh::{KhChain, KhComplex};
 
 use super::tng::TngComp;
 use super::cob::{Cob, CobComp, Dot};

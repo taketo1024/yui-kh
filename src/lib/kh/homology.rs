@@ -7,9 +7,7 @@ use yui_homology::{isize2, Grid2, GridTrait, RModStr, SimpleRModStr, XHomology, 
 use yui::{EucRing, EucRingOps};
 use yui_link::Link;
 
-use crate::KhGen;
-
-use super::complex::KhChainExt;
+use crate::kh::{KhGen, KhChainExt};
 
 pub struct KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {

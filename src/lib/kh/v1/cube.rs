@@ -5,7 +5,7 @@ use yui::{Ring, RingOps, PowMod2, Sign, GetSign};
 use yui_homology::{XChainComplex, Grid, XModStr};
 use yui_link::{Link, State, LinkComp, Edge};
 
-use crate::{KhAlgStr, KhChain, KhGen, KhLabel};
+use crate::kh::{KhAlgStr, KhChain, KhGen, KhLabel};
 
 #[derive(Debug)]
 pub struct KhCubeVertex { 

@@ -10,7 +10,7 @@ use yui_homology::{XChainComplex, XModStr, Grid1};
 use yui_link::{Crossing, Edge, State};
 use yui::bitseq::Bit;
 
-use crate::{KhAlgGen, KhGen, KhLabel};
+use crate::kh::{KhAlgGen, KhGen, KhLabel};
 use super::cob::{Cob, Dot, Bottom, CobComp};
 use super::tng::{Tng, TngComp};
 use super::mor::{Mor, MorTrait};
@@ -577,7 +577,7 @@ use modify;
 #[cfg(test)]
 mod tests { 
     use yui_link::*;
-    use crate::KhLabel;
+    use crate::kh::KhLabel;
     use super::super::tng::TngComp;
 
     use super::*;

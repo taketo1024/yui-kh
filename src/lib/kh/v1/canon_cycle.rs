@@ -2,7 +2,7 @@ use yui::{Ring, RingOps};
 use yui_link::{Edge, Link, State};
 
 use crate::ext::{Color, LinkExt};
-use crate::{KhAlgGen, KhChain, KhComplex, KhGen, KhLabel};
+use crate::kh::{KhAlgGen, KhChain, KhComplex, KhGen, KhLabel};
 
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
@@ -65,7 +65,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 #[cfg(test)]
 mod tests {
     use num_traits::Zero;
-    use crate::KhComplex;
+    use crate::kh::KhComplex;
 
     use super::*;
  

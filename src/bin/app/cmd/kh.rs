@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{EucRing, EucRingOps};
 use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase, XModStr};
-use yui_kh::{KhChain, KhComplex, KhGen, KhChainExt};
+use yui_kh::kh::{KhChain, KhComplex, KhGen, KhChainExt};
 use yui_link::Link;
 use crate::app::utils::*;
 use crate::app::err::*;

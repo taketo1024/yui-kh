@@ -9,7 +9,7 @@ use yui_link::Link;
 use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, RModStr, SimpleRModStr, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
 use yui_matrix::sparse::SpMat;
 
-use crate::{KhGen, KhHomology, KhHomologyBigraded};
+use crate::kh::{KhGen, KhHomology, KhHomologyBigraded};
 
 pub type KhChain<R> = Lc<KhGen, R>;
 pub trait KhChainExt { 
