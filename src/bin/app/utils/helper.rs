@@ -2,8 +2,11 @@
 
 use crate::app::err::*;
 use std::str::FromStr;
+use itertools::Itertools;
 use num_traits::Zero;
+use yui::{Ring, RingOps};
 use yui_link::{Edge, InvLink, Link};
+use yui_matrix::sparse::SpVec;
 
 pub fn measure<F, Res>(proc: F) -> (Res, std::time::Duration) 
 where F: FnOnce() -> Res { 
@@ -83,6 +86,11 @@ pub fn parse_pair<R: FromStr + Zero>(s: &String) -> Result<(R, R), Box<dyn std::
     }
 
     err!("cannot parse '{}' as {}.", s, std::any::type_name::<R>())
+}
+
+pub fn vec2str<R>(v: &SpVec<R>) -> String 
+where R: Ring + ToString, for<'x> &'x R: RingOps<R> { 
+    format!("({})", v.to_dense().iter().map(|r| r.to_string()).join(", "))
 }
 
 pub fn csv_writer(path: &String) -> Result<csv::Writer<std::fs::File>, Box<dyn std::error::Error>> { 

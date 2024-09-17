@@ -1,10 +1,8 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
-use itertools::Itertools;
 use yui::{EucRing, EucRingOps};
-use yui_homology::DisplayTable;
-use yui_homology::{DisplayForGrid, DisplaySeq, GridDeg, GridTrait, RModStr, XHomologyBase, XModStr};
-use yui_kh::{KhChain, KhGen, KhIComplex, KhIGen};
+use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase, XModStr};
+use yui_kh::{KhChain, KhGen, KhIChain, KhIChainExt, KhIComplex, KhIGen, KhIHomology};
 use yui_link::Link;
 use crate::app::utils::*;
 use crate::app::err::*;
@@ -96,6 +94,12 @@ where
             if self.args.show_gens { 
                 self.show_gens(khi.inner());
             }
+
+            let zs = ckhi.canon_cycles();
+
+            if self.args.show_alpha { 
+                self.show_alpha(&khi, zs);
+            }
         } else { 
             let with_trans = self.args.show_gens || self.args.show_alpha;
 
@@ -104,6 +108,12 @@ where
 
             if self.args.show_gens { 
                 self.show_gens(khi.inner());
+            }
+
+            let zs = ckhi.canon_cycles();
+
+            if self.args.show_alpha { 
+                self.show_alpha(&khi, zs);
             }
         }
 
@@ -127,14 +137,12 @@ where
         }
     }
 
-    fn show_alpha(&mut self, kh0: &XModStr<KhGen, R>, zs: &[KhChain<R>]) { 
+    fn show_alpha(&mut self, khi: &KhIHomology<R>, zs: &[KhIChain<R>]) { 
         for (i, z) in zs.iter().enumerate() { 
-            self.out(&format!("a[{i}]: {z}"));
-
-            let v = kh0.vectorize_euc(z).to_dense();
-            self.out(&format!("  [{}]", v.iter().map(|r| r.to_string()).join(", ")));
-            self.out("");
+            let v = khi[z.h_deg()].vectorize_euc(z);
+            self.out(&format!("a[{i}] in KhI[{}]: {}", z.h_deg(), vec2str(&v)));
         }
+        self.out("");
     }
 
     fn show_ssi(&mut self, l: &Link, c: &R, kh0: &XModStr<KhGen, R>, zs: &[KhChain<R>]) { 
