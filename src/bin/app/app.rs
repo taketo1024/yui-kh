@@ -1,4 +1,4 @@
-use log::{info, error};
+use log::info;
 use clap::{Parser, Subcommand};
 
 use super::cmd::{ckh, kh};
@@ -44,7 +44,7 @@ impl App {
         App { args }
     }
 
-    pub fn run(&self) -> Result<String, i32> { 
+    pub fn run(&self) -> Result<String, Box<dyn std::error::Error>> { 
         self.init_logger();
 
         info!("args: {:?}", self.args);
@@ -53,12 +53,6 @@ impl App {
         let (res, time) = measure(||
             self.dispatch()
         );
-
-        let res = res.map_err(|e| { 
-            error!("{}", e);
-            eprintln!("\x1b[0;31merror\x1b[0m: {e}");
-            1 // error code
-        });
 
         info!("time: {:?}", time);
 
