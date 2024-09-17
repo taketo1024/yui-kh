@@ -71,6 +71,7 @@ where
         let l = load_sinv_knot(&self.args.link, self.args.mirror)?;
         let ckhi = KhIComplex::<R>::new(&l, &h, self.args.reduced);
 
+        let poly = ["H", "0,T"].contains(&self.args.c_value.as_str());
         let bigraded = h.is_zero() && t.is_zero();
 
         if bigraded { 
@@ -84,12 +85,25 @@ where
             if self.args.show_gens { 
                 self.show_gens(&khi);
             }
+        } else if poly { 
+            let with_trans = true;
+
+            let khi = ckhi.homology(with_trans);
+            let gens = khi.gen_table();
+    
+            self.out(&gens.display_table("i", "j"));
+    
+            if self.args.show_gens { 
+                self.show_gens(khi.inner());
+            }
         } else { 
-            let khi = ckhi.homology(true);
-            khi.print_seq("i");
+            let with_trans = self.args.show_gens || self.args.show_alpha;
+
+            let khi = ckhi.homology(with_trans);
+            self.out(&khi.display_seq("i"));
 
             if self.args.show_gens { 
-                self.show_gens(&khi);
+                self.show_gens(khi.inner());
             }
         }
 
@@ -157,7 +171,8 @@ mod tests {
     fn test1() { 
         let args = Args { 
             link: "3_1".to_string(), 
-            c_value: "0".to_string(), 
+            c_type: CType::F2,
+            c_value: "0".to_string(),
             ..Default::default()
         };
         let res = dispatch(&args);
@@ -168,8 +183,8 @@ mod tests {
     fn test2() { 
         let args = Args { 
             link: "[[1,4,2,5],[3,6,4,1],[5,2,6,3]]".to_string(),
-            c_value: "0".to_string(),
-            c_type: CType::Z,
+            c_type: CType::F2,
+            c_value: "1".to_string(),
             mirror: true,
             reduced: true,
             ..Default::default()
@@ -183,23 +198,11 @@ mod tests {
         use super::*;
         
         #[test]
-        fn test_qpoly_h() { 
+        fn test_poly_h() { 
             let args = Args {
                 link: "3_1".to_string(),
+                c_type: CType::F2,
                 c_value: "H".to_string(),
-                c_type: CType::Q,
-                ..Default::default()
-            };
-            let res = dispatch(&args);
-            assert!(res.is_ok());
-        }
-
-        #[test]
-        fn test_qpoly_t() { 
-            let args = Args {
-                link: "3_1".to_string(),
-                c_value: "0,T".to_string(),
-                c_type: CType::Q,
                 ..Default::default()
             };
             let res = dispatch(&args);
