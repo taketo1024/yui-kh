@@ -9,14 +9,13 @@ use yui_homology::{Grid, XChainComplex, XModStr};
 use yui_link::{InvLink, State};
 
 use crate::kh::{KhGen, KhLabel, v1::cube::KhCube};
-use super::KhIGen;
+use crate::khi::KhIGen;
 
 pub struct KhICube<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
     cube: KhCube<R>,
     state_map: HashMap<State, State>,
-    label_map: HashMap<State, HashMap<usize, usize>>,
-    deg_shift: (isize, isize)
+    label_map: HashMap<State, HashMap<usize, usize>>
 }
 
 impl<R> KhICube<R>
@@ -66,7 +65,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             (s, map)
         }).collect::<HashMap<_, _>>();
 
-        Self { cube, state_map, label_map, deg_shift }
+        Self { cube, state_map, label_map }
     }
 
     fn t_state(&self, s: State) -> State { 
@@ -295,7 +294,7 @@ mod tests {
             KhGen::new(
                 State::from([0,0,0]),
                 KhLabel::from([X, I]),
-                c.deg_shift
+                (0, 0)
             )
         );
         let dx = c.d(&x);
@@ -305,7 +304,7 @@ mod tests {
                 KhGen::new(
                     State::from([1,0,0]),
                     KhLabel::from([X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one()),
 
@@ -313,7 +312,7 @@ mod tests {
                 KhGen::new(
                     State::from([0,1,0]),
                     KhLabel::from([X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one()),
             
@@ -321,7 +320,7 @@ mod tests {
                 KhGen::new(
                     State::from([0,0,1]),
                     KhLabel::from([X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one())
         ]));
@@ -343,7 +342,7 @@ mod tests {
             KhGen::new(
                 State::from([0,1,0]),
                 KhLabel::from([X]),
-                c.deg_shift
+                (0, 0)
             )
         );
         let dx = c.d(&x);
@@ -353,7 +352,7 @@ mod tests {
                 KhGen::new(
                     State::from([1,1,0]),
                     KhLabel::from([X,X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one()),
 
@@ -361,7 +360,7 @@ mod tests {
                 KhGen::new(
                     State::from([0,1,1]),
                     KhLabel::from([X,X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one()),
             
@@ -369,7 +368,7 @@ mod tests {
                 KhGen::new(
                     State::from([0,1,0]),
                     KhLabel::from([X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one()),
 
@@ -378,7 +377,7 @@ mod tests {
                 KhGen::new(
                     State::from([0,0,1]),
                     KhLabel::from([X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one())
         ]));
@@ -401,7 +400,7 @@ mod tests {
             KhGen::new(
                 State::from([0,1,0]),
                 KhLabel::from([X]),
-                c.deg_shift
+                (0, 0)
             )
         );
         let dx = c.d(&x);
@@ -411,7 +410,7 @@ mod tests {
                 KhGen::new(
                     State::from([1,1,0]),
                     KhLabel::from([X,X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one()),
 
@@ -419,7 +418,7 @@ mod tests {
                 KhGen::new(
                     State::from([0,1,1]),
                     KhLabel::from([X,X]),
-                    c.deg_shift
+                    (0, 0)
                 )
             ), R::one()),
         ]));
