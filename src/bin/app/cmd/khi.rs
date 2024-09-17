@@ -1,10 +1,9 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase, XModStr};
-use yui_kh::kh::{KhChain, KhGen};
+use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase};
 use yui_kh::khi::{KhIChain, KhIChainExt, KhIComplex, KhIGen, KhIHomology};
-use yui_link::Link;
+use yui_link::InvLink;
 use crate::app::utils::*;
 use crate::app::err::*;
 
@@ -101,6 +100,10 @@ where
             if self.args.show_alpha { 
                 self.show_alpha(&khi, zs);
             }
+
+            if self.args.show_ssi { 
+                self.show_ssi(&l, &h, &khi, zs);
+            }
         } else { 
             let with_trans = self.args.show_gens || self.args.show_alpha;
 
@@ -146,19 +149,22 @@ where
         self.out("");
     }
 
-    fn show_ssi(&mut self, l: &Link, c: &R, kh0: &XModStr<KhGen, R>, zs: &[KhChain<R>]) { 
+    fn show_ssi(&mut self, l: &InvLink, c: &R, khi: &KhIHomology<R>, zs: &[KhIChain<R>]) { 
         assert!(!c.is_unit() && !c.is_unit());
 
         use yui_kh::misc::div_vec;
-        let Some(a) = zs.first() else { return };
 
+        let l = l.link();
         let w = l.writhe();
         let r = l.seifert_circles().len() as i32;
-        let v = kh0.vectorize(a).subvec(0..kh0.rank());
-        let d = div_vec(&v, c).unwrap();
-        let s = 2 * d + w - r + 1;
+        for (i, z) in zs.iter().enumerate() { 
+            let h = &khi[z.h_deg()];
+            let v = h.vectorize(z).subvec(0..h.rank());
+            let d = div_vec(&v, c).unwrap();
+            let s = 2 * d + w - r + 1;
 
-        self.out(&format!("ss = {s} (d = {d}, w = {w}, r = {r})"));
+            self.out(&format!("ss[{i}] = {s} (d = {d}, w = {w}, r = {r})"));
+        }
     }
 
     fn out(&mut self, str: &str) { 
