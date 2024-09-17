@@ -1,7 +1,7 @@
 use clap::ValueEnum;
 use derive_more::Display;
 
-#[derive(Clone, Copy, ValueEnum, Display, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum, Display, Debug, Default)]
 #[clap(rename_all="verbatim")]
 pub enum CType { 
     #[default] Z, 
