@@ -15,11 +15,16 @@ use super::{KhIGen, KhICube};
 pub type KhIChain<R> = Lc<KhIGen, R>;
 
 pub trait KhIChainExt { 
+    fn h_deg(&self) -> isize;
     fn q_deg(&self) -> isize;
 }
 
 impl<R> KhIChainExt for KhIChain<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
+    fn h_deg(&self) -> isize {
+        self.gens().map(|x| x.h_deg()).min().unwrap_or(0)
+    }
+    
     fn q_deg(&self) -> isize {
         self.gens().map(|x| x.q_deg()).min().unwrap_or(0)
     }
