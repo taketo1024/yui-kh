@@ -1,4 +1,5 @@
 use crate::app::utils::*;
+use crate::app::err::*;
 use itertools::Itertools;
 use std::marker::PhantomData;
 use std::str::FromStr;
@@ -64,13 +65,17 @@ where
 
     pub fn run(&mut self) -> Result<String, Box<dyn std::error::Error>> {
         let (h, t) = parse_pair::<R>(&self.args.c_value)?;
-        let bigraded = h.is_zero() && t.is_zero();
     
-        if self.args.reduced && !t.is_zero() {
-            return err!("`t` must be zero for reduced.");
+        if self.args.reduced {
+            ensure!(t.is_zero(), "`t` must be zero for reduced.");
+        }
+        if self.args.show_alpha { 
+            ensure!(t.is_zero(), "`t` must be zero to have alpha.");
         }
     
         let l = load_link(&self.args.link, self.args.mirror)?;
+        let bigraded = h.is_zero() && t.is_zero();
+
         let ckh = if self.args.no_simplify {
             KhComplex::new_v1(&l, &h, &t, self.args.reduced)
         } else {
@@ -99,13 +104,6 @@ where
 
         // Alpha
         if self.args.show_alpha { 
-            if !t.is_zero() {
-                return err!("`t` must be zero to have alpha.");
-            }
-            if l.components().len() > 1 {
-                return err!("only knots are supported for alpha.");
-            }
-    
             for (i, z) in ckh.canon_cycles().iter().enumerate() { 
                 self.out(&format!("a[{i}]: {z}"));
 

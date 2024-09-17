@@ -6,6 +6,7 @@ use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait,
 use yui_kh::{KhChain, KhComplex, KhGen, KhChainExt};
 use yui_link::Link;
 use crate::app::utils::*;
+use crate::app::err::*;
 
 pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
     dispatch_eucring!(App, args)
@@ -70,14 +71,14 @@ where
         let poly = ["H", "0,T"].contains(&self.args.c_value.as_str());
     
         if self.args.reduced { 
-            assert!(t.is_zero(), "`t` must be zero for reduced.");
+            ensure!(t.is_zero(), "`t` must be zero for reduced.");
         }
         if self.args.show_alpha { 
-            assert!(t.is_zero(), "`t` must be zero to have alpha.");
+            ensure!(t.is_zero(), "`t` must be zero to have alpha.");
         }
         if self.args.show_ss { 
-            assert!(!h.is_zero() && !h.is_unit(), "`h` must be non-zero, non-invertible to compute ss.");
-            assert!(t.is_zero(), "`t` must be zero to compute ss.");
+            ensure!(!h.is_zero() && !h.is_unit(), "`h` must be non-zero, non-invertible to compute ss.");
+            ensure!(t.is_zero(), "`t` must be zero to compute ss.");
         }
     
         let l = load_link(&self.args.link, self.args.mirror)?;
