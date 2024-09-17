@@ -7,6 +7,10 @@ fn main() {
     
     match res { 
         Ok(output) => println!("{output}"),
-        Err(code)  => std::process::exit(code)
+        Err(e) => {
+            log::error!("{}", e);
+            eprintln!("\x1b[0;31merror\x1b[0m: {e}");
+            std::process::exit(1)
+        }
     }
 }
