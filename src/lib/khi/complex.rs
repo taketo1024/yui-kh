@@ -4,15 +4,27 @@ use delegate::delegate;
 
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
-use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XHomology, XModStr};
+use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
 use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
-use crate::KhComplex;
+use crate::{KhComplex, KhIHomology};
 
 use super::{KhIGen, KhICube};
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
+
+pub trait KhIChainExt { 
+    fn q_deg(&self) -> isize;
+}
+
+impl<R> KhIChainExt for KhIChain<R>
+where R: Ring, for<'x> &'x R: RingOps<R> {
+    fn q_deg(&self) -> isize {
+        self.gens().map(|x| x.q_deg()).min().unwrap_or(0)
+    }
+}
+
 pub type KhIComplexSummand<R> = XChainComplexSummand<KhIGen, R>;
 
 pub struct KhIComplex<R>
@@ -90,6 +102,12 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             dx.into_iter().collect()
         })
     }
+
+    pub fn homology(&self, with_trans: bool) -> KhIHomology<R>
+    where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
+        let h = self.inner.reduced().homology(with_trans);
+        KhIHomology::new_impl(h, self.h_range(), self.q_range())
+    }
 }
 
 impl<R> Index<isize> for KhIComplex<R>
@@ -129,13 +147,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             fn d(&self, i: isize, z: &Self::Element) -> Self::Element;
             fn d_matrix(&self, i: isize) -> SpMat<R>;
         }
-    }
-}
-
-impl<R> KhIComplex<R>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn homology(self, with_trans: bool) -> XHomology<KhIGen, R> {
-        self.inner.reduced().homology(with_trans)
     }
 }
 
