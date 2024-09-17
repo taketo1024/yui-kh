@@ -1,9 +1,6 @@
 mod ctype;
 pub use ctype::*;
 
-mod err;
-pub use err::*;
-
 mod helper;
 pub use helper::*;
 

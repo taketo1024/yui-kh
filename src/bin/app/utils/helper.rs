@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use super::err;
+use crate::app::err::*;
 use std::str::FromStr;
 use num_traits::Zero;
 use yui_link::{Link, Edge};
