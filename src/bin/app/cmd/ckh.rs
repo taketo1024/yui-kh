@@ -1,6 +1,5 @@
 use crate::app::utils::*;
 use crate::app::err::*;
-use itertools::Itertools;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
@@ -105,12 +104,10 @@ where
         // Alpha
         if self.args.show_alpha { 
             for (i, z) in ckh.canon_cycles().iter().enumerate() { 
-                self.out(&format!("a[{i}]: {z}"));
-
-                let v = ckh[0].vectorize(z).to_dense();
-                self.out(&format!("  [{}]", v.iter().map(|r| r.to_string()).join(", ")));
-                self.out("");
+                let v = ckh[0].vectorize(z);
+                self.out(&format!("a[{i}]: {}", vec2str(&v)));
             }
+            self.out("");
         }
 
         // Diff

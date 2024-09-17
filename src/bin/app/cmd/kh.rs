@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
-use itertools::Itertools;
 use yui::{EucRing, EucRingOps};
 use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase, XModStr};
 use yui_kh::{KhChain, KhComplex, KhGen, KhChainExt};
@@ -171,12 +170,10 @@ where
 
     fn show_alpha(&mut self, kh0: &XModStr<KhGen, R>, zs: &[KhChain<R>]) { 
         for (i, z) in zs.iter().enumerate() { 
-            self.out(&format!("a[{i}]: {z}"));
-
-            let v = kh0.vectorize_euc(z).to_dense();
-            self.out(&format!("  [{}]", v.iter().map(|r| r.to_string()).join(", ")));
-            self.out("");
+            let v = kh0.vectorize_euc(z);
+            self.out(&format!("a[{i}]: {}", vec2str(&v)));
         }
+        self.out("");
     }
 
     fn show_ss(&mut self, l: &Link, c: &R, kh0: &XModStr<KhGen, R>, zs: &[KhChain<R>]) { 
