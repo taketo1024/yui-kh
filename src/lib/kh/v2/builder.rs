@@ -9,12 +9,11 @@ use yui_homology::XChainComplex;
 use yui_link::{Crossing, Edge, Link};
 
 use crate::ext::LinkExt;
-use crate::kh::v2::mor::MorTrait;
+use crate::kh::v2::cob::LcCobTrait;
 use crate::kh::v2::tng::Tng;
 use crate::kh::{KhAlgGen, KhChain, KhComplex, KhGen};
 
-use super::cob::{Bottom, Cob, CobComp, Dot};
-use super::mor::Mor;
+use super::cob::{Bottom, Dot, Cob, CobComp, LcCob};
 use super::tng::TngComp;
 use super::tng_complex::{TngComplex, TngKey};
 
@@ -229,14 +228,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 struct Elem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     init_cob: Cob,                     // precomposed at the final step.
-    retr_cob: HashMap<TngKey, Mor<R>>, // src must partially match init_cob. 
+    retr_cob: HashMap<TngKey, LcCob<R>>, // src must partially match init_cob. 
     state: HashMap<Crossing, Bit>,
 }
 
 impl<R> Elem<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new(init_cob: Cob, state: HashMap<Crossing, Bit>) -> Self { 
-        let f = Mor::from(Cob::empty());
+        let f = LcCob::from(Cob::empty());
         let retr_cob = hashmap! { TngKey::init() => f };
         Self{ init_cob, retr_cob, state }
     }
@@ -290,7 +289,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn deloop_for(&self, k: &TngKey, f: &Mor<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (TngKey, Mor<R>) { 
+    fn deloop_for(&self, k: &TngKey, f: &LcCob<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (TngKey, LcCob<R>) { 
         let mut k_new = *k;
         k_new.label.push(label);
 
@@ -298,7 +297,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (k_new, f_new)
     }
 
-    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey, i_out: &HashMap<TngKey, Mor<R>>) {
+    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey, i_out: &HashMap<TngKey, LcCob<R>>) {
         // mors into i can be simply dropped.
         self.retr_cob.remove(i);
 
