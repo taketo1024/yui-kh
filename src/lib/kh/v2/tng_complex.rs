@@ -95,7 +95,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     deg_shift: (isize, isize),
     base_pt: Option<Edge>,
     vertices: HashMap<TngKey, TngVertex<R>>,
-    len: usize,
+    dim: usize,
 }
 
 impl<R> TngComplex<R>
@@ -106,11 +106,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let v0 = TngVertex::init();
         vertices.insert(k0, v0);
 
-        let len = 1;
+        let len = 0;
         let h = h.clone();
         let t = t.clone();
 
-        TngComplex{ h, t, deg_shift, base_pt, vertices, len }
+        TngComplex{ h, t, deg_shift, base_pt, vertices, dim: len }
     }
 
     pub fn ht(&self) -> (&R, &R) { 
@@ -125,8 +125,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.base_pt
     }
 
-    pub fn len(&self) -> usize { 
-        self.len
+    pub fn dim(&self) -> usize { 
+        self.dim
     }
 
     pub fn rank(&self, i: isize) -> usize { 
@@ -217,7 +217,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.remove_edge(&k, &l);
         }
 
-        self.len += 1;
+        self.dim += 1;
 
         // self.validate_edges();
     }
@@ -331,9 +331,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let (h, t) = (self.h.clone(), self.t.clone());
         let deg_shift = self.deg_shift;
         let base_pt = self.base_pt;
-        let len = self.len + other.len - 1;
+        let dim = self.dim + other.dim;
 
-        let c = TngComplex{ h, t, deg_shift, base_pt, vertices, len };
+        let c = TngComplex{ h, t, deg_shift, base_pt, vertices, dim };
 
         c.validate_edges();
 
@@ -555,9 +555,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn into_complex(self) -> XChainComplex<KhGen, R> {
         debug_assert!(self.is_finalizable());
 
-        let n = self.len();
+        let n = self.dim();
         let i0 = self.deg_shift.0;
-        let i1 = i0 + (n as isize) - 1;
+        let i1 = i0 + (n as isize);
 
         let summands = Grid1::generate(i0..=i1, |i| { 
             let w = (i - i0) as usize;
@@ -683,7 +683,7 @@ mod tests {
     fn empty() { 
         let c = TngComplex::new(&0, &0, (0, 0), None);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
     }
 
@@ -693,7 +693,7 @@ mod tests {
         let x = Crossing::from_pd_code([0,1,2,3]);
         c.append(&x);
 
-        assert_eq!(c.len(), 2);
+        assert_eq!(c.dim(), 1);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 1);
     }
@@ -704,7 +704,7 @@ mod tests {
         let x = Crossing::from_pd_code([0,1,2,3]).resolved(Bit::Bit0);
         c.append(&x);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
     }
 
@@ -717,7 +717,7 @@ mod tests {
         c.append(&x0);
         c.append(&x1);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
@@ -732,7 +732,7 @@ mod tests {
         c.append(&x0);
         c.append(&x1);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
@@ -744,7 +744,7 @@ mod tests {
         let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
         c.append(&x0);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
 
         let e = c.find_loop(false);
@@ -753,7 +753,7 @@ mod tests {
         let Some((k, r)) = e else { panic!() };
         let keys = c.deloop(&k, r);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 2);
         assert_eq!(keys.len(), 2);
     }
@@ -767,7 +767,7 @@ mod tests {
         c.append(&x0);
         c.append(&x1);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
@@ -785,7 +785,7 @@ mod tests {
 
         c.deloop(&k, r);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 3); // delooped here
         assert_eq!(c.rank(2), 1);
@@ -797,7 +797,7 @@ mod tests {
         let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
         c.append(&x0);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
 
         let e = c.find_loop(false);
@@ -809,7 +809,7 @@ mod tests {
         let Some((k, r)) = e else { panic!() };
         let keys = c.deloop(&k, r);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 1);
         assert_eq!(c.rank(0), 1); // not 2
         assert_eq!(keys.len(), 1); // not 2
     }
@@ -826,7 +826,7 @@ mod tests {
 
         let c = c0.connect(&c1);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
@@ -848,7 +848,7 @@ mod tests {
 
         let c = c0.connect(&c1);
 
-        assert_eq!(c.len(), 4);
+        assert_eq!(c.dim(), 3);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 3);
         assert_eq!(c.rank(2), 3);
