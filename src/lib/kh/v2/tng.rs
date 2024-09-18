@@ -3,7 +3,6 @@ use std::fmt::Display;
 use std::hash::Hash;
 use itertools::Itertools;
 use yui_link::{Edge, Crossing, LinkComp};
-use yui::bitseq::Bit;
 
 #[derive(Clone, Copy, Eq, PartialOrd, Ord, Debug)]
 pub enum TngComp { 
@@ -23,6 +22,20 @@ impl TngComp {
 
     pub fn circ(e: Edge) -> Self { 
         Self::Circ(e)
+    }
+
+    pub fn from_link_comp(c: &LinkComp) -> Self {
+        use std::cmp::Ordering::*;
+        let e = c.min_edge();
+        if let Some((l, r)) = c.ends() { 
+            match Ord::cmp(&l, &r) { 
+                Less    => Self::Arc(l, e, r),
+                Greater => Self::Arc(r, e, l),
+                Equal   => panic!(),
+            }
+        } else { 
+            Self::Circ(e)
+        }
     }
 
     pub fn is_arc(&self) -> bool { 
@@ -120,22 +133,6 @@ impl Display for TngComp {
     }
 }
 
-impl From<&LinkComp> for TngComp {
-    fn from(c: &LinkComp) -> Self {
-        use std::cmp::Ordering::*;
-        let e = c.min_edge();
-        if let Some((l, r)) = c.ends() { 
-            match Ord::cmp(&l, &r) { 
-                Less    => Self::Arc(l, e, r),
-                Greater => Self::Arc(r, e, l),
-                Equal   => panic!(),
-            }
-        } else { 
-            Self::Circ(e)
-        }
-    }
-}
-
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Tng {
     comps: Vec<TngComp> // arc or circle
@@ -148,16 +145,14 @@ impl Tng {
         tng
     }
 
-    pub fn from_x(x: &Crossing, r: Bit) -> Self { 
-        assert!(!x.is_resolved());
-        Self::from_a(&x.resolved(r))
-    }
-
-    pub fn from_a(x: &Crossing) -> Self { 
+    pub fn from_resolved(x: &Crossing) -> Self { 
         assert!(x.is_resolved());
 
         let (r0, r1) = x.arcs();
-        let (mut c0, c1) = (TngComp::from(&r0), TngComp::from(&r1));
+        let (mut c0, c1) = (
+            TngComp::from_link_comp(&r0), 
+            TngComp::from_link_comp(&r1)
+        );
 
         if c0.is_connectable(&c1) { 
             c0.connect(c1);

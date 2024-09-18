@@ -38,6 +38,16 @@ impl CobComp {
         Self { src, tgt, genus, dots }
     }
 
+    pub fn sdl_from(x: &Crossing) -> Self {
+        assert!(!x.is_resolved());
+
+        use Bit::{Bit0, Bit1};
+        let src = Tng::from_resolved(&x.resolved(Bit0));
+        let tgt = Tng::from_resolved(&x.resolved(Bit1));
+
+        Self::plain(src, tgt)
+    }
+
     pub fn plain(src: Tng, tgt: Tng) -> Self { 
         Self::new(src, tgt, 0, (0, 0))
     }
@@ -372,16 +382,6 @@ impl CobComp {
             debug_assert!(c.is_removable()); // either ε.X.ι or ε.Y.ι .
             r
         }))
-    }
-}
-
-impl From<&Crossing> for CobComp {
-    fn from(x: &Crossing) -> Self {
-        use Bit::{Bit0, Bit1};
-
-        let src = Tng::from_x(x, Bit0);
-        let tgt = Tng::from_x(x, Bit1);
-        Self::plain(src, tgt)
     }
 }
 
@@ -1223,7 +1223,7 @@ mod tests {
     #[test]
     fn stack_id() {
         let c1 = Cob::new(vec![
-            CobComp::from(&Crossing::from_pd_code([0,1,2,3])),
+            CobComp::sdl_from(&Crossing::from_pd_code([0,1,2,3])),
             CobComp::cup(TngComp::circ(4)),
             CobComp::cap(TngComp::circ(5)),
         ]);
