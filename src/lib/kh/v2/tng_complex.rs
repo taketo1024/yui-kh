@@ -219,7 +219,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.dim += 1;
 
-        // self.validate_edges();
+        // self.validate();
     }
 
     fn append_a(&mut self, x: &Crossing) {
@@ -240,7 +240,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (k, v)
         }).collect();
 
-        // self.validate_edges();
+        // self.validate();
     }
 
     fn make_cone(v: TngVertex<R>, c0: &Cob, c1: &Cob, sdl: &CobComp) -> [TngVertex<R>; 2] {
@@ -335,7 +335,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let c = TngComplex{ h, t, deg_shift, base_pt, vertices, dim };
 
-        c.validate_edges();
+        // c.validate();
 
         c
     }
@@ -361,7 +361,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let k_new = v.key;
             self.vertices.insert(k_new, v);
 
-            // self.validate_edges();
+            // self.validate();
 
             vec![k_new]
         } else { 
@@ -377,7 +377,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.vertices.insert(k0, v0);
             self.vertices.insert(k1, v1);
 
-            // self.validate_edges();
+            // self.validate();
 
             vec![k0, k1]
         }
@@ -427,6 +427,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 v.out_edges.insert(*l, f_new);
                 w.in_edges.insert(k_new);
             }
+        }
+    }
+
+    pub fn deloop_all(&mut self, allow_marked: bool) { 
+        while let Some((k, i)) = self.find_loop(allow_marked) { 
+            self.deloop(&k, i);
         }
     }
 
@@ -549,7 +555,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.remove(k0);
         self.vertices.remove(l0);
 
-        // self.validate_edges();
+        // self.validate();
     }
 
     pub fn into_complex(self) -> XChainComplex<KhGen, R> {
@@ -606,7 +612,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         println!("{}", self.desc_d());
     }
 
-    pub fn validate_edges(&self) {
+    pub fn validate(&self) {
         for (k, v) in self.vertices.iter() { 
             for j in v.in_edges.iter() {
                 assert!(
@@ -831,7 +837,7 @@ mod tests {
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
 
-        c.validate_edges();
+        c.validate();
     }
 
     #[test]
@@ -854,6 +860,6 @@ mod tests {
         assert_eq!(c.rank(2), 3);
         assert_eq!(c.rank(3), 1);
 
-        c.validate_edges();
+        c.validate();
     }
 }
