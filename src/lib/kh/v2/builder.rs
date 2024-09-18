@@ -25,22 +25,42 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+    pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
         let deg_shift = KhComplex::deg_shift_for(l, reduced);
+        let mut b = Self::new(h, t, deg_shift);
+
         let base_pt = if reduced { 
-            assert!(!l.components().is_empty());
             l.first_edge()
         } else { 
             None
         };
 
-        let crossings = Self::sort_crossings(l, &base_pt);
+        b.crossings = Self::sort_crossings(l, &base_pt);
+        b.base_pt = base_pt;
+
+        if t.is_zero() && l.is_knot() {
+            b.make_canon_cycles();
+        }
+        
+        b.process();
+
+        let canon_cycles = b.eval_canon_cycles();
+        let complex = b.into_raw_complex();
+
+        KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
+
+    }
+
+    pub fn new(h: &R, t: &R, deg_shift: (isize, isize)) -> Self { 
         let complex = TngComplex::new(h, t, deg_shift);
+        let crossings = vec![];
+        let canon_cycles = vec![];
+        let base_pt = None;
 
         let auto_deloop = true;
         let auto_elim   = true;
 
-        Self { crossings, complex, canon_cycles: vec![], base_pt, auto_deloop, auto_elim }
+        Self { complex, crossings, canon_cycles, base_pt, auto_deloop, auto_elim }
     }
 
     fn sort_crossings(l: &Link, base_pt: &Option<Edge>) -> Vec<Crossing> { 
@@ -91,12 +111,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         res
     }
 
-    pub fn into_complex(self) -> XChainComplex<KhGen, R> { 
+    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> { 
         self.complex.into_complex()
-    }
-
-    pub fn canon_cycles(&self) -> &Vec<TngElem<R>> { 
-        &self.canon_cycles
     }
 
     pub fn process(&mut self) {
@@ -211,17 +227,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 #[cfg(test)]
 mod tests { 
     use num_traits::Zero;
-    use yui_homology::{ChainComplexCommon, ChainComplexTrait, RModStr};
+    use yui_homology::{ChainComplexCommon, RModStr};
 
     use super::*;
 
     #[test]
     fn test_unknot_rm1() {
         let l = Link::from_pd_code([[0,0,1,1]]);
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
-        b.process();
-
-        let c = b.into_complex();
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         assert_eq!(c[0].rank(), 2);
         assert_eq!(c[1].rank(), 0);
@@ -230,10 +243,7 @@ mod tests {
     #[test]
     fn test_unknot_rm1_neg() {
         let l = Link::from_pd_code([[0,1,1,0]]);
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
-        b.process();
-
-        let c = b.into_complex();
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -244,10 +254,7 @@ mod tests {
     #[test]
     fn test_unknot_rm2() {
         let l = Link::from_pd_code([[1,4,2,1],[2,4,3,3]]);
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
-        b.process();
-
-        let c = b.into_complex();
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -260,10 +267,7 @@ mod tests {
     fn test_unlink_2() {
         let pd_code = [[1,2,3,4], [3,2,1,4]];
         let l = Link::from_pd_code(pd_code);
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
-        b.process();
-
-        let c = b.into_complex();
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -275,10 +279,7 @@ mod tests {
     #[test]
     fn test_hopf_link() {
         let l = Link::hopf_link();
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
-        b.process();
-
-        let c = b.into_complex();
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -290,10 +291,7 @@ mod tests {
     #[test]
     fn test_8_19() {
         let l = Link::from_pd_code([[4,2,5,1],[8,4,9,3],[9,15,10,14],[5,13,6,12],[13,7,14,6],[11,1,12,16],[15,11,16,10],[2,8,3,7]]);
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
-        b.process();
-
-        let c = b.into_complex();
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -319,18 +317,12 @@ mod tests {
     #[test]
     fn canon_cycle_trefoil() { 
         let l = Link::trefoil();
-        let mut b = TngComplexBuilder::new(&l, &2, &0, false);
-
-        b.make_canon_cycles();
-        b.process();
-
-        let zs = b.eval_canon_cycles();
+        let c = TngComplexBuilder::build_kh_complex(&l, &2, &0, false);
+        let zs = c.canon_cycles();
 
         assert_eq!(zs.len(), 2);
         assert_ne!(zs[0], zs[1]);
         
-        let c = b.into_complex();
-
         for z in zs { 
             assert!(z.gens().all(|x| x.h_deg() == 0));
             assert!(c.d(0, &z).is_zero());
