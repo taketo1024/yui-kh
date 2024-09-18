@@ -3,7 +3,7 @@ use std::iter::zip;
 use itertools::Itertools;
 use yui_link::{Edge, Link, LinkComp};
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Color { A, B }
 
 impl Color { 
