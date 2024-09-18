@@ -11,9 +11,8 @@ use yui_link::{Crossing, Edge, State};
 use yui::bitseq::Bit;
 
 use crate::kh::{KhAlgGen, KhGen, KhLabel};
-use super::cob::{Cob, Dot, Bottom, CobComp};
+use super::cob::{Cob, Dot, Bottom, CobComp, LcCob, LcCobTrait};
 use super::tng::{Tng, TngComp};
-use super::mor::{Mor, MorTrait};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub(crate) struct TngKey { 
@@ -49,7 +48,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     key: TngKey,
     tng: Tng,
     in_edges: HashSet<TngKey>,
-    out_edges: HashMap<TngKey, Mor<R>>
+    out_edges: HashMap<TngKey, LcCob<R>>
 }
 
 impl<R> TngVertex<R>
@@ -66,7 +65,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.tng
     }
 
-    pub fn out_edges(&self) -> &HashMap<TngKey, Mor<R>> {
+    pub fn out_edges(&self) -> &HashMap<TngKey, LcCob<R>> {
         &self.out_edges
     }
 }
@@ -134,11 +133,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
     }
 
-    pub fn edge(&self, k: &TngKey, l: &TngKey) -> &Mor<R> {
+    pub fn edge(&self, k: &TngKey, l: &TngKey) -> &LcCob<R> {
         &self.vertices[k].out_edges[l]
     }
 
-    fn add_edge(&mut self, k: &TngKey, l: &TngKey, f: Mor<R>) { 
+    fn add_edge(&mut self, k: &TngKey, l: &TngKey, f: LcCob<R>) { 
         let v = self.vertices.get_mut(k).unwrap();
         v.out_edges.insert(*l, f);
 
@@ -216,7 +215,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices = verts.into_iter().map(|(k, mut v)| { 
             v.tng.connect(c.src());
 
-            modify!(v.out_edges, |edges: HashMap<TngKey, Mor<R>>| { 
+            modify!(v.out_edges, |edges: HashMap<TngKey, LcCob<R>>| { 
                 edges.into_iter().map(|(k, f)| { 
                     (k, f.connect(&c))
                 }).collect()
@@ -258,7 +257,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // append 0 / 1 to out_edges with id-cob connected.
         let e = if r.is_zero() { R::one() } else { -R::one() };
-        modify!(v.out_edges, |edges: HashMap<TngKey, Mor<R>>| { 
+        modify!(v.out_edges, |edges: HashMap<TngKey, LcCob<R>>| { 
             edges.into_iter().map(|(mut k, f)| { 
                 k.state.push(r);
                 (k, f.connect(c) * &e)
@@ -267,7 +266,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn insert_sdl(v0: &mut TngVertex<R>, v1: &mut TngVertex<R>, sdl: Cob) { 
-        let f = Mor::from(sdl);
+        let f = LcCob::from(sdl);
         v0.out_edges.insert(v1.key, f);
         v1.in_edges.insert(v0.key);
     }
@@ -591,12 +590,12 @@ mod tests {
             TngComp::arc(0,1),
             TngComp::arc(2,3)
         ]));
-        let f = Mor::from((c.clone(), -1));
+        let f = LcCob::from((c.clone(), -1));
 
         assert!(f.is_invertible());
         assert_eq!(f.inv(), Some(f.clone()));
 
-        let f = Mor::from((c.clone(), 2));
+        let f = LcCob::from((c.clone(), 2));
         assert!(!f.is_invertible());
         assert_eq!(f.inv(), None);
     }
