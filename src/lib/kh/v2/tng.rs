@@ -235,11 +235,10 @@ impl Tng {
         )
     }
 
-    pub fn find_loop(&self, exclude: Option<Edge>) -> Option<(usize, &TngComp)> {
+    pub fn find_loop(&self, allow_marked: bool) -> Option<usize> {
         self.comps.iter().enumerate().find(|(_, c)| 
-            c.is_circle() && 
-            exclude.map(|e| e != c.min_edge()).unwrap_or(true)
-        )
+            c.is_circle() && (allow_marked || !c.is_marked())
+        ).map(|(i, _)| i)
     }
 
     pub fn euler_num(&self) -> isize { 
@@ -351,23 +350,23 @@ mod tests {
     fn deloop() { 
         let mut t = Tng::empty();
         assert_eq!(t.ncomps(), 0);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_loop(false), None);
 
         t.append_arc(TngComp::short_arc(0, 1, false));
         assert_eq!(t.ncomps(), 1);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_loop(false), None);
 
         t.append_arc(TngComp::short_arc(2, 3, false));
         assert_eq!(t.ncomps(), 2);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_loop(false), None);
 
         t.append_arc(TngComp::short_arc(2, 3, false));
         assert_eq!(t.ncomps(), 2);
-        assert_eq!(t.find_loop(None), Some((1, t.comp(1))));
+        assert_eq!(t.find_loop(false), Some(1));
 
         t.remove_at(1);
 
         assert_eq!(t.ncomps(), 1);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_loop(false), None);
     }
 }

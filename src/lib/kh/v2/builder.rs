@@ -136,20 +136,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         if self.auto_deloop { 
-            let p = self.complex.base_pt();
-            while let Some((k, r, _)) = self.complex.find_loop(p) { 
-                self.deloop(&k, r, false);
+            while let Some((k, r)) = self.complex.find_loop(false) { 
+                self.deloop(&k, r);
             }
         }
     }
 
-    fn deloop(&mut self, k: &TngKey, r: usize, reduced: bool) {
+    fn deloop(&mut self, k: &TngKey, r: usize) {
         let c = self.complex.vertex(k).tng().comp(r);
         for e in self.elements.iter_mut() { 
-            e.deloop(k, c, reduced);
+            e.deloop(k, c);
         }
 
-        let keys = self.complex.deloop(k, r, reduced);
+        let keys = self.complex.deloop(k, r);
 
         if self.auto_elim { 
             for k in keys { 
@@ -171,8 +170,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn finalize(&mut self) { 
         if self.auto_deloop { 
-            while let Some((k, r, _)) = self.complex.find_loop(None) { 
-                self.deloop(&k, r, true);
+            while let Some((k, r)) = self.complex.find_loop(true) { 
+                self.deloop(&k, r);
             }
         }
         
@@ -275,13 +274,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }).collect();
     }
 
-    pub fn deloop(&mut self, k: &TngKey, c: &TngComp, reduced: bool) {
+    pub fn deloop(&mut self, k: &TngKey, c: &TngComp) {
         let Some(f) = self.retr_cob.remove(k) else { return };
 
         let (k0, f0) = self.deloop_for(k, &f, c, KhAlgGen::X, Dot::None);
         self.retr_cob.insert(k0, f0);
 
-        if !reduced { 
+        if !c.is_marked() { 
             let (k1, f1) = self.deloop_for(k, &f, c, KhAlgGen::I, Dot::Y);
             self.retr_cob.insert(k1, f1);    
         }
