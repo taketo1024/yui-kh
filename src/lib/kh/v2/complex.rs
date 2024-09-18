@@ -21,8 +21,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         
         b.process();
 
-        let canon_cycles = b.eval_canon_cycles(h, t);
-        let complex = b.into_complex().eval(h, t);
+        let canon_cycles = b.eval_canon_cycles();
+        let complex = b.into_complex();
 
         debug_assert!(canon_cycles.iter().all(|z| 
             complex.d(0, z).is_zero()

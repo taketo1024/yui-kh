@@ -102,6 +102,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         TngComplex{ vertices, len, h, t, deg_shift }
     }
 
+    pub fn ht(&self) -> (&R, &R) { 
+        (&self.h, &self.t)
+    }
+
     pub fn deg_shift(&self) -> (isize, isize) { 
         self.deg_shift
     }
@@ -480,10 +484,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         debug_assert!(self.validate_edges());
     }
 
-    pub fn eval(self, h: &R, t: &R) -> XChainComplex<KhGen, R> {
-        debug_assert!(self.is_evalable());
-
-        let (h, t) = (h.clone(), t.clone());
+    pub fn into_complex(self) -> XChainComplex<KhGen, R> {
+        debug_assert!(self.is_finalizable());
 
         let n = self.len();
         let i0 = self.deg_shift.0;
@@ -500,17 +502,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         });
 
         XChainComplex::new(summands, 1, move |_, z| { 
+            let (h, t) = self.ht();
             z.apply(|x| {
                 let k = TngKey::from(x);
                 let v = self.vertex(&k);
                 v.out_edges.iter().map(|(l, f)|
-                    (l.as_gen(x.deg_shift), f.eval(&h, &t))
+                    (l.as_gen(x.deg_shift), f.eval(h, t))
                 ).collect()
             })
         })
     }
 
-    fn is_evalable(&self) -> bool { 
+    fn is_finalizable(&self) -> bool { 
         self.vertices.iter().all(|(_, v)|
             v.tng.is_empty()
         )
