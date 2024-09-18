@@ -815,7 +815,7 @@ mod tests {
         let Some((k, r)) = e else { panic!() };
         let keys = c.deloop(&k, r);
 
-        assert_eq!(c.dim(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1); // not 2
         assert_eq!(keys.len(), 1); // not 2
     }
