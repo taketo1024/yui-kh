@@ -79,16 +79,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 pub struct TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    vertices: HashMap<TngKey, TngVertex<R>>,
-    len: usize,
     h: R,
     t: R,
-    deg_shift: (isize, isize)
+    deg_shift: (isize, isize),
+    base_pt: Option<Edge>,
+    vertices: HashMap<TngKey, TngVertex<R>>,
+    len: usize,
 }
 
 impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    pub fn new(h: &R, t: &R, deg_shift: (isize, isize)) -> Self { 
+    pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
         let mut vertices = HashMap::new();
         let k0 = TngKey::init();
         let v0 = TngVertex::init();
@@ -98,7 +99,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let h = h.clone();
         let t = t.clone();
 
-        TngComplex{ vertices, len, h, t, deg_shift }
+        TngComplex{ h, t, deg_shift, base_pt, vertices, len }
     }
 
     pub fn ht(&self) -> (&R, &R) { 
@@ -107,6 +108,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn deg_shift(&self) -> (isize, isize) { 
         self.deg_shift
+    }
+
+    pub fn base_pt(&self) -> Option<Edge> { 
+        self.base_pt
     }
 
     pub fn len(&self) -> usize { 
@@ -179,7 +184,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let verts = std::mem::take(&mut self.vertices);
 
-        let sdl = CobComp::sdl_from(x);
+        let sdl = CobComp::sdl_from(x, self.base_pt);
         let c0 = Cob::id(sdl.src());
         let c1 = Cob::id(sdl.tgt());
 
@@ -210,7 +215,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(x.is_resolved());
 
         let verts = std::mem::take(&mut self.vertices);
-        let c = Cob::id(&Tng::from_resolved(x));
+        let c = Cob::id(&Tng::from_resolved(x, self.base_pt));
 
         self.vertices = verts.into_iter().map(|(k, mut v)| { 
             v.tng.connect(c.src());
@@ -587,8 +592,8 @@ mod tests {
     #[test]
     fn mor_inv() { 
         let c = Cob::id(&Tng::new(vec![
-            TngComp::arc(0,1),
-            TngComp::arc(2,3)
+            TngComp::short_arc(0, 1, false),
+            TngComp::short_arc(2, 3, false)
         ]));
         let f = LcCob::from((c.clone(), -1));
 
@@ -602,7 +607,7 @@ mod tests {
 
     #[test]
     fn empty() { 
-        let c = TngComplex::new(&0, &0, (0, 0));
+        let c = TngComplex::new(&0, &0, (0, 0), None);
 
         assert_eq!(c.len(), 1);
         assert_eq!(c.rank(0), 1);
@@ -610,7 +615,7 @@ mod tests {
 
     #[test]
     fn single_x() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x = Crossing::from_pd_code([0,1,2,3]);
         c.append(&x);
 
@@ -621,7 +626,7 @@ mod tests {
 
     #[test]
     fn single_x_resolved() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x = Crossing::from_pd_code([0,1,2,3]).resolved(Bit::Bit0);
         c.append(&x);
 
@@ -631,7 +636,7 @@ mod tests {
 
     #[test]
     fn two_x_disj() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([0,1,2,3]);
         let x1 = Crossing::from_pd_code([4,5,6,7]);
 
@@ -646,7 +651,7 @@ mod tests {
 
     #[test]
     fn two_x() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([0,4,1,5]);
         let x1 = Crossing::from_pd_code([3,1,4,2]);
 
@@ -661,7 +666,7 @@ mod tests {
 
     #[test]
     fn deloop_one() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([4,2,5,1]);
         let x1 = Crossing::from_pd_code([3,6,4,1]);
 

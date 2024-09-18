@@ -22,7 +22,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     complex: TngComplex<R>,
     crossings: Vec<Crossing>,
     elements: Vec<Elem<R>>,
-    base_pt: Option<Edge>,
     pub auto_deloop: bool,
     pub auto_elim: bool
 }
@@ -31,16 +30,14 @@ impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
         let deg_shift = KhComplex::deg_shift_for(l, reduced);
-        let mut b = Self::new(h, t, deg_shift);
-
         let base_pt = if reduced { 
             l.first_edge()
         } else { 
             None
         };
 
+        let mut b = Self::new(h, t, deg_shift, base_pt);
         b.crossings = l.data().clone();
-        b.base_pt = base_pt;
 
         if t.is_zero() && l.is_knot() {
             b.elements = Self::make_canon_cycles(l, base_pt);
@@ -55,16 +52,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     }
 
-    pub fn new(h: &R, t: &R, deg_shift: (isize, isize)) -> Self { 
-        let complex = TngComplex::new(h, t, deg_shift);
+    pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
+        let complex = TngComplex::new(h, t, deg_shift, base_pt);
         let crossings = vec![];
-        let canon_cycles = vec![];
-        let base_pt = None;
+        let elements = vec![];
 
         let auto_deloop = true;
         let auto_elim   = true;
 
-        Self { complex, crossings, elements: canon_cycles, base_pt, auto_deloop, auto_elim }
+        Self { complex, crossings, elements, auto_deloop, auto_elim }
     }
 
     pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> { 
@@ -85,6 +81,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let mut remain = std::mem::take(&mut self.crossings);
         let mut endpts = HashSet::new();
         let mut sorted = Vec::new();
+        let base_pt = self.complex.base_pt();
 
         fn take_best(remain: &mut Vec<Crossing>, endpts: &mut HashSet<Edge>, base_pt: Option<Edge>) -> Option<Crossing> { 
             if remain.is_empty() { 
@@ -122,7 +119,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             Some(x)
         }
 
-        while let Some(x) = take_best(&mut remain, &mut endpts, self.base_pt) { 
+        while let Some(x) = take_best(&mut remain, &mut endpts, base_pt) { 
             sorted.push(x);
         }
 
@@ -139,7 +136,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         if self.auto_deloop { 
-            let p = self.base_pt;
+            let p = self.complex.base_pt();
             while let Some((k, r, _)) = self.complex.find_loop(p) { 
                 self.deloop(&k, r, false);
             }
@@ -173,7 +170,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn finalize(&mut self) { 
-        if self.auto_deloop && self.base_pt.is_some() { 
+        if self.auto_deloop { 
             while let Some((k, r, _)) = self.complex.find_loop(None) { 
                 self.deloop(&k, r, true);
             }
@@ -202,7 +199,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let circles = l.colored_seifert_circles(p);
             let cob = Cob::new(
                 circles.iter().map(|(circ, col)| { 
-                    let t = TngComp::from_link_comp(circ);
+                    let t = TngComp::from_link_comp(circ, base_pt);
                     let mut cup = CobComp::cup(t);
                     let dot = if col.is_a() == o { 
                         Dot::X 
@@ -213,7 +210,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     cup
                 }).collect()
             );
-            Elem::new(cob, s.clone())
+            Elem::new(cob, s.clone(), base_pt)
         }).collect()
     }
 
@@ -230,14 +227,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     init_cob: Cob,                     // precomposed at the final step.
     retr_cob: HashMap<TngKey, LcCob<R>>, // src must partially match init_cob. 
     state: HashMap<Crossing, Bit>,
+    base_pt: Option<Edge>
 }
 
 impl<R> Elem<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn new(init_cob: Cob, state: HashMap<Crossing, Bit>) -> Self { 
+    pub fn new(init_cob: Cob, state: HashMap<Crossing, Bit>, base_pt: Option<Edge>) -> Self { 
         let f = LcCob::from(Cob::empty());
         let retr_cob = hashmap! { TngKey::init() => f };
-        Self{ init_cob, retr_cob, state }
+        Self{ init_cob, retr_cob, state, base_pt }
     }
 
     pub fn append(&mut self, x: &Crossing) { 
@@ -253,7 +251,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let r = self.state[x];
         let a = x.resolved(r);
-        let tng = Tng::from_resolved(&a);
+        let tng = Tng::from_resolved(&a, self.base_pt);
         let id = Cob::id(&tng);
 
         let mors = std::mem::take(&mut self.retr_cob);
@@ -267,7 +265,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn append_a(&mut self, x: &Crossing) {
         assert!(x.is_resolved());
 
-        let tng = Tng::from_resolved(x);
+        let tng = Tng::from_resolved(x, self.base_pt);
         let id = Cob::id(&tng);
 
         let mors = std::mem::take(&mut self.retr_cob);
