@@ -276,22 +276,22 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         v1.in_edges.insert(v0.key);
     }
 
-    pub fn find_loop(&self, exclude: Option<Edge>) -> Option<(TngKey, usize, &TngComp)> { 
+    pub fn find_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
         for (k, v) in self.iter_verts() { 
-            if let Some((r, c)) = v.tng.find_loop(exclude) { 
-                return Some((*k, r, c))
+            if let Some(r) = v.tng.find_loop(allow_marked) { 
+                return Some((*k, r))
             }
         }
         None
     }
 
-    pub fn deloop(&mut self, k: &TngKey, r: usize, reduced: bool) -> Vec<TngKey> { 
+    pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
 
         let mut v = self.vertices.remove(k).unwrap();
         let c = v.tng.remove_at(r);
 
-        if reduced { 
+        if c.is_marked() { 
             self.deloop_in(&mut v, &c, KhAlgGen::X, Dot::X, Dot::None, true);
 
             let k_new = v.key;
@@ -678,10 +678,10 @@ mod tests {
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
 
-        let e = c.find_loop(None);
+        let e = c.find_loop(false);
         assert!(e.is_some());
 
-        let Some((k, r, _)) = e else { panic!() };
+        let Some((k, r)) = e else { panic!() };
 
         assert_eq!(k, TngKey {
             state: State::from([1,0]), 
@@ -689,7 +689,7 @@ mod tests {
         });
         assert_eq!(r, 2);
 
-        c.deloop(&k, r, false);
+        c.deloop(&k, r);
 
         assert_eq!(c.len(), 3);
         assert_eq!(c.rank(0), 1);
