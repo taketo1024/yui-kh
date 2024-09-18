@@ -2,10 +2,11 @@ use std::collections::HashSet;
 
 use log::info;
 use yui::{Ring, RingOps};
+use yui_homology::XChainComplex;
 use yui_link::{Link, Crossing, Edge};
 
 use crate::ext::LinkExt;
-use crate::kh::{KhChain, KhComplex};
+use crate::kh::{KhChain, KhComplex, KhGen};
 
 use super::tng::TngComp;
 use super::cob::{Cob, CobComp, Dot};
@@ -14,11 +15,10 @@ use super::tng_elem::TngElem;
 
 pub struct TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    crossings: Vec<Crossing>,
     complex: TngComplex<R>,
+    crossings: Vec<Crossing>,
     canon_cycles: Vec<TngElem<R>>,
     base_pt: Option<Edge>,
-    reduced: bool,
     pub auto_deloop: bool,
     pub auto_elim: bool
 }
@@ -40,7 +40,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let auto_deloop = true;
         let auto_elim   = true;
 
-        Self { crossings, complex, canon_cycles: vec![], base_pt, reduced, auto_deloop, auto_elim }
+        Self { crossings, complex, canon_cycles: vec![], base_pt, auto_deloop, auto_elim }
     }
 
     fn sort_crossings(l: &Link, base_pt: &Option<Edge>) -> Vec<Crossing> { 
@@ -91,12 +91,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         res
     }
 
-    pub fn complex(&self) -> &TngComplex<R> { 
-        &self.complex
-    }
-
-    pub fn into_complex(self) -> TngComplex<R> { 
-        self.complex
+    pub fn into_complex(self) -> XChainComplex<KhGen, R> { 
+        self.complex.into_complex()
     }
 
     pub fn canon_cycles(&self) -> &Vec<TngElem<R>> { 
@@ -154,7 +150,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn finalize(&mut self) { 
-        if self.reduced && self.auto_deloop { 
+        if self.auto_deloop && self.base_pt.is_some() { 
             while let Some((k, r, _)) = self.complex.find_loop(None) { 
                 self.deloop(&k, r, true);
             }
@@ -173,7 +169,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let p = l.first_edge().unwrap();
         let s = l.ori_pres_state();
 
-        let ori = if self.reduced { 
+        let ori = if self.base_pt.is_some() { 
             vec![true]
         } else { 
             vec![true, false]
@@ -204,7 +200,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.canon_cycles = cycles;
     }
 
-    pub fn eval_canon_cycles(&self, h: &R, t: &R) -> Vec<KhChain<R>> { 
+    pub fn eval_canon_cycles(&self) -> Vec<KhChain<R>> {
+        let (h, t) = self.complex.ht();
         self.canon_cycles.iter().map(|z|
             z.eval(h, t, self.complex.deg_shift())
         ).collect()
@@ -224,7 +221,7 @@ mod tests {
         let mut b = TngComplexBuilder::new(&l, &0, &0, false);
         b.process();
 
-        let c = b.complex.eval(&0, &0);
+        let c = b.into_complex();
 
         assert_eq!(c[0].rank(), 2);
         assert_eq!(c[1].rank(), 0);
@@ -236,7 +233,7 @@ mod tests {
         let mut b = TngComplexBuilder::new(&l, &0, &0, false);
         b.process();
 
-        let c = b.complex.eval(&0, &0);
+        let c = b.into_complex();
 
         c.check_d_all();
 
@@ -250,7 +247,7 @@ mod tests {
         let mut b = TngComplexBuilder::new(&l, &0, &0, false);
         b.process();
 
-        let c = b.complex.eval(&0, &0);
+        let c = b.into_complex();
 
         c.check_d_all();
 
@@ -266,7 +263,7 @@ mod tests {
         let mut b = TngComplexBuilder::new(&l, &0, &0, false);
         b.process();
 
-        let c = b.complex.eval(&0, &0);
+        let c = b.into_complex();
 
         c.check_d_all();
 
@@ -281,7 +278,7 @@ mod tests {
         let mut b = TngComplexBuilder::new(&l, &0, &0, false);
         b.process();
 
-        let c = b.complex.eval(&0, &0);
+        let c = b.into_complex();
 
         c.check_d_all();
 
@@ -296,7 +293,7 @@ mod tests {
         let mut b = TngComplexBuilder::new(&l, &0, &0, false);
         b.process();
 
-        let c = b.complex.eval(&0, &0);
+        let c = b.into_complex();
 
         c.check_d_all();
 
@@ -322,17 +319,17 @@ mod tests {
     #[test]
     fn canon_cycle_trefoil() { 
         let l = Link::trefoil();
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
+        let mut b = TngComplexBuilder::new(&l, &2, &0, false);
 
         b.make_canon_cycles();
         b.process();
 
-        let zs = b.eval_canon_cycles(&2, &0);
+        let zs = b.eval_canon_cycles();
 
         assert_eq!(zs.len(), 2);
         assert_ne!(zs[0], zs[1]);
         
-        let c = b.complex.eval(&2, &0);
+        let c = b.into_complex();
 
         for z in zs { 
             assert!(z.gens().all(|x| x.h_deg() == 0));
