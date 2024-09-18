@@ -40,7 +40,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             None
         };
 
-        b.crossings = Self::sort_crossings(l, base_pt);
+        b.crossings = l.data().clone();
         b.base_pt = base_pt;
 
         if t.is_zero() && l.is_knot() {
@@ -68,10 +68,24 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Self { complex, crossings, elements: canon_cycles, base_pt, auto_deloop, auto_elim }
     }
 
-    fn sort_crossings(l: &Link, base_pt: Option<Edge>) -> Vec<Crossing> { 
-        let mut remain = l.data().clone();
+    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> { 
+        self.complex.into_complex()
+    }
+
+    pub fn process(&mut self) {
+        self.sort_crossings();
+
+        for i in 0 .. self.crossings.len() { 
+            self.proceed_each(i);
+        }
+        
+        self.finalize();
+    }
+
+    fn sort_crossings(&mut self) { 
+        let mut remain = std::mem::take(&mut self.crossings);
         let mut endpts = HashSet::new();
-        let mut res = Vec::new();
+        let mut sorted = Vec::new();
 
         fn take_best(remain: &mut Vec<Crossing>, endpts: &mut HashSet<Edge>, base_pt: Option<Edge>) -> Option<Crossing> { 
             if remain.is_empty() { 
@@ -109,22 +123,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             Some(x)
         }
 
-        while let Some(x) = take_best(&mut remain, &mut endpts, base_pt) { 
-            res.push(x);
+        while let Some(x) = take_best(&mut remain, &mut endpts, self.base_pt) { 
+            sorted.push(x);
         }
 
-        res
-    }
-
-    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> { 
-        self.complex.into_complex()
-    }
-
-    pub fn process(&mut self) {
-        for i in 0 .. self.crossings.len() { 
-            self.proceed_each(i);
-        }
-        self.finalize();
+        self.crossings = sorted;
     }
 
     fn proceed_each(&mut self, i: usize) { 
@@ -362,6 +365,15 @@ mod tests {
     use yui_homology::{ChainComplexCommon, RModStr};
 
     use super::*;
+
+    #[test]
+    fn test_unknot() {
+        let l = Link::unknot();
+        let c = TngComplexBuilder::build_kh_complex(&l, &2, &0, false);
+
+        assert_eq!(c[0].rank(), 2);
+        assert_eq!(c[1].rank(), 0);
+    }
 
     #[test]
     fn test_unknot_rm1() {
