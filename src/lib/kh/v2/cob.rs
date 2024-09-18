@@ -600,6 +600,12 @@ impl Cob {
         self.comps.push(c);
     }
 
+    pub fn connected(&self, other: &Cob) -> Self {
+        let mut res = self.clone();
+        res.connect(other.clone());
+        res
+    }
+
     pub fn is_stackable(&self, other: &Self) -> bool { 
         self.comps.iter().fold(0, |n, c| n + c.tgt.ncomps()) == 
         other.comps.iter().fold(0, |n, c| n + c.src.ncomps()) && 
@@ -823,6 +829,7 @@ pub trait LcCobTrait: Sized {
     fn map_cob<F>(self, f: F) -> Self where F: Fn(&mut Cob);
     fn connect(self, c: &Cob) -> Self;
     fn connect_comp(self, c: &CobComp) -> Self;
+    fn connected(&self, c: &Cob) -> Self;
     fn cap_off(self, b: Bottom, c: &TngComp, dot: Dot) -> Self;
     fn part_eval(self, h: &Self::R, t: &Self::R) -> Self;
     fn eval(&self, h: &Self::R, t: &Self::R) -> Self::R;
@@ -886,6 +893,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn connect_comp(self, c: &CobComp) -> Self {
         self.map_cob(|cob| cob.connect_comp(c.clone()) )
+    }
+
+    fn connected(&self, c: &Cob) -> Self { 
+        self.map(|cob, r| { 
+            (cob.connected(c), r.clone())
+        })
     }
 
     fn cap_off(self, b: Bottom, c: &TngComp, dot: Dot) -> Self {
