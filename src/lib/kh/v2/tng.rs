@@ -126,9 +126,9 @@ impl From<&LinkComp> for TngComp {
         let e = c.min_edge();
         if let Some((l, r)) = c.ends() { 
             match Ord::cmp(&l, &r) { 
-                Equal   => Self::Circ(e),
                 Less    => Self::Arc(l, e, r),
-                Greater => Self::Arc(r, e, l)
+                Greater => Self::Arc(r, e, l),
+                Equal   => panic!(),
             }
         } else { 
             Self::Circ(e)
