@@ -3,9 +3,10 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 use num_traits::Zero;
+use yui::bitseq::Bit;
 use yui::{hashmap, Ring, RingOps};
 use yui_homology::XChainComplex;
-use yui_link::{Crossing, Edge, Link, State};
+use yui_link::{Crossing, Edge, Link};
 
 use crate::ext::LinkExt;
 use crate::kh::v2::mor::MorTrait;
@@ -39,11 +40,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             None
         };
 
-        b.crossings = Self::sort_crossings(l, &base_pt);
+        b.crossings = Self::sort_crossings(l, base_pt);
         b.base_pt = base_pt;
 
         if t.is_zero() && l.is_knot() {
-            b.elements = b.make_canon_cycles();
+            b.elements = Self::make_canon_cycles(l, base_pt);
         }
         
         b.process();
@@ -67,12 +68,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Self { complex, crossings, elements: canon_cycles, base_pt, auto_deloop, auto_elim }
     }
 
-    fn sort_crossings(l: &Link, base_pt: &Option<Edge>) -> Vec<Crossing> { 
+    fn sort_crossings(l: &Link, base_pt: Option<Edge>) -> Vec<Crossing> { 
         let mut remain = l.data().clone();
         let mut endpts = HashSet::new();
         let mut res = Vec::new();
 
-        fn take_best(remain: &mut Vec<Crossing>, endpts: &mut HashSet<Edge>, base_pt: &Option<Edge>) -> Option<Crossing> { 
+        fn take_best(remain: &mut Vec<Crossing>, endpts: &mut HashSet<Edge>, base_pt: Option<Edge>) -> Option<Crossing> { 
             if remain.is_empty() { 
                 return None 
             }
@@ -82,7 +83,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
             for (i, x) in remain.iter().enumerate() { 
                 if let Some(e) = base_pt { 
-                    if x.edges().contains(e) { 
+                    if x.edges().contains(&e) { 
                         continue
                     }
                 }
@@ -181,15 +182,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn make_canon_cycles(&self) -> Vec<Elem<R>> { 
-        let l = Link::new(self.crossings.clone());
-        
+    fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<Elem<R>> { 
         assert_eq!(l.components().len(), 1);
 
-        let p = l.first_edge().unwrap();
-        let s = l.ori_pres_state();
+        let p = base_pt.or(l.first_edge()).unwrap();
+        let s = l.ori_pres_state().iter().enumerate().map(|(i, b)|
+            (l.crossing_at(i).clone(), b)
+        ).collect::<HashMap<_, _>>();
 
-        let ori = if self.base_pt.is_some() { 
+        let ori = if base_pt.is_some() { 
             vec![true]
         } else { 
             vec![true, false]
@@ -197,7 +198,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         ori.into_iter().map(|o| { 
             let circles = l.colored_seifert_circles(p);
-            let f = Cob::new(
+            let cob = Cob::new(
                 circles.iter().map(|(circ, col)| { 
                     let t = TngComp::from(circ);
                     let mut cup = CobComp::cup(t);
@@ -210,7 +211,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     cup
                 }).collect()
             );
-            Elem::new(s, f)
+            Elem::new(cob, s.clone())
         }).collect()
     }
 
@@ -224,20 +225,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 struct Elem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    state: State,
     init_cob: Cob,                     // precomposed at the final step.
     retr_cob: HashMap<TngKey, Mor<R>>, // src must partially match init_cob. 
-    x_count: usize
+    state: HashMap<Crossing, Bit>,
 }
 
 impl<R> Elem<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn new(state: State, init_cob: Cob) -> Self { 
+    pub fn new(init_cob: Cob, state: HashMap<Crossing, Bit>) -> Self { 
         let f = Mor::from(Cob::empty());
-        let mors = hashmap! { TngKey::init() => f };
-        let x_count = 0;
-
-        Self{ state, init_cob, retr_cob: mors, x_count }
+        let retr_cob = hashmap! { TngKey::init() => f };
+        Self{ init_cob, retr_cob, state }
     }
 
     pub fn append(&mut self, x: &Crossing) { 
@@ -251,9 +249,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn append_x(&mut self, x: &Crossing) {
         assert!(!x.is_resolved());
 
-        let i = self.x_count;
-        let r = self.state[i];
-
+        let r = self.state[x];
         let a = x.resolved(r);
         let tng = Tng::from_a(&a);
         let id = Cob::id(&tng);
@@ -264,8 +260,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let f = f.connect(&id);
             (k, f)
         }).collect();
-
-        self.x_count += 1;
     }
 
     fn append_a(&mut self, x: &Crossing) {
