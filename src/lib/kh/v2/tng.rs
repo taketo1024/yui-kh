@@ -235,6 +235,12 @@ impl Tng {
         )
     }
 
+    pub fn connected(&self, other: &Self) -> Self { 
+        let mut res = self.clone();
+        res.connect(other.clone());
+        res
+    }
+
     pub fn find_loop(&self, allow_marked: bool) -> Option<usize> {
         self.comps.iter().enumerate().find(|(_, c)| 
             c.is_circle() && (allow_marked || !c.is_marked())
