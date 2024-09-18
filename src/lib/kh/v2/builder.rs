@@ -1,23 +1,27 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 
-use log::info;
-use yui::{Ring, RingOps};
+use itertools::Itertools;
+use num_traits::Zero;
+use yui::{hashmap, Ring, RingOps};
 use yui_homology::XChainComplex;
-use yui_link::{Link, Crossing, Edge};
+use yui_link::{Crossing, Edge, Link, State};
 
 use crate::ext::LinkExt;
-use crate::kh::{KhChain, KhComplex, KhGen};
+use crate::kh::v2::mor::MorTrait;
+use crate::kh::v2::tng::Tng;
+use crate::kh::{KhAlgGen, KhChain, KhComplex, KhGen};
 
+use super::cob::{Bottom, Cob, CobComp, Dot};
+use super::mor::Mor;
 use super::tng::TngComp;
-use super::cob::{Cob, CobComp, Dot};
 use super::tng_complex::{TngComplex, TngKey};
-use super::tng_elem::TngElem;
 
 pub struct TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     complex: TngComplex<R>,
     crossings: Vec<Crossing>,
-    canon_cycles: Vec<TngElem<R>>,
+    elements: Vec<Elem<R>>,
     base_pt: Option<Edge>,
     pub auto_deloop: bool,
     pub auto_elim: bool
@@ -39,12 +43,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.base_pt = base_pt;
 
         if t.is_zero() && l.is_knot() {
-            b.make_canon_cycles();
+            b.elements = b.make_canon_cycles();
         }
         
         b.process();
 
-        let canon_cycles = b.eval_canon_cycles();
+        let canon_cycles = b.eval_elements();
         let complex = b.into_raw_complex();
 
         KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
@@ -60,7 +64,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let auto_deloop = true;
         let auto_elim   = true;
 
-        Self { complex, crossings, canon_cycles, base_pt, auto_deloop, auto_elim }
+        Self { complex, crossings, elements: canon_cycles, base_pt, auto_deloop, auto_elim }
     }
 
     fn sort_crossings(l: &Link, base_pt: &Option<Edge>) -> Vec<Crossing> { 
@@ -127,7 +131,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         
         self.complex.append(x);
 
-        for e in self.canon_cycles.iter_mut() { 
+        for e in self.elements.iter_mut() { 
             e.append(x);
         }
 
@@ -141,7 +145,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn deloop(&mut self, k: &TngKey, r: usize, reduced: bool) {
         let c = self.complex.vertex(k).tng().comp(r);
-        for e in self.canon_cycles.iter_mut() { 
+        for e in self.elements.iter_mut() { 
             e.deloop(k, c, reduced);
         }
 
@@ -157,7 +161,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn eliminate(&mut self, k: &TngKey) {
         if let Some((i, j)) = self.complex.find_inv_edge(k) { 
             let i_out = self.complex.vertex(&i).out_edges();
-            for e in self.canon_cycles.iter_mut() { 
+            for e in self.elements.iter_mut() { 
                 e.eliminate(&i, &j, i_out);
             }
             
@@ -172,12 +176,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         }
         
-        for e in self.canon_cycles.iter_mut() { 
+        for e in self.elements.iter_mut() { 
             e.finalize();
         }
     }
 
-    pub fn make_canon_cycles(&mut self) { 
+    fn make_canon_cycles(&self) -> Vec<Elem<R>> { 
         let l = Link::new(self.crossings.clone());
         
         assert_eq!(l.components().len(), 1);
@@ -191,7 +195,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             vec![true, false]
         };
 
-        let cycles = ori.into_iter().map(|o| { 
+        ori.into_iter().map(|o| { 
             let circles = l.colored_seifert_circles(p);
             let f = Cob::new(
                 circles.iter().map(|(circ, col)| { 
@@ -206,21 +210,155 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     cup
                 }).collect()
             );
-    
-            let z = TngElem::init(s, f);
-            info!("canon-cycle: {z}");
-    
-            z
-        }).collect();
-        
-        self.canon_cycles = cycles;
+            Elem::new(s, f)
+        }).collect()
     }
 
-    pub fn eval_canon_cycles(&self) -> Vec<KhChain<R>> {
+    pub fn eval_elements(&self) -> Vec<KhChain<R>> {
         let (h, t) = self.complex.ht();
-        self.canon_cycles.iter().map(|z|
+        self.elements.iter().map(|z|
             z.eval(h, t, self.complex.deg_shift())
         ).collect()
+    }
+}
+
+struct Elem<R>
+where R: Ring, for<'x> &'x R: RingOps<R> {
+    state: State,
+    init_cob: Cob,                     // precomposed at the final step.
+    retr_cob: HashMap<TngKey, Mor<R>>, // src must partially match init_cob. 
+    x_count: usize
+}
+
+impl<R> Elem<R> 
+where R: Ring, for<'x> &'x R: RingOps<R> { 
+    pub fn new(state: State, init_cob: Cob) -> Self { 
+        let f = Mor::from(Cob::empty());
+        let mors = hashmap! { TngKey::init() => f };
+        let x_count = 0;
+
+        Self{ state, init_cob, retr_cob: mors, x_count }
+    }
+
+    pub fn append(&mut self, x: &Crossing) { 
+        if !x.is_resolved() { 
+            self.append_x(x)
+        } else { 
+            self.append_a(x)
+        }
+    }
+
+    fn append_x(&mut self, x: &Crossing) {
+        assert!(!x.is_resolved());
+
+        let i = self.x_count;
+        let r = self.state[i];
+
+        let a = x.resolved(r);
+        let tng = Tng::from_a(&a);
+        let id = Cob::id(&tng);
+
+        let mors = std::mem::take(&mut self.retr_cob);
+        self.retr_cob = mors.into_iter().map(|(mut k, f)| {
+            k.state.push(r);
+            let f = f.connect(&id);
+            (k, f)
+        }).collect();
+
+        self.x_count += 1;
+    }
+
+    fn append_a(&mut self, x: &Crossing) {
+        assert!(x.is_resolved());
+
+        let tng = Tng::from_a(x);
+        let id = Cob::id(&tng);
+
+        let mors = std::mem::take(&mut self.retr_cob);
+        self.retr_cob = mors.into_iter().map(|(k, f)| {
+            let f = f.connect(&id);
+            (k, f)
+        }).collect();
+    }
+
+    pub fn deloop(&mut self, k: &TngKey, c: &TngComp, reduced: bool) {
+        let Some(f) = self.retr_cob.remove(k) else { return };
+
+        let (k0, f0) = self.deloop_for(k, &f, c, KhAlgGen::X, Dot::None);
+        self.retr_cob.insert(k0, f0);
+
+        if !reduced { 
+            let (k1, f1) = self.deloop_for(k, &f, c, KhAlgGen::I, Dot::Y);
+            self.retr_cob.insert(k1, f1);    
+        }
+    }
+
+    fn deloop_for(&self, k: &TngKey, f: &Mor<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (TngKey, Mor<R>) { 
+        let mut k_new = *k;
+        k_new.label.push(label);
+
+        let f_new = f.clone().cap_off(Bottom::Tgt, c, dot);
+        (k_new, f_new)
+    }
+
+    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey, i_out: &HashMap<TngKey, Mor<R>>) {
+        // mors into i can be simply dropped.
+        self.retr_cob.remove(i);
+
+        // mors into j must be redirected by -ca^{-1}
+        let Some(f) = self.retr_cob.remove(j) else { return };
+
+        let a = &i_out[&j];
+        let ainv = a.inv().unwrap();
+
+        for (k, c) in i_out.iter() { 
+            if k == j { continue }
+
+            let caf = c * &ainv * &f;
+            let d = if let Some(d) = self.retr_cob.get(k) { 
+                d - caf
+            } else { 
+                -caf
+            };
+
+            if !d.is_zero() { 
+                self.retr_cob.insert(*k, d);
+            } else { 
+                self.retr_cob.remove(k);
+            }
+        }
+    }
+
+    pub fn finalize(&mut self) { 
+        let val = std::mem::take(&mut self.init_cob);
+        let mut mors = std::mem::take(&mut self.retr_cob);
+
+        mors = mors.into_iter().map(|(k, f)|
+            (k, f.map_cob(|c| *c = &*c * &val))
+        ).collect();
+        mors.retain(|_, f| !f.is_zero());
+
+        self.retr_cob = mors;
+    }
+
+    pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
+        assert!(self.init_cob.is_empty());
+        assert!(self.retr_cob.values().all(|f| f.is_closed()));
+
+        KhChain::from_iter(self.retr_cob.iter().map(|(k, f)| {
+            let x = KhGen::new(k.state, k.label, deg_shift);
+            (x, f.eval(h, t))
+        }))
+    }
+}
+
+impl<R> Display for Elem<R>
+where R: Ring, for<'x> &'x R: RingOps<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mors = self.retr_cob.iter().map(|(k, f)| { 
+            format!("{}: {}", k, f)
+        }).join(", ");
+        write!(f, "[{}]", mors)
     }
 }
 
