@@ -179,7 +179,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let verts = std::mem::take(&mut self.vertices);
 
-        let sdl = CobComp::from(x);
+        let sdl = CobComp::sdl_from(x);
         let c0 = Cob::id(sdl.src());
         let c1 = Cob::id(sdl.tgt());
 
@@ -210,7 +210,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(x.is_resolved());
 
         let verts = std::mem::take(&mut self.vertices);
-        let c = Cob::id(&Tng::from_a(x));
+        let c = Cob::id(&Tng::from_resolved(x));
 
         self.vertices = verts.into_iter().map(|(k, mut v)| { 
             v.tng.connect(c.src());

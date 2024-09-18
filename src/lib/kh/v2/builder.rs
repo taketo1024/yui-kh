@@ -202,7 +202,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let circles = l.colored_seifert_circles(p);
             let cob = Cob::new(
                 circles.iter().map(|(circ, col)| { 
-                    let t = TngComp::from(circ);
+                    let t = TngComp::from_link_comp(circ);
                     let mut cup = CobComp::cup(t);
                     let dot = if col.is_a() == o { 
                         Dot::X 
@@ -253,7 +253,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let r = self.state[x];
         let a = x.resolved(r);
-        let tng = Tng::from_a(&a);
+        let tng = Tng::from_resolved(&a);
         let id = Cob::id(&tng);
 
         let mors = std::mem::take(&mut self.retr_cob);
@@ -267,7 +267,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn append_a(&mut self, x: &Crossing) {
         assert!(x.is_resolved());
 
-        let tng = Tng::from_a(x);
+        let tng = Tng::from_resolved(x);
         let id = Cob::id(&tng);
 
         let mors = std::mem::take(&mut self.retr_cob);
