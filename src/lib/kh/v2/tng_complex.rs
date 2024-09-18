@@ -665,7 +665,27 @@ mod tests {
     }
 
     #[test]
-    fn deloop_one() { 
+    fn deloop() { 
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
+        c.append(&x0);
+
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.rank(0), 1);
+
+        let e = c.find_loop(false);
+        assert!(e.is_some());
+        
+        let Some((k, r)) = e else { panic!() };
+        let keys = c.deloop(&k, r);
+
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.rank(0), 2);
+        assert_eq!(keys.len(), 2);
+    }
+
+    #[test]
+    fn deloop_tangle() { 
         let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([4,2,5,1]);
         let x1 = Crossing::from_pd_code([3,6,4,1]);
@@ -695,5 +715,28 @@ mod tests {
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 3); // delooped here
         assert_eq!(c.rank(2), 1);
+    }
+
+    #[test]
+    fn deloop_marked() { 
+        let mut c = TngComplex::new(&0, &0, (0, 0), Some(0)); // base point = 0
+        let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
+        c.append(&x0);
+
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.rank(0), 1);
+
+        let e = c.find_loop(false);
+        assert!(e.is_none());
+        
+        let e = c.find_loop(true);
+        assert!(e.is_some());
+        
+        let Some((k, r)) = e else { panic!() };
+        let keys = c.deloop(&k, r);
+
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.rank(0), 1); // not 2
+        assert_eq!(keys.len(), 1); // not 2
     }
 }
