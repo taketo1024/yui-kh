@@ -657,6 +657,24 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         }
     }
+
+    pub fn convert_edges<F>(&self, f: F) -> Self
+    where F: Fn(Edge) -> Edge { 
+        let vertices = self.iter_verts().map(|(k1, v1)| {
+            let k2 = k1.clone();
+            let t2 = v1.tng().convert_edges(&f);
+            let in_edges = v1.in_edges.clone();
+            let out_edges = v1.out_edges().iter().map(|(k, cob)|
+                (k.clone(), cob.convert_edges(&f))
+            ).collect();
+            let v2 = TngVertex { key: k2, tng: t2, in_edges, out_edges };
+            (k2, v2)
+        }).collect();
+
+        let base_pt = self.base_pt.map(|e| f(e));
+
+        TngComplex::new(&self.h, &self.t, self.deg_shift, base_pt, vertices, self.dim)
+    }
 }
 
 macro_rules! modify {
