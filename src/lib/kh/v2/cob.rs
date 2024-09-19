@@ -19,12 +19,12 @@ pub enum Dot {
     None, X, Y
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug, Display)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Display)]
 pub enum Bottom { 
     Src, Tgt
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct CobComp { 
     src: Tng,
     tgt: Tng,
@@ -437,12 +437,6 @@ impl Elem for CobComp {
     }
 }
 
-impl OrdForDisplay for CobComp {
-    fn cmp_for_display(&self, _other: &Self) -> std::cmp::Ordering {
-        std::cmp::Ordering::Equal
-    }
-}
-
 impl Gen for CobComp {}
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
@@ -451,7 +445,9 @@ pub struct Cob {
 }
 
 impl Cob {
-    pub fn new(comps: Vec<CobComp>) -> Self { 
+    pub fn new<I>(comps: I) -> Self
+    where I: IntoIterator<Item = CobComp> { 
+        let comps = comps.into_iter().sorted().collect_vec();
         Self { comps }
     }
 
@@ -463,7 +459,7 @@ impl Cob {
         let comps = (0..v.ncomps()).map(|i| {
             let c = v.comp(i).clone();
             CobComp::id(c)
-        }).collect();
+        });
         Self::new(comps)
     }
 
@@ -507,7 +503,7 @@ impl Cob {
 
     pub fn inv(&self) -> Option<Self> { 
         if self.is_invertible() { 
-            let comps = self.comps.iter().map(|c| c.inv().unwrap()).collect();
+            let comps = self.comps.iter().map(|c| c.inv().unwrap());
             let inv = Self::new(comps);
             Some(inv)
         } else { 
@@ -535,6 +531,8 @@ impl Cob {
         if comp.is_removable() { 
             self.comps.remove(i);
         }
+
+        self.normalize();
     }
 
     fn find_comp(&mut self, b: Bottom, c: &TngComp) -> Option<(usize, &mut CobComp, usize)> { 
@@ -545,11 +543,17 @@ impl Cob {
 
     pub fn connect(&mut self, other: Cob) { // horizontal composition
         for c in other.comps.into_iter() { 
-            self.connect_comp(c);
+            self._connect_comp(c);
         }
+        self.normalize();
     }
 
-    pub fn connect_comp(&mut self, mut c: CobComp) {
+    pub fn connect_comp(&mut self, c: CobComp) {
+        self._connect_comp(c);
+        self.normalize();
+    }
+
+    fn _connect_comp(&mut self, mut c: CobComp) {
         let mut i = 0;
 
         while i < self.comps.len() { 
@@ -579,7 +583,10 @@ impl Cob {
     }
 
     pub fn stack(&mut self, other: Cob) { // vertical composition
-        debug_assert!(self.is_stackable(&other));
+        debug_assert!(
+            self.is_stackable(&other),
+            "{} cannot be stacked on {}", other.src(), self.tgt()
+        );
 
         if self.is_empty() { 
             *self = other;
@@ -605,6 +612,8 @@ impl Cob {
                 self.comps.push(c)
             }
         }
+
+        self.normalize()
     }
 
     // collect `bot` & `top` comps that will form a connected component.
@@ -713,6 +722,10 @@ impl Cob {
         R::product(self.comps.iter().map(|c| 
             c.eval(h, t)
         ))
+    }
+
+    fn normalize(&mut self) {
+        self.comps.sort()
     }
 }
 
