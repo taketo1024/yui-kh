@@ -53,7 +53,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
-        let complex = TngComplex::new(h, t, deg_shift, base_pt);
+        let complex = TngComplex::init(h, t, deg_shift, base_pt);
         let crossings = vec![];
         let elements = vec![];
 

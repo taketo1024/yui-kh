@@ -100,17 +100,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
+    fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, vertices: HashMap<TngKey, TngVertex<R>>, dim: usize) -> Self { 
+        let (h, t) = (h.clone(), t.clone());
+        TngComplex{ h, t, deg_shift, base_pt, vertices, dim }
+    }
+
+    pub fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
         let mut vertices = HashMap::new();
         let k0 = TngKey::init();
         let v0 = TngVertex::init();
         vertices.insert(k0, v0);
 
-        let len = 0;
-        let h = h.clone();
-        let t = t.clone();
-
-        TngComplex{ h, t, deg_shift, base_pt, vertices, dim: len }
+        TngComplex::new(h, t, deg_shift, base_pt, vertices, 0)
     }
 
     pub fn ht(&self) -> (&R, &R) { 
@@ -693,7 +694,7 @@ mod tests {
 
     #[test]
     fn empty() { 
-        let c = TngComplex::new(&0, &0, (0, 0), None);
+        let c = TngComplex::init(&0, &0, (0, 0), None);
 
         assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
@@ -701,7 +702,7 @@ mod tests {
 
     #[test]
     fn single_x() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c = TngComplex::init(&0, &0, (0, 0), None);
         let x = Crossing::from_pd_code([0,1,2,3]);
         c.append(&x);
 
@@ -712,7 +713,7 @@ mod tests {
 
     #[test]
     fn single_x_resolved() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c = TngComplex::init(&0, &0, (0, 0), None);
         let x = Crossing::from_pd_code([0,1,2,3]).resolved(Bit::Bit0);
         c.append(&x);
 
@@ -722,7 +723,7 @@ mod tests {
 
     #[test]
     fn two_x_disj() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c = TngComplex::init(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([0,1,2,3]);
         let x1 = Crossing::from_pd_code([4,5,6,7]);
 
@@ -737,7 +738,7 @@ mod tests {
 
     #[test]
     fn two_x() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c = TngComplex::init(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([0,4,1,5]);
         let x1 = Crossing::from_pd_code([3,1,4,2]);
 
@@ -752,7 +753,7 @@ mod tests {
 
     #[test]
     fn deloop() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c = TngComplex::init(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
         c.append(&x0);
 
@@ -772,7 +773,7 @@ mod tests {
 
     #[test]
     fn deloop_tangle() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c = TngComplex::init(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([4,2,5,1]);
         let x1 = Crossing::from_pd_code([3,6,4,1]);
 
@@ -805,7 +806,7 @@ mod tests {
 
     #[test]
     fn deloop_marked() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0), Some(0)); // base point = 0
+        let mut c = TngComplex::init(&0, &0, (0, 0), Some(0)); // base point = 0
         let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
         c.append(&x0);
 
@@ -828,8 +829,8 @@ mod tests {
 
     #[test]
     fn connect() {
-        let mut c0 = TngComplex::new(&0, &0, (0, 0), None);
-        let mut c1 = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c0 = TngComplex::init(&0, &0, (0, 0), None);
+        let mut c1 = TngComplex::init(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([4,2,5,1]);
         let x1 = Crossing::from_pd_code([3,6,4,1]);
 
@@ -848,8 +849,8 @@ mod tests {
 
     #[test]
     fn connect_trefoil() {
-        let mut c0 = TngComplex::new(&0, &0, (0, 0), None);
-        let mut c1 = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c0 = TngComplex::init(&0, &0, (0, 0), None);
+        let mut c1 = TngComplex::init(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([1,4,2,5]);
         let x1 = Crossing::from_pd_code([3,6,4,1]);
         let x2 = Crossing::from_pd_code([5,2,6,3]);
