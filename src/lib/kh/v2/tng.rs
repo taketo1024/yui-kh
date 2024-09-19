@@ -3,13 +3,13 @@ use std::fmt::Display;
 use std::hash::Hash;
 use delegate::delegate;
 use itertools::Itertools;
-use yui_link::{Edge, Crossing, LinkComp};
+use yui_link::{Edge, Crossing, Path};
 
 #[derive(Debug, Clone, Eq)]
-pub struct TngComp(LinkComp);
+pub struct TngComp(Path);
 
-impl From<LinkComp> for TngComp {
-    fn from(path: LinkComp) -> Self {
+impl From<Path> for TngComp {
+    fn from(path: Path) -> Self {
         Self(path)
     }
 }
@@ -17,12 +17,12 @@ impl From<LinkComp> for TngComp {
 impl TngComp { 
     pub fn arc<I>(edges: I) -> Self
     where I: IntoIterator<Item = Edge> { 
-        Self::from(LinkComp::arc(edges))
+        Self::from(Path::arc(edges))
     }
 
     pub fn circ<I>(edges: I) -> Self
     where I: IntoIterator<Item = Edge> { 
-        Self::from(LinkComp::circ(edges))
+        Self::from(Path::circ(edges))
     }
 
     delegate! { 
@@ -37,7 +37,7 @@ impl TngComp {
         }
     }
 
-    pub fn path(&self) -> &LinkComp { 
+    pub fn path(&self) -> &Path { 
         &self.0
     }
 
