@@ -341,16 +341,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         c
     }
 
-    pub fn find_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
-        let pred = |c: &TngComp| { 
-            c.is_circle() && (allow_marked || self.base_pt.map(|e| !c.contains(e)).unwrap_or(true))
-        };
+    pub fn find_comp<F>(&self, pred: F) -> Option<(TngKey, usize)>
+    where F: Fn(&TngComp) -> bool {
         for (k, v) in self.iter_verts() { 
             if let Some(r) = v.tng.find_comp(&pred) { 
                 return Some((*k, r))
             }
         }
         None
+    }
+
+    pub fn find_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
+        self.find_comp(|c|
+            c.is_circle() && (allow_marked || self.base_pt.map(|e| !c.contains(e)).unwrap_or(true))
+        )
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
