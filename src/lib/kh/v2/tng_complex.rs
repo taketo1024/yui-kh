@@ -341,8 +341,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn find_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
+        let avoid = if !allow_marked { 
+            self.base_pt
+        } else { 
+            None
+        };
         for (k, v) in self.iter_verts() { 
-            if let Some(r) = v.tng.find_loop(allow_marked) { 
+            if let Some(r) = v.tng.find_loop(avoid) { 
                 return Some((*k, r))
             }
         }
@@ -354,8 +359,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let mut v = self.vertices.remove(k).unwrap();
         let c = v.tng.remove_at(r);
+        let marked = self.base_pt.map(|e| c.contains(e)).unwrap_or(false);
 
-        if c.is_marked() { 
+        if marked { 
             self.deloop_in(&mut v, &c, KhAlgGen::X, Dot::X, Dot::None, true);
 
             let k_new = v.key;
@@ -672,8 +678,8 @@ mod tests {
     #[test]
     fn mor_inv() { 
         let c = Cob::id(&Tng::new(vec![
-            TngComp::arc([0, 1], false),
-            TngComp::arc([2, 3], false)
+            TngComp::arc([0, 1]),
+            TngComp::arc([2, 3])
         ]));
         let f = LcCob::from((c.clone(), -1));
 
