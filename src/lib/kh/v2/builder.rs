@@ -75,19 +75,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn process(&mut self) {
         self.sort_crossings();
 
-        for i in 0 .. self.crossings.len() { 
-            self.proceed_each(i);
+        while !self.crossings.is_empty() {
+            self.proceed_next();
         }
         
         self.finalize();
     }
 
     fn sort_crossings(&mut self) { 
-        let mut remain = std::mem::take(&mut self.crossings);
-        let mut endpts = HashSet::new();
-        let mut sorted = Vec::new();
-        let base_pt = self.complex.base_pt();
-
         fn take_best(remain: &mut Vec<Crossing>, endpts: &mut HashSet<Edge>, base_pt: Option<Edge>) -> Option<Crossing> { 
             if remain.is_empty() { 
                 return None 
@@ -124,20 +119,24 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             Some(x)
         }
 
-        while let Some(x) = take_best(&mut remain, &mut endpts, base_pt) { 
+        let mut remain = std::mem::take(&mut self.crossings);
+        let mut endpts = HashSet::new();
+        let mut sorted = Vec::new();
+
+        while let Some(x) = take_best(&mut remain, &mut endpts, self.complex.base_pt()) { 
             sorted.push(x);
         }
 
         self.crossings = sorted;
     }
 
-    fn proceed_each(&mut self, i: usize) { 
-        let x = &self.crossings[i];
+    fn proceed_next(&mut self) { 
+        let x = self.crossings.remove(0);
         
-        self.complex.append(x);
+        self.complex.append(&x);
 
         for e in self.elements.iter_mut() { 
-            e.append(x);
+            e.append(&x);
         }
 
         if self.auto_deloop { 
