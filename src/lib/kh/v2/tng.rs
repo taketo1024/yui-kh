@@ -67,9 +67,9 @@ impl PartialEq for TngComp {
 
 impl Hash for TngComp {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.path.len().hash(state);
-        self.path.min_edge().hash(state);
         self.path.is_circle().hash(state);
+        self.path.min_edge().hash(state);
+        self.path.len().hash(state);
         self.marked.hash(state);
     }
 }
@@ -117,8 +117,8 @@ impl Tng {
         self.comps.len()
     }
 
-    pub fn comps(&self) -> &Vec<TngComp> { 
-        &self.comps
+    pub fn comps(&self) -> impl Iterator<Item = &TngComp> { 
+        self.comps.iter()
     }
 
     pub fn comp(&self, i: usize) -> &TngComp { 

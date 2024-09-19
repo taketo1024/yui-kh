@@ -186,8 +186,8 @@ impl CobComp {
     pub fn is_sdl(&self) -> bool { // possibly with genus
         self.src.ncomps() == 2 && 
         self.tgt.ncomps() == 2 && 
-        self.src.comps().iter().all(|c| c.is_arc()) && 
-        self.tgt.comps().iter().all(|c| c.is_arc()) && 
+        self.src.comps().all(|c| c.is_arc()) && 
+        self.tgt.comps().all(|c| c.is_arc()) && 
         self.src != self.tgt
     }
 
@@ -286,9 +286,9 @@ impl CobComp {
 
     // connect = horizontal composition
     pub fn is_connectable(&self, other: &Self) -> bool { 
-        self.src.comps().iter().any(|c1| 
+        self.src.comps().any(|c1| 
             if c1.is_arc() { 
-                other.src.comps().iter().any(|c2| { 
+                other.src.comps().any(|c2| { 
                     c2.is_arc() && c1.is_connectable(c2)
                 })
             } else { 
@@ -573,7 +573,7 @@ impl Cob {
     pub fn is_stackable(&self, other: &Self) -> bool { 
         self.comps.iter().fold(0, |n, c| n + c.tgt.ncomps()) == 
         other.comps.iter().fold(0, |n, c| n + c.src.ncomps()) && 
-        self.comps.iter().all(|c| c.tgt.comps().iter().all(|a|
+        self.comps.iter().all(|c| c.tgt.comps().all(|a|
             other.comps.iter().any(|c| c.contains(Bottom::Src, a))
         ))
     }
@@ -623,7 +623,7 @@ impl Cob {
 
         while !(q_bot.is_empty() && q_top.is_empty()) {
             while let Some(b) = q_bot.pop_front() {
-                for c in b.tgt.comps().iter() { 
+                for c in b.tgt.comps() { 
                     if let Some(i) = top.iter().position(|t| t.src.contains(c)) {
                         let t = top.remove(i);
                         q_top.push_back(t);
@@ -632,7 +632,7 @@ impl Cob {
                 res_bot.push(b)
             }
             while let Some(t) = q_top.pop_front() {
-                for c in t.src.comps().iter() { 
+                for c in t.src.comps() { 
                     if let Some(i) = bot.iter().position(|b| b.tgt.contains(c)) {
                         let b = bot.remove(i);
                         q_bot.push_back(b);
@@ -654,7 +654,7 @@ impl Cob {
         let x1: i32 = top.iter().map(|c| c.euler_num()).sum();
         
         let a : i32 = bot.iter().map(|c| 
-            c.tgt.comps().iter().filter(|a| a.is_arc()).count() as i32
+            c.tgt.comps().filter(|a| a.is_arc()).count() as i32
         ).sum();
 
         let dots = bot.iter().chain(top.iter()).fold((0, 0), |mut res, c| { 
