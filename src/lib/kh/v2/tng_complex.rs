@@ -672,8 +672,8 @@ mod tests {
     #[test]
     fn mor_inv() { 
         let c = Cob::id(&Tng::new(vec![
-            TngComp::short_arc(0, 1, false),
-            TngComp::short_arc(2, 3, false)
+            TngComp::arc([0, 1], false),
+            TngComp::arc([2, 3], false)
         ]));
         let f = LcCob::from((c.clone(), -1));
 

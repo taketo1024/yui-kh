@@ -210,7 +210,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ori.into_iter().map(|o| { 
             let circles = l.colored_seifert_circles(p);
             let cob = Cob::new(
-                circles.iter().map(|(circ, col)| { 
+                circles.into_iter().map(|(circ, col)| { 
                     let t = TngComp::from_link_comp(circ, base_pt);
                     let mut cup = CobComp::cup(t);
                     let dot = if col.is_a() == o { 
