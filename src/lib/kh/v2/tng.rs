@@ -89,7 +89,7 @@ impl Hash for TngComp {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Tng {
     comps: Vec<TngComp> // arc or circle
 }

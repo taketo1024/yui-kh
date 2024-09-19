@@ -220,7 +220,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     };
                     cup.add_dot(dot);
                     cup
-                }).collect()
+                })
             );
             Elem::new(cob, s.clone(), base_pt)
         }).collect()
