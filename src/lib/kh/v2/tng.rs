@@ -168,16 +168,15 @@ impl Tng {
     pub fn append_arc(&mut self, arc: TngComp) { 
         assert!(arc.is_arc());
 
-        let n = self.ncomps();
-
         // If one end of `arc` is connectable:
-        if let Some(i) = self.find_connectable(&arc, n) { 
+        if let Some(i) = self.find_comp(|c| c.is_connectable(&arc)) { 
             self.comps[i].connect(arc);
 
             // If the other end is also connectable to a different component:
-            if let Some(j) = self.find_connectable(&self.comps[i], i) { 
-                let arc_j = self.comps.remove(j);
-                self.comps[i].connect(arc_j);
+            let ci = &self.comps[i];
+            if let Some(j) = self.find_comp(|c| c != ci && c.is_connectable(ci)) { 
+                let cj = self.comps.remove(j);
+                self.comps[i].connect(cj);
             }
         } else { 
             self.comps.push(arc);
@@ -190,14 +189,6 @@ impl Tng {
         let mut res = self.clone();
         res.connect(other.clone());
         res
-    }
-
-    fn find_connectable(&self, arc: &TngComp, j: usize) -> Option<usize> {
-        let n = self.comps.len();
-
-        (0..n).find(|&i| 
-            i != j && self.comps[i].is_connectable(arc)
-        )
     }
 
     pub fn find_comp<F>(&self, pred: F) -> Option<usize>
