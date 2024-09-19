@@ -5,6 +5,7 @@ use yui::{Ring, RingOps};
 use yui_link::{Crossing, InvLink};
 
 use crate::kh::v2::builder::TngComplexBuilder;
+use crate::kh::v2::tng_complex::TngComplex;
 use crate::kh::KhComplex;
 
 pub struct SymTngBuilder<R> 
@@ -26,22 +27,23 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             None
         };
 
-        let mut b_sym  = TngComplexBuilder::new(h, t, deg_shift, base_pt);
-        let mut b_asym = TngComplexBuilder::new(h, t, (0, 0), None);
+        let (x0, x1) = Self::split_crossings(l);
 
-        let (x_sym, x_asym) = Self::split_crossings(l);
-        b_sym.set_crossings(x_sym);
-        b_sym.process();
+        let mut b0 = TngComplexBuilder::new(h, t, deg_shift, base_pt); // on-axis part
+        b0.set_crossings(x0);
+        b0.process();
 
-        b_asym.set_crossings(x_asym);
-        b_asym.process();
+        let c0 = b0.into_tng_complex();
+        c0.print_d();
 
-        let c_sym = b_sym.into_tng_complex();
-        c_sym.print_d();
+        let mut b1 = TngComplexBuilder::new(h, t, (0, 0), None);       // half off-axis part
+        b1.set_crossings(x1);
+        b1.process();
 
-        let c_asym = b_asym.into_tng_complex();
-        c_asym.print_d();
+        let c1 = b1.into_tng_complex();
+        c1.print_d();
 
+        let c2 = Self::inv_complex(l, &c1);
     }
 
     fn split_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -52,19 +54,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         l.link().traverse_edges((0, 0), |i, j| { 
             let x = &l.link().data()[i];
 
-            if i == l.inv_x(i) { // on-axis crossing
-                // println!("{x} is sym.");
+            if i == l.inv_x(i) {
+                // println!("{x} is on-axis.");
+
+                take = !take;
+                // println!("  passed on-axis crossing, take = {take}.");
 
                 if !sym.contains(x) {
                     // println!("  take {x}.");
                     sym.insert(x.clone());
                 }
-                
-                take = !take;
-                // println!("  passed on-axis crossing, take = {take}.");
-
-            } else {  // off-axis crossing
-                // println!("{x} is asym.");
+            } else {
+                // println!("{x} is off-axis.");
 
                 let e = x.edge(j);
                 if e == l.inv_e(e) { // on-axis edge
@@ -82,6 +83,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert_eq!(sym.len() + 2 * asym.len(), l.link().crossing_num());
 
         (sym, asym)
+    }
+
+    fn inv_complex(l: &InvLink, c: &TngComplex<R>) -> TngComplex<R> { 
+        todo!()
     }
 }
 
