@@ -27,29 +27,31 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             None
         };
 
-        let (x0, x1) = Self::split_crossings(l);
+        let (x_sym, x_asym) = Self::split_crossings(l);
 
-        let mut b0 = TngComplexBuilder::new(h, t, deg_shift, base_pt); // on-axis part
-        b0.set_crossings(x0);
-        b0.process();
+        // First build complex for the off-axis halves. 
+        let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
+        b.add_crossings(&x_asym);
 
-        let c0 = b0.into_tng_complex();
-        println!("center:\n{}", c0.desc_d());
-
-        let mut b1 = TngComplexBuilder::new(h, t, (0, 0), None);       // half off-axis part
-        b1.set_crossings(x1);
-        b1.process();
-
-        let c1 = b1.into_tng_complex();
-        println!("left:\n{}", c1.desc_d());
-
+        let c1 = b.into_tng_complex();
         let c2 = c1.convert_edges(|e| l.inv_e(e));
-        println!("right:\n{}", c2.desc_d());
 
-        let c = c0.connect(&c1).connect(&c2);
-        println!("combined:\n{}", c.desc_d());
+        println!("c1");
+        c1.print_d();
 
-        c
+        println!("c2");
+        c2.print_d();
+
+        // Combine the two halves 
+        let c = TngComplex::init(h, t, deg_shift, base_pt);
+        let c = c.connect(&c1).connect(&c2);
+
+        // Complete the complex by adding on-axis crossings
+        let mut b = TngComplexBuilder::from(c);
+
+        // TODO deloop only symmetric ones
+        b.add_crossings(&x_sym);
+        b.into_tng_complex()
     }
 
     fn split_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -92,8 +94,26 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-#[test]
-fn test() { 
-    let l = InvLink::load("5_1").unwrap();
-    SymTngBuilder::build_tng_complex(&l, &0, &0, false);
+#[cfg(test)]
+#[allow(unused)]
+mod tests { 
+    use super::*;
+    use num_traits::Zero;
+    use yui_homology::{ChainComplexCommon, DisplaySeq};
+
+    #[test]
+    fn test() { 
+        use yui::FF2;
+        use yui::poly::HPoly;
+        type R = HPoly<'H', FF2>;
+    
+        let l = InvLink::sinv_knot_from_code([
+            [1,27,2,26],[19,2,20,3],[3,13,4,12],[4,31,5,32],[30,5,31,6],
+            [13,7,14,6],[8,27,9,28],[9,1,10,34],[10,18,11,17],[24,11,25,12],
+            [14,21,15,22],[28,16,29,15],[33,16,34,17],[18,26,19,25],[20,8,21,7],
+            [29,23,30,22],[23,33,24,32]
+        ]);
+        let c = SymTngBuilder::build_tng_complex(&l, &R::variable(), &R::zero(), false);
+        c.print_d();
+    }
 }
