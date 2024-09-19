@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use itertools::Itertools;
@@ -20,7 +20,6 @@ use super::tng_complex::{TngComplex, TngKey};
 pub struct TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     complex: TngComplex<R>,
-    crossings: Vec<Crossing>,
     elements: Vec<Elem<R>>,
     pub auto_deloop: bool,
     pub auto_elim: bool
@@ -37,13 +36,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let mut b = Self::new(h, t, deg_shift, base_pt);
-        b.crossings = l.data().clone();
 
         if t.is_zero() && l.is_knot() {
             b.elements = Self::make_canon_cycles(l, base_pt);
         }
         
-        b.process();
+        b.add_crossings(l.data());
+        b.finalize();
 
         let canon_cycles = b.eval_elements();
         let complex = b.into_raw_complex();
@@ -54,89 +53,65 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
         let complex = TngComplex::init(h, t, deg_shift, base_pt);
-        let crossings = vec![];
         let elements = vec![];
 
         let auto_deloop = true;
         let auto_elim   = true;
 
-        Self { complex, crossings, elements, auto_deloop, auto_elim }
+        Self { complex, elements, auto_deloop, auto_elim }
+    }
+
+    pub fn add_crossings<'a, I>(&mut self, crossings: I)
+    where I: IntoIterator<Item = &'a Crossing> {
+        let mut crossings = crossings.into_iter().collect_vec();
+        while !crossings.is_empty() {
+            let x = self.choose_next(&mut crossings);
+            self.add_crossing(x);
+        }
+    }
+
+    fn choose_next<'a>(&mut self, crossings: &mut Vec<&'a Crossing>) -> &'a Crossing { 
+        if crossings.len() == 1 { 
+            return crossings.remove(0);
+        }
+
+        let mut candidate = 0;
+        let mut score = 0;
+
+        for (i, x) in crossings.iter().enumerate() { 
+            let arcs = if x.is_resolved() { 
+                let a = x.arcs();
+                vec![a.0, a.1]
+            } else { 
+                let a0 = x.resolved(Bit::Bit0).arcs();
+                let a1 = x.resolved(Bit::Bit1).arcs();
+                vec![a0.0, a0.1, a1.0, a1.1]
+            }.into_iter().filter(|a|
+                self.complex.base_pt().map(|e| !a.contains(e)).unwrap_or(true)
+            ).collect_vec();
+
+            let s = self.complex.iter_verts().map(|(_, v)| {
+                v.tng().comps().map(|c| 
+                    arcs.iter().filter(|a| 
+                        c.path().is_connectable_bothends(a)
+                    ).count()
+                ).sum::<usize>()
+            }).sum::<usize>();
+
+            if s > score { 
+                candidate = i;
+                score = s;
+            }
+        }
+
+        crossings.remove(candidate)
     }
 
     pub fn add_crossing(&mut self, x: &Crossing) { 
-        self.crossings.push(x.clone())
-    }
-
-    pub fn set_crossings<I>(&mut self, xs: I) 
-    where I: IntoIterator<Item = Crossing> { 
-        self.crossings = xs.into_iter().collect()
-    }
-
-    pub fn process(&mut self) {
-        self.sort_crossings();
-
-        while !self.crossings.is_empty() {
-            self.proceed_next();
-        }
-        
-        self.finalize();
-    }
-
-    fn sort_crossings(&mut self) { 
-        fn take_best(remain: &mut Vec<Crossing>, endpts: &mut HashSet<Edge>, base_pt: Option<Edge>) -> Option<Crossing> { 
-            if remain.is_empty() { 
-                return None 
-            }
-
-            let mut cand_i = 0;
-            let mut cand_c = 0;
-
-            for (i, x) in remain.iter().enumerate() { 
-                if let Some(e) = base_pt { 
-                    if x.edges().contains(&e) { 
-                        continue
-                    }
-                }
-
-                let c = x.edges().iter().filter(|e| 
-                    endpts.contains(e)
-                ).count();
-
-                if c == 4 { 
-                    let x = remain.remove(i);
-                    return Some(x);
-                } else if c > cand_c { 
-                    cand_i = i;
-                    cand_c = c;
-                }
-            }
-
-            let x = remain.remove(cand_i);
-            for e in x.edges() { 
-                endpts.insert(*e);
-            }
-            
-            Some(x)
-        }
-
-        let mut remain = std::mem::take(&mut self.crossings);
-        let mut endpts = HashSet::new();
-        let mut sorted = Vec::new();
-
-        while let Some(x) = take_best(&mut remain, &mut endpts, self.complex.base_pt()) { 
-            sorted.push(x);
-        }
-
-        self.crossings = sorted;
-    }
-
-    fn proceed_next(&mut self) { 
-        let x = self.crossings.remove(0);
-        
-        self.complex.append(&x);
+        self.complex.append(x);
 
         for e in self.elements.iter_mut() { 
-            e.append(&x);
+            e.append(x);
         }
 
         if self.auto_deloop { 
@@ -172,7 +147,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn finalize(&mut self) { 
+    pub fn finalize(&mut self) { 
         if self.auto_deloop { 
             while let Some((k, r)) = self.complex.find_loop(true) { 
                 self.deloop(&k, r);
