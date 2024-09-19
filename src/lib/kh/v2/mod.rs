@@ -2,8 +2,6 @@
 
 mod tng;
 mod cob;
-mod mor;
-mod tng_elem;
 mod tng_complex;
 mod builder;
 

@@ -1,6 +1,7 @@
-use log::{info, error};
+use log::info;
 use clap::{Parser, Subcommand};
-use super::cmd::{kh, ckh, ss, ss_batch};
+
+use super::cmd::{ckh, kh, khi};
 use super::utils::*;
 
 #[derive(Parser, Debug)]
@@ -12,50 +13,49 @@ pub struct CliArgs {
 }
 
 #[derive(Subcommand, Debug)]
+#[clap(rename_all="lower")]
 pub enum Cmd {
     Kh(kh::Args),
     Ckh(ckh::Args),
-    SS(ss::Args),
-    SSBatch(ss_batch::Args),
+    KhI(khi::Args),    
 }
 
-impl Cmd { 
-    fn debug(&self) -> bool { 
-        match self { 
-            Cmd::Kh(args)  => args.debug,
-            Cmd::Ckh(args) => args.debug,
-            Cmd::SS(args)  => args.debug,
-            Cmd::SSBatch(args)  => args.debug
+impl CliArgs { 
+    fn log_level(&self) -> log::LevelFilter { 
+        use log::LevelFilter::*;
+        let level = match &self.command { 
+            Cmd::Kh(args)  => args.log,
+            Cmd::Ckh(args) => args.log,
+            Cmd::KhI(args) => args.log,
+        };
+        match level {
+            1 => Info,
+            2 => Debug,
+            3 => Trace,
+            _ => Off,
         }
     }
 }
 
-pub struct App {}
+pub struct App {
+    pub args: CliArgs
+}
 
 impl App { 
     pub fn new() -> Self { 
-        App {}
+        let args = CliArgs::parse();
+        App { args }
     }
 
-    pub fn run(&self) -> Result<String, i32> { 
-        let args = CliArgs::parse();
+    pub fn run(&self) -> Result<String, Box<dyn std::error::Error>> { 
+        self.init_logger();
 
-        if args.command.debug() { 
-            self.init_logger();
-        }
-
-        info!("args: {:?}", args);
+        info!("args: {:?}", self.args);
         info!("int-type: {}", std::any::type_name::<super::utils::dispatch::Int>());
 
         let (res, time) = measure(||
-            self.dispatch(&args)
+            self.dispatch()
         );
-
-        let res = res.map_err(|e| { 
-            error!("{}", e);
-            eprintln!("\x1b[0;31merror\x1b[0m: {e}");
-            1 // error code
-        });
 
         info!("time: {:?}", time);
 
@@ -65,20 +65,19 @@ impl App {
     fn init_logger(&self) {
         use simplelog::*;
         TermLogger::init(
-            LevelFilter::Info,
+            self.args.log_level(),
             Config::default(),
             TerminalMode::Mixed,
             ColorChoice::Auto
         ).unwrap()
     }
 
-    fn dispatch(&self, args: &CliArgs) -> Result<String, Box<dyn std::error::Error>> { 
+    fn dispatch(&self) -> Result<String, Box<dyn std::error::Error>> { 
         guard_panic(||
-            match &args.command { 
-                Cmd::Kh(args)      => kh::run(args),
-                Cmd::Ckh(args)     => ckh::run(args),
-                Cmd::SS(args)      => ss::run(args),
-                Cmd::SSBatch(args) => ss_batch::run(args),
+            match &self.args.command { 
+                Cmd::Kh(args)  => kh::dispatch(args),
+                Cmd::Ckh(args) => ckh::dispatch(args),
+                Cmd::KhI(args) => khi::dispatch(args),
             }
         )
     }

@@ -9,23 +9,23 @@ cfg_if::cfg_if! {
 }
 
 macro_rules! dispatch_ring {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
+    ($app:ident, $args:expr) => {{
         use crate::app::utils::dispatch::*;
 
-        try_ring!($c_value, $c_type, $method, $($args),*)
-        .unwrap_or( 
-            err!("method `{}` is not supported for: -c {} -t {}", stringify!($method), $c_value, $c_type)
+        try_ring!($app, $args)
+        .unwrap_or_else(|| 
+            err!("`{}` is not supported for: -t {} -c {}", stringify!($app), $args.c_type, $args.c_value)
         )
     }};
 }
 
 macro_rules! dispatch_eucring {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
+    ($app:ident, $args:expr) => {{
         use crate::app::utils::dispatch::*;
 
-        try_eucring!($c_value, $c_type, $method, $($args),*)
+        try_eucring!($app, $args)
         .unwrap_or( 
-            err!("method `{}` is not supported for: -c {} -t {}", stringify!($method), $c_value, $c_type)
+            err!("`{}` is not supported for: -t {} -c {}", stringify!($app), $args.c_type, $args.c_value)
         )
     }};
 }
@@ -52,28 +52,28 @@ pub(crate) fn poly_vars(c_value: &String) -> PolyVars {
 }
 
 macro_rules! try_ring {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
-        if poly_vars($c_value) == PolyVars::None { 
-            try_std!($c_value, $c_type, $method, $($args),*)
+    ($app:ident, $args:expr) => {{
+        if poly_vars(&$args.c_value) == PolyVars::None { 
+            try_std!($app, $args)
         } else { 
-            try_euc_poly!($c_value, $c_type, $method, $($args),*)
-            .or_else(|| try_noneuc_poly!($c_value, $c_type, $method, $($args),*))
+            try_euc_poly!($app, $args)
+            .or_else(|| try_noneuc_poly!($app, $args))
         }
     }}
 }
 
 macro_rules! try_eucring {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
-        if poly_vars($c_value) == PolyVars::None { 
-            try_std!($c_value, $c_type, $method, $($args),*)
+    ($app:ident, $args:expr) => {{
+        if poly_vars(&$args.c_value) == PolyVars::None { 
+            try_std!($app, $args)
         } else { 
-            try_euc_poly!($c_value, $c_type, $method, $($args),*)
+            try_euc_poly!($app, $args)
         }
     }}
 }
 
 macro_rules! try_std {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
+    ($app:ident, $args:expr) => {{
         use yui::{Ratio, FF};
 
         type Z = Int;
@@ -81,31 +81,31 @@ macro_rules! try_std {
         type F2 = FF<2>;
         type F3 = FF<3>;
 
-        match $c_type {
-            CType::Z     => call!(Z,  $method, $($args),*),
-            CType::Q     => call!(Q,  $method, $($args),*),
-            CType::F2    => call!(F2, $method, $($args),*),
-            CType::F3    => call!(F3, $method, $($args),*),
+        match $args.c_type {
+            CType::Z     => run!(Z,  $app, $args),
+            CType::Q     => run!(Q,  $app, $args),
+            CType::F2    => run!(F2, $app, $args),
+            CType::F3    => run!(F3, $app, $args),
             CType::Gauss | 
-            CType::Eisen => try_qint!($c_value, $c_type, $method, $($args),*),
+            CType::Eisen => try_qint!($app, $args),
         }
     }}
 }
 
 macro_rules! try_qint {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
+    ($app:ident, $args:expr) => {{
         cfg_if::cfg_if! {
             if #[cfg(any(feature = "qint", feature = "all"))] {
                 type GaussInt = yui::GaussInt<Int>;
                 type EisenInt = yui::EisenInt<Int>;
 
-                match $c_type {
-                    CType::Gauss => call!(GaussInt, $method, $($args),*),
-                    CType::Eisen => call!(EisenInt, $method, $($args),*),
+                match $args.c_type {
+                    CType::Gauss => run!(GaussInt, $app, $args),
+                    CType::Eisen => run!(EisenInt, $app, $args),
                     _            => None
                 }
             } else {
-                match $c_type {
+                match $args.c_type {
                     CType::Gauss |
                     CType::Eisen => Some(err!("build with `--features qint` to enable quad-int types.")),
                     _            => None
@@ -116,7 +116,7 @@ macro_rules! try_qint {
 }
 
 macro_rules! try_euc_poly {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
+    ($app:ident, $args:expr) => {{
         cfg_if::cfg_if! {
             if #[cfg(any(feature = "poly", feature = "all"))] {
                 use yui::Ratio;
@@ -127,15 +127,15 @@ macro_rules! try_euc_poly {
                 type F2 = FF<2>;
                 type F3 = FF<3>;
 
-                let vars = poly_vars($c_value);
+                let vars = poly_vars(&$args.c_value);
 
-                match ($c_type, vars) {
-                    (CType::Q,  PolyVars::H) => call!(Poly<'H', Q>,  $method, $($args),*),
-                    (CType::Q,  PolyVars::T) => call!(Poly<'T', Q>,  $method, $($args),*),
-                    (CType::F2, PolyVars::H) => call!(Poly<'H', F2>, $method, $($args),*),
-                    (CType::F2, PolyVars::T) => call!(Poly<'T', F2>, $method, $($args),*),
-                    (CType::F3, PolyVars::H) => call!(Poly<'H', F3>, $method, $($args),*),
-                    (CType::F3, PolyVars::T) => call!(Poly<'T', F3>, $method, $($args),*),
+                match ($args.c_type, vars) {
+                    (CType::Q,  PolyVars::H) => run!(Poly<'H', Q>,  $app, $args),
+                    (CType::Q,  PolyVars::T) => run!(Poly<'T', Q>,  $app, $args),
+                    (CType::F2, PolyVars::H) => run!(Poly<'H', F2>, $app, $args),
+                    (CType::F2, PolyVars::T) => run!(Poly<'T', F2>, $app, $args),
+                    (CType::F3, PolyVars::H) => run!(Poly<'H', F3>, $app, $args),
+                    (CType::F3, PolyVars::T) => run!(Poly<'T', F3>, $app, $args),
                     _ => None
                 }
             } else {
@@ -143,7 +143,7 @@ macro_rules! try_euc_poly {
                     CType::Q  |
                     CType::F2 |
                     CType::F3 => Some(err!("build with `--features poly` to enable polynomial types.")),
-                    _             => None
+                    _         => None
                 }
             }
         }
@@ -151,7 +151,7 @@ macro_rules! try_euc_poly {
 }
 
 macro_rules! try_noneuc_poly {
-    ($c_value:expr, $c_type:expr, $method:ident $(, $args:expr)*) => {{
+    ($app:ident, $args:expr) => {{
         cfg_if::cfg_if! {
             if #[cfg(any(feature = "poly", feature = "all"))] {
                 use yui::Ratio;
@@ -163,15 +163,15 @@ macro_rules! try_noneuc_poly {
                 type F2 = FF<2>;
                 type F3 = FF<3>;
 
-                let vars = poly_vars($c_value);
+                let vars = poly_vars(&$args.c_value);
 
-                match ($c_type, vars) {
-                    (CType::Z,  PolyVars::H ) => call!(Poly<'H', Z>, $method, $($args),*),
-                    (CType::Z,  PolyVars::T ) => call!(Poly<'T', Z>, $method, $($args),*),
-                    (CType::Z,  PolyVars::HT) => call!(Poly2<'H', 'T', Z>, $method, $($args),*),
-                    (CType::Q,  PolyVars::HT) => call!(Poly2<'H', 'T', Q>, $method, $($args),*),
-                    (CType::F2, PolyVars::HT) => call!(Poly2<'H', 'T', F2>, $method, $($args),*),
-                    (CType::F3, PolyVars::HT) => call!(Poly2<'H', 'T', F3>, $method, $($args),*),
+                match ($args.c_type, vars) {
+                    (CType::Z,  PolyVars::H ) => run!(Poly<'H', Z>, $app, $args),
+                    (CType::Z,  PolyVars::T ) => run!(Poly<'T', Z>, $app, $args),
+                    (CType::Z,  PolyVars::HT) => run!(Poly2<'H', 'T', Z>, $app, $args),
+                    (CType::Q,  PolyVars::HT) => run!(Poly2<'H', 'T', Q>, $app, $args),
+                    (CType::F2, PolyVars::HT) => run!(Poly2<'H', 'T', F2>, $app, $args),
+                    (CType::F3, PolyVars::HT) => run!(Poly2<'H', 'T', F3>, $app, $args),
                     _ => None
                 }
             } else {
@@ -187,10 +187,11 @@ macro_rules! try_noneuc_poly {
     }}
 }
 
-macro_rules! call {
-    ($c_type:ty, $method:ident $(, $args:expr)*) => {
-        Some($method::<$c_type>($($args),*))
-    }
+macro_rules! run {
+    ($c_type:ty, $app:ident, $args:expr) => {{
+        let mut app: $app<$c_type> = $app::new($args.clone());
+        Some(app.run())
+    }}
 }
 
-pub(crate) use {call, try_ring, try_eucring, try_std, try_euc_poly, try_noneuc_poly, try_qint};
+pub(crate) use {run, try_ring, try_eucring, try_std, try_euc_poly, try_noneuc_poly, try_qint};

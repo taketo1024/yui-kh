@@ -4,20 +4,35 @@ use delegate::delegate;
 
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
-use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XHomology, XModStr};
+use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
 use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
-use crate::KhComplex;
-
-use super::{KhIGen, KhICube};
+use crate::khi::KhIHomology;
+use super::KhIGen;
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
+
+pub trait KhIChainExt { 
+    fn h_deg(&self) -> isize;
+    fn q_deg(&self) -> isize;
+}
+
+impl<R> KhIChainExt for KhIChain<R>
+where R: Ring, for<'x> &'x R: RingOps<R> {
+    fn h_deg(&self) -> isize {
+        self.gens().map(|x| x.h_deg()).min().unwrap_or(0)
+    }
+    
+    fn q_deg(&self) -> isize {
+        self.gens().map(|x| x.q_deg()).min().unwrap_or(0)
+    }
+}
+
 pub type KhIComplexSummand<R> = XChainComplexSummand<KhIGen, R>;
 
 pub struct KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    h: R,
     inner: XChainComplex<KhIGen, R>,
     canon_cycles: Vec<KhIChain<R>>,
     deg_shift: (isize, isize)
@@ -25,26 +40,16 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
+    pub(crate) fn new_impl(
+        inner: XChainComplex<KhIGen, R>,
+        canon_cycles: Vec<KhIChain<R>>,
+        deg_shift: (isize, isize)
+    ) -> Self { 
+        Self { inner, canon_cycles, deg_shift }
+    }
+
     pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self { 
-        assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
-        assert!(!reduced || l.base_pt().is_some());
-
-        let deg_shift = KhComplex::deg_shift_for(l.link(), reduced);
-        let cube = KhICube::new(l, h, reduced, deg_shift);
-        let inner = cube.into_complex();
-
-        let canon_cycles = if l.base_pt().is_some() && l.link().is_knot() {
-            let p = l.base_pt().unwrap();
-            let zs = KhComplex::make_canon_cycles(l.link(), p, &R::zero(), h, reduced, deg_shift);
-            Iterator::chain(
-                zs.iter().map(|z| z.map_gens(|x| KhIGen::B(*x))),
-                zs.iter().map(|z| z.map_gens(|x| KhIGen::Q(*x)))
-            ).collect()
-        } else { 
-            vec![]
-        };
-
-        Self { h: h.clone(), inner, canon_cycles, deg_shift }
+        Self::new_v1(l, h, reduced)
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
@@ -67,7 +72,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     }
 
     pub fn into_bigraded(self) -> XChainComplex2<KhIGen, R> {
-        assert!(self.h.is_zero());
+        // TODO assert h == 0
 
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
@@ -89,6 +94,12 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             let dx = self.d(i, &x);
             dx.into_iter().collect()
         })
+    }
+
+    pub fn homology(&self, with_trans: bool) -> KhIHomology<R>
+    where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
+        let h = self.inner.reduced().homology(with_trans);
+        KhIHomology::new_impl(h, self.h_range(), self.q_range())
     }
 }
 
@@ -132,13 +143,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-impl<R> KhIComplex<R>
-where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn homology(self, with_trans: bool) -> XHomology<KhIGen, R> {
-        self.inner.reduced().homology(with_trans)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(unused)]
@@ -149,8 +153,6 @@ mod tests {
     use num_traits::{Zero, One};
     use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
     use yui_link::Link;
-    use crate::KhHomology;
-
     use super::*;
 
     #[test]

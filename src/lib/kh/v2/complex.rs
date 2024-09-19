@@ -1,34 +1,14 @@
-use num_traits::Zero;
 use yui::{Ring, RingOps};
-use yui_homology::ChainComplexTrait;
 use yui_link::Link;
 
-use crate::{KhComplex, KhComplexBigraded};
+use crate::kh::{KhComplex, KhComplexBigraded};
 
 use super::builder::TngComplexBuilder;
 
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
-        let deg_shift = Self::deg_shift_for(l, reduced);
-        let has_canon = t.is_zero() && l.is_knot();
-
-        let mut b = TngComplexBuilder::new(l, h, t, reduced);
-
-        if has_canon {
-            b.make_canon_cycles();
-        }
-        
-        b.process();
-
-        let canon_cycles = b.eval_canon_cycles(h, t);
-        let complex = b.into_complex().eval(h, t);
-
-        debug_assert!(canon_cycles.iter().all(|z| 
-            complex.d(0, z).is_zero()
-        ));
-
-        Self::new_impl(complex, canon_cycles, reduced, deg_shift)
+        TngComplexBuilder::build_kh_complex(l, h, t, reduced)
     }        
 }
 

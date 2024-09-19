@@ -1,8 +1,9 @@
 use clap::ValueEnum;
-use serde::Deserialize;
+use derive_more::Display;
 
-#[derive(Clone, ValueEnum, Debug, derive_more::Display, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum, Display, Debug, Default)]
 #[clap(rename_all="verbatim")]
 pub enum CType { 
-    Z, Q, F2, F3, Gauss, Eisen
+    #[default] Z, 
+    Q, F2, F3, Gauss, Eisen
 }

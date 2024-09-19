@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use yui::lc::Gen;
 use yui::Elem;
-use crate::KhGen;
+use crate::kh::KhGen;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum KhIGen { 

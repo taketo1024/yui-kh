@@ -1,9 +1,12 @@
 #![allow(unused)]
 
-use super::err;
+use crate::app::err::*;
 use std::str::FromStr;
+use itertools::Itertools;
 use num_traits::Zero;
-use yui_link::{Link, Edge};
+use yui::{Ring, RingOps};
+use yui_link::{Edge, InvLink, Link};
+use yui_matrix::sparse::SpVec;
 
 pub fn measure<F, Res>(proc: F) -> (Res, std::time::Duration) 
 where F: FnOnce() -> Res { 
@@ -49,6 +52,26 @@ pub fn load_link(input: &String, mirror: bool) -> Result<Link, Box<dyn std::erro
     }
 }
 
+pub fn load_sinv_knot(input: &String, mirror: bool) -> Result<InvLink, Box<dyn std::error::Error>> { 
+    type PDCode = Vec<[Edge; 4]>;
+    
+    let l = { 
+        if let Ok(pd_code) = serde_json::from_str::<PDCode>(input) { 
+            InvLink::sinv_knot_from_code(pd_code)
+        } else if let Ok(link) = InvLink::load(input) { 
+            link
+        } else { 
+            return err!("invalid input link: '{}'", input);
+        }
+    };
+
+    if mirror { 
+        Ok(l.mirror())
+    } else { 
+        Ok(l)
+    }
+}
+
 pub fn parse_pair<R: FromStr + Zero>(s: &String) -> Result<(R, R), Box<dyn std::error::Error>> { 
     if let Ok(c) = R::from_str(s) { 
         return Ok((c, R::zero()))
@@ -63,6 +86,11 @@ pub fn parse_pair<R: FromStr + Zero>(s: &String) -> Result<(R, R), Box<dyn std::
     }
 
     err!("cannot parse '{}' as {}.", s, std::any::type_name::<R>())
+}
+
+pub fn vec2str<R>(v: &SpVec<R>) -> String 
+where R: Ring + ToString, for<'x> &'x R: RingOps<R> { 
+    format!("({})", v.to_dense().iter().map(|r| r.to_string()).join(", "))
 }
 
 pub fn csv_writer(path: &String) -> Result<csv::Writer<std::fs::File>, Box<dyn std::error::Error>> { 

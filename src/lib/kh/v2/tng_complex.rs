@@ -5,15 +5,14 @@ use log::info;
 use itertools::Itertools;
 use num_traits::Zero;
 use cartesian::cartesian;
-use yui::{Ring, RingOps};
+use yui::{Ring, RingOps, Sign};
 use yui_homology::{XChainComplex, XModStr, Grid1};
 use yui_link::{Crossing, Edge, State};
 use yui::bitseq::Bit;
 
-use crate::{KhAlgGen, KhGen, KhLabel};
-use super::cob::{Cob, Dot, Bottom, CobComp};
+use crate::kh::{KhAlgGen, KhGen, KhLabel};
+use super::cob::{Cob, Dot, Bottom, CobComp, LcCob, LcCobTrait};
 use super::tng::{Tng, TngComp};
-use super::mor::{Mor, MorTrait};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub(crate) struct TngKey { 
@@ -28,6 +27,17 @@ impl TngKey {
 
     fn as_gen(&self, deg_shift: (isize, isize)) -> KhGen { 
         KhGen::new(self.state, self.label, deg_shift)
+    }
+
+    fn append(&mut self, other: TngKey) { 
+        self.state.append(other.state);
+        self.label.append(other.label);
+    }
+
+    fn appended(&self, other: &TngKey) -> TngKey { 
+        let mut res = self.clone();
+        res.append(other.clone());
+        res
     }
 }
 
@@ -49,7 +59,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     key: TngKey,
     tng: Tng,
     in_edges: HashSet<TngKey>,
-    out_edges: HashMap<TngKey, Mor<R>>
+    out_edges: HashMap<TngKey, LcCob<R>>
 }
 
 impl<R> TngVertex<R>
@@ -66,7 +76,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.tng
     }
 
-    pub fn out_edges(&self) -> &HashMap<TngKey, Mor<R>> {
+    pub fn out_edges(&self) -> &HashMap<TngKey, LcCob<R>> {
         &self.out_edges
     }
 }
@@ -80,34 +90,43 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 pub struct TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    vertices: HashMap<TngKey, TngVertex<R>>,
-    len: usize,
     h: R,
     t: R,
-    deg_shift: (isize, isize)
+    deg_shift: (isize, isize),
+    base_pt: Option<Edge>,
+    vertices: HashMap<TngKey, TngVertex<R>>,
+    dim: usize,
 }
 
 impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    pub fn new(h: &R, t: &R, deg_shift: (isize, isize)) -> Self { 
+    pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
         let mut vertices = HashMap::new();
         let k0 = TngKey::init();
         let v0 = TngVertex::init();
         vertices.insert(k0, v0);
 
-        let len = 1;
+        let len = 0;
         let h = h.clone();
         let t = t.clone();
 
-        TngComplex{ vertices, len, h, t, deg_shift }
+        TngComplex{ h, t, deg_shift, base_pt, vertices, dim: len }
+    }
+
+    pub fn ht(&self) -> (&R, &R) { 
+        (&self.h, &self.t)
     }
 
     pub fn deg_shift(&self) -> (isize, isize) { 
         self.deg_shift
     }
 
-    pub fn len(&self) -> usize { 
-        self.len
+    pub fn base_pt(&self) -> Option<Edge> { 
+        self.base_pt
+    }
+
+    pub fn dim(&self) -> usize { 
+        self.dim
     }
 
     pub fn rank(&self, i: isize) -> usize { 
@@ -130,11 +149,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
     }
 
-    pub fn edge(&self, k: &TngKey, l: &TngKey) -> &Mor<R> {
+    pub fn edge(&self, k: &TngKey, l: &TngKey) -> &LcCob<R> {
         &self.vertices[k].out_edges[l]
     }
 
-    fn add_edge(&mut self, k: &TngKey, l: &TngKey, f: Mor<R>) { 
+    fn add_edge(&mut self, k: &TngKey, l: &TngKey, f: LcCob<R>) { 
         let v = self.vertices.get_mut(k).unwrap();
         v.out_edges.insert(*l, f);
 
@@ -176,7 +195,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let verts = std::mem::take(&mut self.vertices);
 
-        let sdl = CobComp::from(x);
+        let sdl = CobComp::sdl_from(x, self.base_pt);
         let c0 = Cob::id(sdl.src());
         let c1 = Cob::id(sdl.tgt());
 
@@ -198,21 +217,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.remove_edge(&k, &l);
         }
 
-        self.len += 1;
+        self.dim += 1;
 
-        debug_assert!(self.validate_edges());
+        // self.validate();
     }
 
     fn append_a(&mut self, x: &Crossing) {
         assert!(x.is_resolved());
 
         let verts = std::mem::take(&mut self.vertices);
-        let c = Cob::id(&Tng::from_a(x));
+        let c = Cob::id(&Tng::from_resolved(x, self.base_pt));
 
         self.vertices = verts.into_iter().map(|(k, mut v)| { 
             v.tng.connect(c.src());
 
-            modify!(v.out_edges, |edges: HashMap<TngKey, Mor<R>>| { 
+            modify!(v.out_edges, |edges: HashMap<TngKey, LcCob<R>>| { 
                 edges.into_iter().map(|(k, f)| { 
                     (k, f.connect(&c))
                 }).collect()
@@ -221,7 +240,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (k, v)
         }).collect();
 
-        debug_assert!(self.validate_edges());
+        // self.validate();
     }
 
     fn make_cone(v: TngVertex<R>, c0: &Cob, c1: &Cob, sdl: &CobComp) -> [TngVertex<R>; 2] {
@@ -254,7 +273,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // append 0 / 1 to out_edges with id-cob connected.
         let e = if r.is_zero() { R::one() } else { -R::one() };
-        modify!(v.out_edges, |edges: HashMap<TngKey, Mor<R>>| { 
+        modify!(v.out_edges, |edges: HashMap<TngKey, LcCob<R>>| { 
             edges.into_iter().map(|(mut k, f)| { 
                 k.state.push(r);
                 (k, f.connect(c) * &e)
@@ -263,33 +282,86 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn insert_sdl(v0: &mut TngVertex<R>, v1: &mut TngVertex<R>, sdl: Cob) { 
-        let f = Mor::from(sdl);
+        let f = LcCob::from(sdl);
         v0.out_edges.insert(v1.key, f);
         v1.in_edges.insert(v0.key);
     }
 
-    pub fn find_loop(&self, exclude: Option<Edge>) -> Option<(TngKey, usize, &TngComp)> { 
+    // See [Bar-Natan '05] Section 5.
+    // https://arxiv.org/abs/math/0410495
+    pub fn connect(&self, other: &TngComplex<R>) -> TngComplex<R> { 
+        assert_eq!(self.ht(), other.ht());
+
+        // create vertices
+        let mut vertices = cartesian!(self.vertices.iter(), other.vertices.iter()).map(|((k, v), (l, w))| {  
+            let mut cv = TngVertex::init();
+            cv.key = k.appended(l);
+            cv.tng = v.tng.connected(&w.tng); // D(v, w)
+            (cv.key, cv)
+        }).collect::<HashMap<_, _>>();
+
+        // create edges
+        cartesian!(self.vertices.iter(), other.vertices.iter()).for_each(|((k0, v0), (l0, w0))| {
+            let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
+            let ck0 = k0.appended(l0);
+            for (k1, f) in v0.out_edges.iter() { 
+                let ck1 = k1.appended(l0);
+                let cf = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
+
+                let cv0 = vertices.get_mut(&ck0).unwrap();
+                cv0.out_edges.insert(ck1, cf);
+
+                let cv1 = vertices.get_mut(&ck1).unwrap();
+                cv1.in_edges.insert(ck0);
+            }
+
+            for (l1, f) in w0.out_edges.iter() { 
+                let ck1 = k0.appended(l1);
+                let e = R::from_sign(Sign::from_parity(i0 as i64));
+                let cf = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
+                
+                let cv0 = vertices.get_mut(&ck0).unwrap();
+                cv0.out_edges.insert(ck1, cf);
+
+                let cv1 = vertices.get_mut(&ck1).unwrap();
+                cv1.in_edges.insert(ck0);
+            }
+        });
+
+        let (h, t) = (self.h.clone(), self.t.clone());
+        let deg_shift = self.deg_shift;
+        let base_pt = self.base_pt;
+        let dim = self.dim + other.dim;
+
+        let c = TngComplex{ h, t, deg_shift, base_pt, vertices, dim };
+
+        // c.validate();
+
+        c
+    }
+
+    pub fn find_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
         for (k, v) in self.iter_verts() { 
-            if let Some((r, c)) = v.tng.find_loop(exclude) { 
-                return Some((*k, r, c))
+            if let Some(r) = v.tng.find_loop(allow_marked) { 
+                return Some((*k, r))
             }
         }
         None
     }
 
-    pub fn deloop(&mut self, k: &TngKey, r: usize, reduced: bool) -> Vec<TngKey> { 
+    pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
 
         let mut v = self.vertices.remove(k).unwrap();
         let c = v.tng.remove_at(r);
 
-        if reduced { 
+        if c.is_marked() { 
             self.deloop_in(&mut v, &c, KhAlgGen::X, Dot::X, Dot::None, true);
 
             let k_new = v.key;
             self.vertices.insert(k_new, v);
 
-            debug_assert!(self.validate_edges());
+            // self.validate();
 
             vec![k_new]
         } else { 
@@ -305,7 +377,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.vertices.insert(k0, v0);
             self.vertices.insert(k1, v1);
 
-            debug_assert!(self.validate_edges());
+            // self.validate();
 
             vec![k0, k1]
         }
@@ -355,6 +427,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 v.out_edges.insert(*l, f_new);
                 w.in_edges.insert(k_new);
             }
+        }
+    }
+
+    pub fn deloop_all(&mut self, allow_marked: bool) { 
+        while let Some((k, i)) = self.find_loop(allow_marked) { 
+            self.deloop(&k, i);
         }
     }
 
@@ -477,17 +555,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.remove(k0);
         self.vertices.remove(l0);
 
-        debug_assert!(self.validate_edges());
+        // self.validate();
     }
 
-    pub fn eval(self, h: &R, t: &R) -> XChainComplex<KhGen, R> {
-        debug_assert!(self.is_evalable());
+    pub fn into_complex(self) -> XChainComplex<KhGen, R> {
+        debug_assert!(self.is_finalizable());
 
-        let (h, t) = (h.clone(), t.clone());
-
-        let n = self.len();
+        let n = self.dim();
         let i0 = self.deg_shift.0;
-        let i1 = i0 + (n as isize) - 1;
+        let i1 = i0 + (n as isize);
 
         let summands = Grid1::generate(i0..=i1, |i| { 
             let w = (i - i0) as usize;
@@ -500,17 +576,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         });
 
         XChainComplex::new(summands, 1, move |_, z| { 
+            let (h, t) = self.ht();
             z.apply(|x| {
                 let k = TngKey::from(x);
                 let v = self.vertex(&k);
                 v.out_edges.iter().map(|(l, f)|
-                    (l.as_gen(x.deg_shift), f.eval(&h, &t))
+                    (l.as_gen(x.deg_shift), f.eval(h, t))
                 ).collect()
             })
         })
     }
 
-    fn is_evalable(&self) -> bool { 
+    fn is_finalizable(&self) -> bool { 
         self.vertices.iter().all(|(_, v)|
             v.tng.is_empty()
         )
@@ -535,33 +612,43 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         println!("{}", self.desc_d());
     }
 
-    pub fn validate_edges(&self) -> bool {
+    pub fn validate(&self) {
         for (k, v) in self.vertices.iter() { 
             for j in v.in_edges.iter() {
                 assert!(
                     self.vertices.contains_key(j),
                     "no vertex for in-edge {j} -> {k}"
                 );
+
                 let u = self.vertex(j);
+                
                 assert!(
                     u.out_edges.contains_key(k),
                     "no out-edge {j} -> {k}"
                 );
             }
+            
             for (l, f) in v.out_edges.iter() {
                 assert!(
                     self.vertices.contains_key(l),
                     "no vertex for out-edge {k} -> {l}"
                 );
+
                 let w = self.vertex(l);
+
                 assert!(
                     w.in_edges.contains(k),
                     "no in-edge {k} -> {l}"
                 );
+
                 assert!(!f.is_zero());
+
+                f.iter().for_each(|(cob, _)| { 
+                    assert_eq!(&cob.src(), v.tng(), "invalid source: {} for {cob}", v.tng());
+                    assert_eq!(&cob.tgt(), w.tng(), "invalid target: {} for {cob}", w.tng());
+                })
             }
         }
-        true
     }
 }
 
@@ -577,7 +664,7 @@ use modify;
 #[cfg(test)]
 mod tests { 
     use yui_link::*;
-    use crate::KhLabel;
+    use crate::kh::KhLabel;
     use super::super::tng::TngComp;
 
     use super::*;
@@ -585,58 +672,58 @@ mod tests {
     #[test]
     fn mor_inv() { 
         let c = Cob::id(&Tng::new(vec![
-            TngComp::arc(0,1),
-            TngComp::arc(2,3)
+            TngComp::short_arc(0, 1, false),
+            TngComp::short_arc(2, 3, false)
         ]));
-        let f = Mor::from((c.clone(), -1));
+        let f = LcCob::from((c.clone(), -1));
 
         assert!(f.is_invertible());
         assert_eq!(f.inv(), Some(f.clone()));
 
-        let f = Mor::from((c.clone(), 2));
+        let f = LcCob::from((c.clone(), 2));
         assert!(!f.is_invertible());
         assert_eq!(f.inv(), None);
     }
 
     #[test]
     fn empty() { 
-        let c = TngComplex::new(&0, &0, (0, 0));
+        let c = TngComplex::new(&0, &0, (0, 0), None);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
     }
 
     #[test]
     fn single_x() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x = Crossing::from_pd_code([0,1,2,3]);
         c.append(&x);
 
-        assert_eq!(c.len(), 2);
+        assert_eq!(c.dim(), 1);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 1);
     }
 
     #[test]
     fn single_x_resolved() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x = Crossing::from_pd_code([0,1,2,3]).resolved(Bit::Bit0);
         c.append(&x);
 
-        assert_eq!(c.len(), 1);
+        assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
     }
 
     #[test]
     fn two_x_disj() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([0,1,2,3]);
         let x1 = Crossing::from_pd_code([4,5,6,7]);
 
         c.append(&x0);
         c.append(&x1);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
@@ -644,37 +731,57 @@ mod tests {
 
     #[test]
     fn two_x() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([0,4,1,5]);
         let x1 = Crossing::from_pd_code([3,1,4,2]);
 
         c.append(&x0);
         c.append(&x1);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
     }
 
     #[test]
-    fn deloop_one() { 
-        let mut c = TngComplex::new(&0, &0, (0, 0));
+    fn deloop() { 
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
+        let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
+        c.append(&x0);
+
+        assert_eq!(c.dim(), 0);
+        assert_eq!(c.rank(0), 1);
+
+        let e = c.find_loop(false);
+        assert!(e.is_some());
+        
+        let Some((k, r)) = e else { panic!() };
+        let keys = c.deloop(&k, r);
+
+        assert_eq!(c.dim(), 0);
+        assert_eq!(c.rank(0), 2);
+        assert_eq!(keys.len(), 2);
+    }
+
+    #[test]
+    fn deloop_tangle() { 
+        let mut c = TngComplex::new(&0, &0, (0, 0), None);
         let x0 = Crossing::from_pd_code([4,2,5,1]);
         let x1 = Crossing::from_pd_code([3,6,4,1]);
 
         c.append(&x0);
         c.append(&x1);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
 
-        let e = c.find_loop(None);
+        let e = c.find_loop(false);
         assert!(e.is_some());
 
-        let Some((k, r, _)) = e else { panic!() };
+        let Some((k, r)) = e else { panic!() };
 
         assert_eq!(k, TngKey {
             state: State::from([1,0]), 
@@ -682,11 +789,77 @@ mod tests {
         });
         assert_eq!(r, 2);
 
-        c.deloop(&k, r, false);
+        c.deloop(&k, r);
 
-        assert_eq!(c.len(), 3);
+        assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 3); // delooped here
         assert_eq!(c.rank(2), 1);
+    }
+
+    #[test]
+    fn deloop_marked() { 
+        let mut c = TngComplex::new(&0, &0, (0, 0), Some(0)); // base point = 0
+        let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
+        c.append(&x0);
+
+        assert_eq!(c.dim(), 0);
+        assert_eq!(c.rank(0), 1);
+
+        let e = c.find_loop(false);
+        assert!(e.is_none());
+        
+        let e = c.find_loop(true);
+        assert!(e.is_some());
+        
+        let Some((k, r)) = e else { panic!() };
+        let keys = c.deloop(&k, r);
+
+        assert_eq!(c.dim(), 0);
+        assert_eq!(c.rank(0), 1); // not 2
+        assert_eq!(keys.len(), 1); // not 2
+    }
+
+    #[test]
+    fn connect() {
+        let mut c0 = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c1 = TngComplex::new(&0, &0, (0, 0), None);
+        let x0 = Crossing::from_pd_code([4,2,5,1]);
+        let x1 = Crossing::from_pd_code([3,6,4,1]);
+
+        c0.append(&x0);
+        c1.append(&x1);
+
+        let c = c0.connect(&c1);
+
+        assert_eq!(c.dim(), 2);
+        assert_eq!(c.rank(0), 1);
+        assert_eq!(c.rank(1), 2);
+        assert_eq!(c.rank(2), 1);
+
+        c.validate();
+    }
+
+    #[test]
+    fn connect_trefoil() {
+        let mut c0 = TngComplex::new(&0, &0, (0, 0), None);
+        let mut c1 = TngComplex::new(&0, &0, (0, 0), None);
+        let x0 = Crossing::from_pd_code([1,4,2,5]);
+        let x1 = Crossing::from_pd_code([3,6,4,1]);
+        let x2 = Crossing::from_pd_code([5,2,6,3]);
+
+        c0.append(&x0);
+        c0.append(&x1);
+        c1.append(&x2);
+
+        let c = c0.connect(&c1);
+
+        assert_eq!(c.dim(), 3);
+        assert_eq!(c.rank(0), 1);
+        assert_eq!(c.rank(1), 3);
+        assert_eq!(c.rank(2), 3);
+        assert_eq!(c.rank(3), 1);
+
+        c.validate();
     }
 }

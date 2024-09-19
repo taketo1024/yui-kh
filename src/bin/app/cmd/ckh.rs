@@ -1,180 +1,206 @@
-use std::str::FromStr;
-use itertools::Itertools;
-use yui::{Ring, RingOps};
-use yui_homology::{DisplayTable, DisplaySeq, ChainComplexCommon};
-use yui_kh::KhComplex;
 use crate::app::utils::*;
+use crate::app::err::*;
+use std::marker::PhantomData;
+use std::str::FromStr;
+use yui::{Ring, RingOps};
+use yui_homology::{ChainComplexCommon, DisplayForGrid, DisplayTable, GridTrait, RModStr};
+use yui_kh::kh::KhComplex;
 
-#[derive(Debug, clap::Args)]
-pub struct Args { 
-    link: String,
+pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
+    dispatch_ring!(App, args)
+}
 
-    #[arg(short, long, default_value = "0")]
-    c_value: String,
+#[derive(Clone, Default, Debug, clap::Args)]
+pub struct Args {
+    pub link: String,
 
     #[arg(short = 't', long, default_value = "Z")]
-    c_type: CType,
+    pub c_type: CType,
+
+    #[arg(short, long, default_value = "0")]
+    pub c_value: String,
 
     #[arg(short, long)]
-    mirror: bool,
+    pub mirror: bool,
 
     #[arg(short, long)]
-    reduced: bool,
+    pub reduced: bool,
 
-    #[arg(short, long)]
-    bigraded: bool,
+    #[arg(long)]
+    pub no_simplify: bool,
+
+    #[arg(short = 'g', long)]
+    pub show_gens: bool,
 
     #[arg(short = 'a', long)]
-    with_alpha: bool,
+    pub show_alpha: bool,
 
-    #[arg(long)]
-    no_simplify: bool,
+    #[arg(short = 'd', long)]
+    pub show_diff: bool,
 
-    #[arg(long)]
-    pub debug: bool
+    #[arg(long, default_value = "0")]
+    pub log: u8,
 }
 
-pub fn run(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
-    dispatch_ring!(&args.c_value, &args.c_type, describe_ckh, args)
+pub struct App<R>
+where
+    R: Ring + FromStr,
+    for<'x> &'x R: RingOps<R>,
+{
+    args: Args,
+    buff: String,
+    _ring: PhantomData<R>
 }
 
-fn describe_ckh<R>(args: &Args) -> Result<String, Box<dyn std::error::Error>>
-where R: Ring + FromStr, for<'x> &'x R: RingOps<R> { 
-    let (h, t) = parse_pair::<R>(&args.c_value)?;
-    if args.reduced && !t.is_zero() { 
-        return err!("{t} != 0 is not allowed for reduced.");
+impl<R> App<R>
+where
+    R: Ring + FromStr,
+    for<'x> &'x R: RingOps<R>,
+{
+    pub fn new(args: Args) -> Self { 
+        let buff = String::with_capacity(1024);
+        App { args, buff, _ring: PhantomData }
     }
-    if args.bigraded && !(h.is_zero() && t.is_zero()) {
-        return err!("--bigraded only supported for `c = 0`.");
-    }
+
+    pub fn run(&mut self) -> Result<String, Box<dyn std::error::Error>> {
+        let (h, t) = parse_pair::<R>(&self.args.c_value)?;
     
-    let l = load_link(&args.link, args.mirror)?;
-    let c = if args.no_simplify { 
-        KhComplex::new_v1(&l, &h, &t, args.reduced)
-    } else { 
-        KhComplex::new(&l, &h, &t, args.reduced)
-    };
-    
-    let vs = if args.with_alpha { 
-        c.canon_cycles().iter().map(|z| {
-            (0, c[0].vectorize(z))
-        }).collect_vec()
-    } else { 
-        vec![]
-    };
-
-    let mut b = string_builder::Builder::new(1024);
-
-    if args.bigraded {
-        let c = c.into_bigraded();
-        b.append(c.display_table("i", "j") + "\n");
-        b.append(c.display_d() + "\n");
-    } else { 
-        b.append(c.display_seq("i") + "\n");
-        b.append(c.display_d() + "\n");
-    }
-
-    if args.with_alpha { 
-        b.append("\n");
-        for (i, (_, v)) in vs.iter().enumerate() {
-            b.append(format!("a[{i}] = [{}]\n", v.to_dense().iter().map(|r| r.to_string()).collect_vec().join(", ")));
+        if self.args.reduced {
+            ensure!(t.is_zero(), "`t` must be zero for reduced.");
         }
+        if self.args.show_alpha { 
+            ensure!(t.is_zero(), "`t` must be zero to have alpha.");
+        }
+    
+        let l = load_link(&self.args.link, self.args.mirror)?;
+        let bigraded = h.is_zero() && t.is_zero();
+
+        let ckh = if self.args.no_simplify {
+            KhComplex::new_v1(&l, &h, &t, self.args.reduced)
+        } else {
+            KhComplex::new(&l, &h, &t, self.args.reduced)
+        };
+        
+        // CKh table
+        self.out(&ckh.gen_table().display_table("i", "j"));
+
+        // Generators
+        if self.args.show_gens { 
+            for i in ckh.support() {
+                let c = &ckh[i];
+                if c.is_zero() { continue }
+                
+                self.out(&format!("C[{i}]: {}", c.display_for_grid()));
+        
+                let r = c.rank() + c.tors().len();
+                for i in 0..r { 
+                    let z = c.gen_chain(i);
+                    self.out(&format!("  {i}: {z}"));
+                }
+                self.out("");
+            }
+        }
+
+        // Alpha
+        if self.args.show_alpha { 
+            for (i, z) in ckh.canon_cycles().iter().enumerate() { 
+                let v = ckh[0].vectorize(z);
+                self.out(&format!("a[{i}]: {}", vec2str(&v)));
+            }
+            self.out("");
+        }
+
+        // Diff
+        if self.args.show_diff { 
+            if bigraded { 
+                let ckh = ckh.into_bigraded();
+                self.out(&ckh.display_d());
+            } else { 
+                self.out(&ckh.display_d());
+            }
+        }
+    
+        let res = self.flush();
+        Ok(res)
     }
 
-    let res = b.string()?;
-    Ok(res)
+    fn out(&mut self, str: &str) { 
+        self.buff.push_str(str);
+        self.buff.push('\n');
+    }
+
+    fn flush(&mut self) -> String { 
+        let res = std::mem::take(&mut self.buff);
+        res.trim().to_string()
+    }
 }
 
 #[cfg(test)]
-mod tests { 
+mod tests {
     use super::*;
 
     #[test]
-    fn test1() { 
+    fn test1() {
         let args = Args {
-        	link: "3_1".to_string(),
-        	c_value: "0".to_string(),
-        	c_type: CType::Z,
-        	mirror: false,
-        	reduced: false,
-            bigraded: false,
-        	with_alpha: false,
-            no_simplify: false,
-            debug: false
+            link: "3_1".to_string(),
+            c_value: "0".to_string(),
+            ..Default::default()
         };
-        let res = run(&args);
+        let res = dispatch(&args);
         assert!(res.is_ok());
     }
 
     #[test]
-    fn test2() { 
+    fn test2() {
         let args = Args {
-        	link: "[[1,4,2,5],[3,6,4,1],[5,2,6,3]]".to_string(),
-        	c_value: "2".to_string(),
-        	c_type: CType::Z,
-        	mirror: true,
-        	reduced: true,
-            bigraded: false,
-        	with_alpha: true,
-            no_simplify: false,
-            debug: false
+            link: "[[1,4,2,5],[3,6,4,1],[5,2,6,3]]".to_string(),
+            c_value: "2".to_string(),
+            mirror: true,
+            reduced: true,
+            show_alpha: true,
+            ..Default::default()
         };
-        let res = run(&args);
+        let res = dispatch(&args);
         assert!(res.is_ok());
     }
 
     #[cfg(feature = "poly")]
-    mod poly_tests { 
+    mod poly_tests {
         use super::*;
-        
+
         #[test]
-        fn test_zpoly_h() { 
+        fn test_zpoly_h() {
             let args = Args {
                 link: "3_1".to_string(),
                 c_value: "H".to_string(),
                 c_type: CType::Z,
-                mirror: false,
-                reduced: false,
-                bigraded: false,
-                with_alpha: false,
-                no_simplify: false,
-                debug: false
+                ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
 
         #[test]
-        fn test_zpoly_t() { 
+        fn test_zpoly_t() {
             let args = Args {
                 link: "3_1".to_string(),
                 c_value: "T".to_string(),
                 c_type: CType::Z,
-                mirror: false,
-                reduced: false,
-                bigraded: false,
-                with_alpha: false,
-                no_simplify: false,
-                debug: false
+                ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
 
         #[test]
-        fn test_zpoly_ht() { 
+        fn test_zpoly_ht() {
             let args = Args {
                 link: "3_1".to_string(),
                 c_value: "H,T".to_string(),
                 c_type: CType::Z,
-                mirror: false,
-                reduced: false,
-                bigraded: false,
-                with_alpha: false,
-                no_simplify: false,
-                debug: false
+                ..Default::default()
             };
-            let res = run(&args);
+            let res = dispatch(&args);
             assert!(res.is_ok());
         }
     }
