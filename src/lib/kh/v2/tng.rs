@@ -5,7 +5,7 @@ use delegate::delegate;
 use itertools::Itertools;
 use yui_link::{Edge, Crossing, LinkComp};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub struct TngComp { 
     path: LinkComp, 
     marked: bool
@@ -56,6 +56,21 @@ impl Display for TngComp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO
         self.path.fmt(f)
+    }
+}
+
+impl PartialEq for TngComp {
+    fn eq(&self, other: &Self) -> bool {
+        self.path.unori_eq(&other.path) && self.marked == other.marked
+    }
+}
+
+impl Hash for TngComp {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.path.len().hash(state);
+        self.path.min_edge().hash(state);
+        self.path.is_circle().hash(state);
+        self.marked.hash(state);
     }
 }
 
@@ -207,6 +222,19 @@ impl From<TngComp> for Tng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn eq() { 
+        assert_eq!(TngComp::arc([0, 1, 2], false), TngComp::arc([0, 1, 2], false));
+        assert_eq!(TngComp::arc([0, 1, 2], false), TngComp::arc([2, 1, 0], false));
+        assert_ne!(TngComp::arc([0, 1, 2], false), TngComp::arc([0, 2], false));
+        assert_ne!(TngComp::arc([0, 1, 2], false), TngComp::circ([0, 1, 2], false));
+        assert_eq!(TngComp::circ([0, 1, 2], false), TngComp::circ([0, 1, 2], false));
+        assert_eq!(TngComp::circ([0, 1, 2], false), TngComp::circ([1, 2, 0], false));
+        assert_eq!(TngComp::circ([0, 1, 2], false), TngComp::circ([2, 1, 0], false));
+        assert_ne!(TngComp::circ([0, 1, 2], false), TngComp::circ([1, 2, 3], false));
+        assert_ne!(TngComp::circ([0, 1, 2], false), TngComp::circ([0, 1, 2, 3], false));
+    }
 
     #[test]
     fn is_connectable() { 
