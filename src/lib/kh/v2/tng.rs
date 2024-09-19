@@ -95,7 +95,7 @@ impl Tng {
         Self { comps }
     }
 
-    pub fn from_resolved(x: &Crossing, base_pt: Option<Edge>) -> Self { 
+    pub fn from_resolved(x: &Crossing) -> Self { 
         assert!(x.is_resolved());
 
         let (r0, r1) = x.arcs();

@@ -263,7 +263,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let r = self.state[x];
         let a = x.resolved(r);
-        let tng = Tng::from_resolved(&a, self.base_pt);
+        let tng = Tng::from_resolved(&a);
         let id = Cob::id(&tng);
 
         let mors = std::mem::take(&mut self.retr_cob);
@@ -277,7 +277,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn append_a(&mut self, x: &Crossing) {
         assert!(x.is_resolved());
 
-        let tng = Tng::from_resolved(x, self.base_pt);
+        let tng = Tng::from_resolved(x);
         let id = Cob::id(&tng);
 
         let mors = std::mem::take(&mut self.retr_cob);
