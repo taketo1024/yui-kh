@@ -25,6 +25,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub auto_elim: bool
 }
 
+impl<R> From<TngComplex<R>> for TngComplexBuilder<R>
+where R: Ring, for<'x> &'x R: RingOps<R> {
+    fn from(complex: TngComplex<R>) -> Self {
+        Self { complex, elements: vec![], auto_deloop: true, auto_elim: true }
+    }
+}
+
 impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
