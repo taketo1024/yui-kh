@@ -15,7 +15,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn build(l: &InvLink, h: &R, t: &R, reduced: bool) { 
+    pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> TngComplex<R> { 
         assert!(l.link().is_knot(), "Only invertible knots are supported.");
         assert!(l.link().data().iter().all(|x| !x.is_resolved()));
 
@@ -34,16 +34,22 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b0.process();
 
         let c0 = b0.into_tng_complex();
-        c0.print_d();
+        println!("center:\n{}", c0.desc_d());
 
         let mut b1 = TngComplexBuilder::new(h, t, (0, 0), None);       // half off-axis part
         b1.set_crossings(x1);
         b1.process();
 
         let c1 = b1.into_tng_complex();
-        c1.print_d();
+        println!("left:\n{}", c1.desc_d());
 
-        let c2 = Self::inv_complex(l, &c1);
+        let c2 = c1.convert_edges(|e| l.inv_e(e));
+        println!("right:\n{}", c2.desc_d());
+
+        let c = c0.connect(&c1).connect(&c2);
+        println!("combined:\n{}", c.desc_d());
+
+        c
     }
 
     fn split_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -84,14 +90,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         (sym, asym)
     }
-
-    fn inv_complex(l: &InvLink, c: &TngComplex<R>) -> TngComplex<R> { 
-        todo!()
-    }
 }
 
 #[test]
 fn test() { 
-    let l = InvLink::load("7_1").unwrap();
-    SymTngBuilder::build(&l, &0, &0, false);
+    let l = InvLink::load("5_1").unwrap();
+    SymTngBuilder::build_tng_complex(&l, &0, &0, false);
 }
