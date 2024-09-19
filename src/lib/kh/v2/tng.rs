@@ -216,6 +216,17 @@ impl Tng {
     fn normalize(&mut self) { 
         self.comps.sort()
     }
+
+    pub fn convert_edges<F>(&self, f: F) -> Self
+    where F: Fn(Edge) -> Edge { 
+        Self::new(self.comps.iter().map(|c| {
+            let path = Path::new(
+                c.0.edges().iter().map(|e| f(*e)),
+                c.0.is_circle()
+            );
+            TngComp::from(path)
+        }))
+    }
 }
 
 impl Display for Tng {
@@ -366,5 +377,20 @@ mod tests {
 
         assert_eq!(t.ncomps(), 1);
         assert_eq!(t.find_loop(None), None);
+    }
+
+    #[test]
+    fn convert_edges() { 
+        let t = Tng::new(vec![
+            TngComp::arc([0, 1]),
+            TngComp::arc([2, 3]),
+            TngComp::circ([10]),
+        ]);
+        let t = t.convert_edges(|e| 100 + e);
+        assert_eq!(t, Tng::new(vec![
+            TngComp::arc([100, 101]),
+            TngComp::arc([102, 103]),
+            TngComp::circ([110]),
+        ]));
     }
 }
