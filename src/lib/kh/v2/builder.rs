@@ -63,8 +63,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Self { complex, crossings, elements, auto_deloop, auto_elim }
     }
 
-    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> { 
-        self.complex.into_complex()
+    pub fn add_crossing(&mut self, x: &Crossing) { 
+        self.crossings.push(x.clone())
+    }
+
+    pub fn set_crossings<I>(&mut self, xs: I) 
+    where I: IntoIterator<Item = Crossing> { 
+        self.crossings = xs.into_iter().collect()
     }
 
     pub fn process(&mut self) {
@@ -178,6 +183,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         for e in self.elements.iter_mut() { 
             e.finalize();
         }
+    }
+
+    pub fn into_tng_complex(self) -> TngComplex<R> { 
+        self.complex
+    }
+
+    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> { 
+        self.complex.into_complex()
     }
 
     fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<Elem<R>> { 
