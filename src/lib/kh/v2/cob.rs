@@ -54,7 +54,7 @@ impl CobComp {
 
     pub fn id(c: TngComp) -> Self { 
         Self::plain(
-            Tng::from(c), 
+            Tng::from(c.clone()), 
             Tng::from(c),
         )
     }
@@ -425,43 +425,6 @@ impl Display for CobComp {
     }
 }
 
-impl PartialOrd for CobComp {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for CobComp {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        use std::cmp::Ordering::*;
-
-        fn cmp_opt(c0: Option<&TngComp>, c1: Option<&TngComp>) -> Option<std::cmp::Ordering> {
-            match (c0, c1) { 
-                (Some(c0), Some(c1)) => Some(c0.cmp(c1)),
-                (None, Some(_)) => Some(Less),
-                (Some(_), None) => Some(Greater),
-                (None, None) => None
-            }
-        }
-
-        if let Some(src_cmp) = cmp_opt(
-            self.src.min_comp(), 
-            other.src.min_comp()
-        ) { 
-            src_cmp
-        } else if let Some(tgt_cmp) = cmp_opt(
-            self.tgt.min_comp(), 
-            other.tgt.min_comp()
-        ) { 
-            tgt_cmp
-        } else { 
-            [self.genus, self.dots.0, self.dots.1].cmp(
-                &[other.genus, other.dots.0, other.dots.1]
-            )
-        }
-    }
-}
-
 impl Default for CobComp {
     fn default() -> Self {
         Self::sphere() // == zero
@@ -474,6 +437,12 @@ impl Elem for CobComp {
     }
 }
 
+impl OrdForDisplay for CobComp {
+    fn cmp_for_display(&self, _other: &Self) -> std::cmp::Ordering {
+        std::cmp::Ordering::Equal
+    }
+}
+
 impl Gen for CobComp {}
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
@@ -483,9 +452,7 @@ pub struct Cob {
 
 impl Cob {
     pub fn new(comps: Vec<CobComp>) -> Self { 
-        let mut cob = Self { comps };
-        cob.sort_comps();
-        cob
+        Self { comps }
     }
 
     pub fn empty() -> Self { 
@@ -494,7 +461,7 @@ impl Cob {
     
     pub fn id(v: &Tng) -> Self { 
         let comps = (0..v.ncomps()).map(|i| {
-            let c = *v.comp(i);
+            let c = v.comp(i).clone();
             CobComp::id(c)
         }).collect();
         Self::new(comps)
@@ -568,8 +535,6 @@ impl Cob {
         if comp.is_removable() { 
             self.comps.remove(i);
         }
-
-        self.sort_comps()
     }
 
     fn find_comp(&mut self, b: Bottom, c: &TngComp) -> Option<(usize, &mut CobComp, usize)> { 
@@ -582,7 +547,6 @@ impl Cob {
         for c in other.comps.into_iter() { 
             self.connect_comp(c);
         }
-        self.sort_comps()
     }
 
     pub fn connect_comp(&mut self, mut c: CobComp) {
@@ -641,8 +605,6 @@ impl Cob {
                 self.comps.push(c)
             }
         }
-
-        self.sort_comps()
     }
 
     // collect `bot` & `top` comps that will form a connected component.
@@ -738,9 +700,6 @@ impl Cob {
                     let mut cob = cob.clone();
                     cob.comps.push(c.clone());
                     (cob, r * s)
-                }).map(|(mut cob, r)| {
-                    cob.sort_comps();
-                    (cob, r)
                 });
                 prod.collect()
             })
@@ -754,14 +713,6 @@ impl Cob {
         R::product(self.comps.iter().map(|c| 
             c.eval(h, t)
         ))
-    }
-
-    fn sort_comps(&mut self) { 
-        self.comps.sort()
-    }
-
-    fn min_comp(&self) -> Option<&CobComp> { 
-        self.comps.iter().min_by(|c0, c1| c0.cmp_for_display(c1))
     }
 }
 
@@ -787,16 +738,8 @@ impl Display for Cob {
 }
 
 impl OrdForDisplay for Cob {
-    fn cmp_for_display(&self, other: &Self) -> std::cmp::Ordering {
-        use std::cmp::Ordering::*;
-
-        let Some(c0) = self.min_comp() else {
-            return Less;
-        };
-        let Some(c1) = other.min_comp() else {
-            return Greater;
-        };
-        c0.cmp(c1)
+    fn cmp_for_display(&self, _other: &Self) -> std::cmp::Ordering {
+        std::cmp::Ordering::Equal
     }
 }
 
@@ -933,19 +876,19 @@ mod tests {
     #[test]
     fn cob_contains() { 
         let src = Tng::new(vec![
-            TngComp::short_arc(1, 2, false),
-            TngComp::short_arc(3, 4, false),
-            TngComp::circ(5, false),
+            TngComp::arc([1, 2], false),
+            TngComp::arc([3, 4], false),
+            TngComp::circ([5], false),
         ]);
         let tgt = Tng::new(vec![
-            TngComp::short_arc(1, 3, false),
-            TngComp::short_arc(2, 4, false),
-            TngComp::circ(6, false),
+            TngComp::arc([1, 3], false),
+            TngComp::arc([2, 4], false),
+            TngComp::circ([6], false),
         ]);
         let c = CobComp::plain(src, tgt);
         
-        let c0 = TngComp::short_arc(1, 2, false);
-        let c1 = TngComp::circ(6, false);
+        let c0 = TngComp::arc([1, 2], false);
+        let c1 = TngComp::circ([6], false);
 
         assert!( c.contains(Bottom::Src, &c0));
         assert!(!c.contains(Bottom::Src, &c1));
@@ -956,25 +899,25 @@ mod tests {
     #[test]
     fn is_connectable() { 
         let src = Tng::new(vec![
-            TngComp::short_arc(1, 2, false),
-            TngComp::short_arc(3, 4, false),
-            TngComp::circ(10, false),
+            TngComp::arc([1, 2], false),
+            TngComp::arc([3, 4], false),
+            TngComp::circ([10], false),
         ]);
         let tgt = Tng::new(vec![
-            TngComp::short_arc(1, 3, false),
-            TngComp::short_arc(2, 4, false),
-            TngComp::circ(11, false),
+            TngComp::arc([1, 3], false),
+            TngComp::arc([2, 4], false),
+            TngComp::circ([11], false),
         ]);
         let c = CobComp::plain(src, tgt);
 
         let c1 = CobComp::id(
-            TngComp::short_arc(0, 1, false)
+            TngComp::arc([0, 1], false)
         );
         let c2 = CobComp::sdl(
-            (TngComp::short_arc(0, 1, false), TngComp::short_arc(90, 91, false)),
-            (TngComp::short_arc(0, 90, false), TngComp::short_arc(1, 91, false)),
+            (TngComp::arc([0, 1], false), TngComp::arc([90, 91], false)),
+            (TngComp::arc([0, 90], false), TngComp::arc([1, 91], false)),
         );
-        let c3 = CobComp::id(TngComp::short_arc(5, 6, false));
+        let c3 = CobComp::id(TngComp::arc([5, 6], false));
 
         assert!(c.is_connectable(&c1));
         assert!(c.is_connectable(&c2));
@@ -984,31 +927,31 @@ mod tests {
     #[test]
     fn connect1() { 
         let src = Tng::new(vec![
-            TngComp::short_arc(1, 2, false),
-            TngComp::short_arc(3, 4, false),
-            TngComp::circ(10, false),
+            TngComp::arc([1, 2], false),
+            TngComp::arc([3, 4], false),
+            TngComp::circ([10], false),
         ]);
         let tgt = Tng::new(vec![
-            TngComp::short_arc(1, 3, false),
-            TngComp::short_arc(2, 4, false),
-            TngComp::circ(11, false),
+            TngComp::arc([1, 3], false),
+            TngComp::arc([2, 4], false),
+            TngComp::circ([11], false),
         ]);
 
         let mut c = CobComp::plain(src, tgt);
         c.connect(CobComp::id(
-            TngComp::short_arc(0, 1, false)
+            TngComp::arc([0, 1], false)
         ));
 
         assert_eq!(c, CobComp::plain(
             Tng::new(vec![
-                TngComp::short_arc(0, 2, false), // [0,1,2] -> [0,2]
-                TngComp::short_arc(3, 4, false),
-                TngComp::circ(10, false),
+                TngComp::arc([0, 1, 2], false),
+                TngComp::arc([3, 4], false),
+                TngComp::circ([10], false),
             ]),
             Tng::new(vec![
-                TngComp::short_arc(0, 3, false), // [0,1,2] -> [0,2]
-                TngComp::short_arc(2, 4, false),
-                TngComp::circ(11, false),
+                TngComp::arc([0, 1, 3], false),
+                TngComp::arc([2, 4], false),
+                TngComp::circ([11], false),
             ])
         ));
     }
@@ -1016,30 +959,30 @@ mod tests {
     #[test]
     fn connect2() { 
         let src = Tng::new(vec![
-            TngComp::short_arc(1, 2, false),
-            TngComp::short_arc(3, 4, false),
-            TngComp::circ(10, false),
+            TngComp::arc([1, 2], false),
+            TngComp::arc([3, 4], false),
+            TngComp::circ([10], false),
         ]);
         let tgt = Tng::new(vec![
-            TngComp::short_arc(1, 3, false),
-            TngComp::short_arc(2, 4, false),
-            TngComp::circ(11, false),
+            TngComp::arc([1, 3], false),
+            TngComp::arc([2, 4], false),
+            TngComp::circ([11], false),
         ]);
 
         let mut c = CobComp::plain(src, tgt);
         c.connect(CobComp::id(
-            TngComp::short_arc(1, 3, false)
+            TngComp::arc([1, 3], false)
         ));
 
         assert_eq!(c, CobComp::plain(
             Tng::new(vec![
-                TngComp::arc(2, 1, 4, false),
-                TngComp::circ(10, false),
+                TngComp::arc([2, 1, 3, 4], false),
+                TngComp::circ([10], false),
             ]),
             Tng::new(vec![
-                TngComp::short_arc(2, 4, false),
-                TngComp::circ(1, false),
-                TngComp::circ(11, false),
+                TngComp::arc([2, 4], false),
+                TngComp::circ([1, 3], false),
+                TngComp::circ([11], false),
             ])
         ));
     }
@@ -1047,21 +990,21 @@ mod tests {
     #[test]
     fn euler_num() { 
         let c0 = CobComp::id(
-            TngComp::short_arc(1, 2, false)
+            TngComp::arc([1, 2], false)
         );
         let c1 = CobComp::sdl(
-            (TngComp::short_arc(3, 4, false), TngComp::short_arc(5, 6, false)),
-            (TngComp::short_arc(4, 5, false), TngComp::short_arc(6, 3, false)),
+            (TngComp::arc([3, 4], false), TngComp::arc([5, 6], false)),
+            (TngComp::arc([4, 5], false), TngComp::arc([6, 3], false)),
         );
         let c2 = CobComp::plain(
-            Tng::from(TngComp::circ(10, false)),
-            Tng::new(vec![TngComp::circ(10, false), TngComp::circ(11, false)]),
+            Tng::from(TngComp::circ([10], false)),
+            Tng::new(vec![TngComp::circ([10], false), TngComp::circ([11], false)]),
         );
         let c3 = CobComp::cup(
-            TngComp::circ(20, false)
+            TngComp::circ([20], false)
         );
         let c4 = CobComp::cap(
-            TngComp::circ(30, false)
+            TngComp::circ([30], false)
         );
 
         assert_eq!(c0.nbdr_comps(), 1);
@@ -1085,19 +1028,19 @@ mod tests {
     fn connect_incr_genus() { 
         let mut c0 = CobComp::plain(
             Tng::new(vec![
-                TngComp::short_arc(1, 2, false),
-                TngComp::short_arc(3, 4, false)
+                TngComp::arc([1, 2], false),
+                TngComp::arc([3, 4], false)
             ]),
             Tng::new(vec![
-                TngComp::short_arc(1, 2, false),
-                TngComp::short_arc(3, 4, false)
+                TngComp::arc([1, 2], false),
+                TngComp::arc([3, 4], false)
             ]),
         );
         let c1 = CobComp::id(
-            TngComp::short_arc(1, 3, false)
+            TngComp::arc([1, 3], false)
         );
         let c2 = CobComp::id(
-            TngComp::short_arc(2, 4, false)
+            TngComp::arc([2, 4], false)
         );
 
         assert_eq!(c0.genus, 0);
@@ -1128,10 +1071,10 @@ mod tests {
 
     #[test]
     fn inv() { 
-        let cc0 = CobComp::id(TngComp::short_arc(0, 1, false));
+        let cc0 = CobComp::id(TngComp::arc([0, 1], false));
         let cc1 = CobComp::plain(
-            Tng::from(TngComp::circ(2, false)), 
-            Tng::from(TngComp::circ(3, false))
+            Tng::from(TngComp::circ([2], false)), 
+            Tng::from(TngComp::circ([3], false))
         );
 
         assert!(cc0.is_invertible());
@@ -1139,8 +1082,8 @@ mod tests {
 
         assert!(cc1.is_invertible());
         assert_eq!(cc1.inv(), Some(CobComp::plain(
-            Tng::from(TngComp::circ(3, false)), 
-            Tng::from(TngComp::circ(2, false))
+            Tng::from(TngComp::circ([3], false)), 
+            Tng::from(TngComp::circ([2], false))
         )));
 
         let c0 = Cob::new(vec![cc0, cc1]);
@@ -1153,8 +1096,8 @@ mod tests {
 
         let c1 = Cob::from(
             CobComp::sdl(
-                (TngComp::short_arc(1, 2, false), TngComp::short_arc(3, 4, false)),
-                (TngComp::short_arc(1, 3, false), TngComp::short_arc(2, 4, false))
+                (TngComp::arc([1, 2], false), TngComp::arc([3, 4], false)),
+                (TngComp::arc([1, 3], false), TngComp::arc([2, 4], false))
             )
         );
 
@@ -1189,8 +1132,8 @@ mod tests {
     
     #[test]
     fn stack_cup_cap() {
-        let mut c0 = Cob::from(CobComp::cup(TngComp::circ(0, false)));
-        let c1 = Cob::from(CobComp::cap(TngComp::circ(0, false)));
+        let mut c0 = Cob::from(CobComp::cup(TngComp::circ([0], false)));
+        let c1 = Cob::from(CobComp::cap(TngComp::circ([0], false)));
         
         c0.stack(c1);
 
@@ -1201,35 +1144,33 @@ mod tests {
    
     #[test]
     fn stack_cap_cup() {
-        let mut c0 = Cob::from(CobComp::cap(TngComp::circ(0, false)));
-        let c1 = Cob::from(CobComp::cup(TngComp::circ(0, false)));
+        let mut c0 = Cob::from(CobComp::cap(TngComp::circ([0], false)));
+        let c1 = Cob::from(CobComp::cup(TngComp::circ([0], false)));
         
         c0.stack(c1);
-        c0.sort_comps();
 
         assert_eq!(c0, Cob::new(vec![
-            CobComp::cup(TngComp::circ(0, false)),
-            CobComp::cap(TngComp::circ(0, false))
+            CobComp::cup(TngComp::circ([0], false)),
+            CobComp::cap(TngComp::circ([0], false))
         ]));
     }
    
     #[test]
     fn stack_comps() {
         let mut c0 = Cob::new(vec![
-            CobComp::id(TngComp::short_arc(0, 1, false)),
-            CobComp::cup(TngComp::circ(2, false))
+            CobComp::id(TngComp::arc([0, 1], false)),
+            CobComp::cup(TngComp::circ([2], false))
         ]);
         let c1 = Cob::new(vec![
-            CobComp::cap(TngComp::circ(2, false)),
-            CobComp::id(TngComp::short_arc(0, 1, false))
+            CobComp::cap(TngComp::circ([2], false)),
+            CobComp::id(TngComp::arc([0, 1], false))
         ]);
         
         c0.stack(c1);
-        c0.sort_comps();
 
         assert_eq!(c0, Cob::new(vec![
             CobComp::sphere(),
-            CobComp::id(TngComp::short_arc(0, 1, false)),
+            CobComp::id(TngComp::arc([0, 1], false)),
         ]));
     }
 
@@ -1237,8 +1178,8 @@ mod tests {
     fn stack_id() {
         let c1 = Cob::new(vec![
             CobComp::sdl_from(&Crossing::from_pd_code([0,1,2,3]), None),
-            CobComp::cup(TngComp::circ(4, false)),
-            CobComp::cap(TngComp::circ(5, false)),
+            CobComp::cup(TngComp::circ([4], false)),
+            CobComp::cap(TngComp::circ([5], false)),
         ]);
         let c0 = Cob::id(&c1.src());
         let c2 = Cob::id(&c1.tgt());
@@ -1255,20 +1196,20 @@ mod tests {
    
     #[test]
     fn stack_torus() {
-        let c0 = Cob::from(CobComp::cup(TngComp::circ(0, false)));
+        let c0 = Cob::from(CobComp::cup(TngComp::circ([0], false)));
         let c1 = Cob::new(vec![
             CobComp::split(
-                TngComp::circ(0, false),
-                (TngComp::circ(1, false), TngComp::circ(2, false))
+                TngComp::circ([0], false),
+                (TngComp::circ([1], false), TngComp::circ([2], false))
             )
         ]);
         let c2 = Cob::new(vec![
             CobComp::merge(
-                (TngComp::circ(1, false), TngComp::circ(2, false)), 
-                TngComp::circ(3, false)
+                (TngComp::circ([1], false), TngComp::circ([2], false)), 
+                TngComp::circ([3], false)
             )
         ]);
-        let c3 = Cob::from(CobComp::cap(TngComp::circ(3, false)));
+        let c3 = Cob::from(CobComp::cap(TngComp::circ([3], false)));
 
         let mut c =  Cob::empty();
         c.stack(c0);
