@@ -3,14 +3,14 @@ use std::ops::RangeInclusive;
 use itertools::Itertools;
 use yui::{Ring, RingOps, PowMod2, Sign, GetSign};
 use yui_homology::{XChainComplex, Grid, XModStr};
-use yui_link::{Link, State, LinkComp, Edge};
+use yui_link::{Link, State, Path, Edge};
 
 use crate::kh::{KhAlgStr, KhChain, KhGen, KhLabel};
 
 #[derive(Debug)]
 pub struct KhCubeVertex { 
     state: State,
-    circles: Vec<LinkComp>,
+    circles: Vec<Path>,
     gens: Vec<KhGen>
 }
 
@@ -43,7 +43,7 @@ impl KhCubeVertex {
         self.gens.iter().collect()
     }
 
-    pub fn circles(&self) -> &[LinkComp] { 
+    pub fn circles(&self) -> &[Path] { 
         &self.circles
     }
 }
@@ -72,7 +72,7 @@ impl KhCubeEdge {
     fn edge_between(from: &KhCubeVertex, to: &KhCubeVertex) -> Self { 
         debug_assert!(from.state.weight() + 1 == to.state.weight());
 
-        fn diff(c1: &Vec<LinkComp>, c2: &Vec<LinkComp>) -> Vec<usize> { 
+        fn diff(c1: &Vec<Path>, c2: &Vec<Path>) -> Vec<usize> { 
             let (n1, n2) = (c1.len(), c2.len());
             assert!(n1 == n2 + 1 || n1 + 1 == n2);
             c1.iter().enumerate().filter_map(|(i, c)| { 
