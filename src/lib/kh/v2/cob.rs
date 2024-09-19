@@ -197,7 +197,7 @@ impl CobComp {
         self.dots.0 == self.dots.1 // XY = T
     }
 
-    pub fn is_removable(&self) -> bool { // TODO rename to `is_one()`
+    pub fn is_dot_sph(&self) -> bool {
         self.is_sph() && 
         (self.dots == (1, 0) || // ε.X.ι = 1,
          self.dots == (0, 1))   // ε.Y.ι = 1.
@@ -371,7 +371,7 @@ impl CobComp {
                 (0, 0, y) if y >= 2 => // Y^2 = -hY + t
                     eval(c, 0, 0, y-1, h, t) * -h + 
                     eval(c, 0, 0, y-2, h, t) *  t,
-                (0, 0, 0) if c.is_closed() => // ε.ι = 0
+                (0, 0, 0) if c.is_closed() => // S = 0
                     Lc::zero(),
                 _ =>
                     Lc::from(cob(c, x, y))
@@ -389,7 +389,7 @@ impl CobComp {
         assert!(self.is_closed());
 
         R::sum(self.part_eval(h, t).into_iter().map(|(c, r)| {
-            debug_assert!(c.is_removable()); // either ε.X.ι or ε.Y.ι .
+            assert!(c.is_dot_sph());
             r
         }))
     }
@@ -418,12 +418,12 @@ impl Display for CobComp {
         let dots = if self.has_dots() { 
             let (p, q) = self.dots;
             let m = Var2::<'X','Y', _>::from((p, q));
-            format!("{}.", m)
+            format!("{}", m)
         } else { 
             String::new()
         };
         
-        let cob = format!("{dots}{s}{g}");
+        let cob = format!("{dots}({s}{g})");
 
         if self.src.is_empty() && self.tgt.is_empty() { 
             write!(f, "{cob}")
@@ -538,7 +538,7 @@ impl Cob {
         comp.cap_off(b, p);
         comp.add_dot(x);
 
-        if comp.is_removable() { 
+        if comp.is_dot_sph() { 
             self.comps.remove(i);
         }
 
@@ -716,21 +716,26 @@ impl Cob {
 
     pub fn part_eval<R>(self, h: &R, t: &R) -> Lc<Cob, R>
     where R: Ring, for<'x> &'x R: RingOps<R> {
-        if self.should_part_eval() { 
-            let init = Lc::from(Cob::empty());
-            self.comps.iter().fold(init, |res, c| { 
-                let eval = c.part_eval(h, t);
-                let all = cartesian!(res.iter(), eval.iter());
-                let prod = all.map(|((cob, r), (c, s))| {
-                    let mut cob = cob.clone();
-                    cob.comps.push(c.clone());
-                    (cob, r * s)
-                });
-                prod.collect()
-            })
-        } else { 
-            Lc::from(self)
+        if self.is_zero() { 
+            return Lc::zero()
         }
+        if !self.should_part_eval() { 
+            return Lc::from(self)
+        }
+
+        let init = Lc::from(Cob::empty());
+        self.comps.iter().fold(init, |res, c| { 
+            let eval = c.part_eval(h, t);
+            let all = cartesian!(res.iter(), eval.iter());
+            let prod = all.map(|((cob, r), (c, s))| {
+                let mut cob = cob.clone();
+                if !c.is_dot_sph() {
+                    cob.comps.push(c.clone());
+                }
+                (cob, r * s)
+            });
+            prod.collect()
+        })
     }
 
     pub fn eval<R>(&self, h: &R, t: &R) -> R
@@ -754,14 +759,14 @@ impl From<CobComp> for Cob {
 impl Display for Cob {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.comps.is_empty() { 
-            write!(f, "1")
+            write!(f, "(∅)")
         } else if self.is_zero() { 
             write!(f, "0")
         } else if self.comps.len() == 1 {
-            self.comps[0].fmt(f)
+            write!(f, "{}", self.comps[0])
         } else { 
             let cobs = self.comps.iter().map(|c| c.to_string()).join(" ⊔ ");
-            write!(f, "|{}|", cobs)
+            write!(f, "|{cobs}|")
         }
     }
 }
