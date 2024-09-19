@@ -32,10 +32,12 @@ impl TngComp {
 
     delegate! { 
         to self.path { 
+            pub fn len(&self) -> usize;
             pub fn is_arc(&self) -> bool;
             pub fn is_circle(&self) -> bool;
             #[call(ends)]
             pub fn endpts(&self) -> Option<(Edge, Edge)>;
+            pub fn min_edge(&self) -> Edge;
         }
     }
 
@@ -65,11 +67,24 @@ impl PartialEq for TngComp {
     }
 }
 
+impl PartialOrd for TngComp {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TngComp {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.is_circle().cmp(&other.is_circle())
+        .then_with(|| self.min_edge().cmp(&other.min_edge()))
+    }
+}
+
 impl Hash for TngComp {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.path.is_circle().hash(state);
-        self.path.min_edge().hash(state);
-        self.path.len().hash(state);
+        self.is_circle().hash(state);
+        self.min_edge().hash(state);
+        self.len().hash(state);
         self.marked.hash(state);
     }
 }
@@ -80,7 +95,9 @@ pub struct Tng {
 }
 
 impl Tng { 
-    pub fn new(comps: Vec<TngComp>) -> Self { 
+    pub fn new<I>(comps: I) -> Self 
+    where I: IntoIterator<Item = TngComp> { 
+        let comps = comps.into_iter().sorted().collect_vec();
         Self { comps }
     }
 
@@ -151,6 +168,7 @@ impl Tng {
                 self.append_arc(c);
             }
         }
+        self.normalize();
     }
 
     pub fn append_arc(&mut self, arc: TngComp) { 
@@ -170,6 +188,8 @@ impl Tng {
         } else { 
             self.comps.push(arc);
         }
+
+        self.normalize();
     }
 
     fn find_connectable(&self, arc: &TngComp, j: usize) -> Option<usize> {
@@ -198,6 +218,10 @@ impl Tng {
             c.is_arc()
         ).count() as isize
     }
+
+    fn normalize(&mut self) { 
+        self.comps.sort()
+    }
 }
 
 impl Display for Tng {
@@ -224,7 +248,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn eq() { 
+    fn tng_comp_eq() { 
         assert_eq!(TngComp::arc([0, 1, 2], false), TngComp::arc([0, 1, 2], false));
         assert_eq!(TngComp::arc([0, 1, 2], false), TngComp::arc([2, 1, 0], false));
         assert_ne!(TngComp::arc([0, 1, 2], false), TngComp::arc([0, 2], false));
@@ -309,6 +333,21 @@ mod tests {
             TngComp::circ([10], false),
             TngComp::circ([11], false),
         ]));
+    }
+
+    #[test]
+    fn tng_eq() { 
+        let t0 = Tng::new(vec![
+            TngComp::arc([0, 1], false),
+            TngComp::arc([2, 3], false),
+        ]);
+
+        let t1 = Tng::new(vec![
+            TngComp::arc([2, 3], false),
+            TngComp::arc([0, 1], false),
+        ]);
+
+        assert_eq!(t0, t1);
     }
 
     #[test]
