@@ -211,7 +211,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let circles = l.colored_seifert_circles(p);
             let cob = Cob::new(
                 circles.into_iter().map(|(circ, col)| { 
-                    let t = TngComp::from_link_comp(circ, base_pt);
+                    let t = TngComp::from(circ);
                     let mut cup = CobComp::cup(t);
                     let dot = if col.is_a() == o { 
                         Dot::X 
@@ -289,11 +289,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn deloop(&mut self, k: &TngKey, c: &TngComp) {
         let Some(f) = self.retr_cob.remove(k) else { return };
+        let marked = self.base_pt.map(|e| c.contains(e)).unwrap_or(false);
 
         let (k0, f0) = self.deloop_for(k, &f, c, KhAlgGen::X, Dot::None);
         self.retr_cob.insert(k0, f0);
 
-        if !c.is_marked() { 
+        if !marked { 
             let (k1, f1) = self.deloop_for(k, &f, c, KhAlgGen::I, Dot::Y);
             self.retr_cob.insert(k1, f1);    
         }
