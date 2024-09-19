@@ -15,7 +15,7 @@ use super::cob::{Cob, Dot, Bottom, CobComp, LcCob, LcCobTrait};
 use super::tng::{Tng, TngComp};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub(crate) struct TngKey { 
+pub struct TngKey { 
     pub(crate) state: State,
     pub(crate) label: KhLabel
 }
@@ -76,7 +76,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.tng
     }
 
-    pub fn out_edges(&self) -> &HashMap<TngKey, LcCob<R>> {
+    pub(crate) fn out_edges(&self) -> &HashMap<TngKey, LcCob<R>> {
         &self.out_edges
     }
 }
