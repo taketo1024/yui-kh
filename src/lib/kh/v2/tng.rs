@@ -186,6 +186,12 @@ impl Tng {
         self.normalize();
     }
 
+    pub fn connected(&self, other: &Self) -> Self { 
+        let mut res = self.clone();
+        res.connect(other.clone());
+        res
+    }
+
     fn find_connectable(&self, arc: &TngComp, j: usize) -> Option<usize> {
         let n = self.comps.len();
 
@@ -194,15 +200,10 @@ impl Tng {
         )
     }
 
-    pub fn connected(&self, other: &Self) -> Self { 
-        let mut res = self.clone();
-        res.connect(other.clone());
-        res
-    }
-
-    pub fn find_loop(&self, avoid: Option<Edge>) -> Option<usize> {
+    pub fn find_comp<F>(&self, pred: F) -> Option<usize>
+    where F: Fn(&TngComp) -> bool {
         self.comps.iter().enumerate().find(|(_, c)| 
-            c.is_circle() && avoid.map(|e| !c.contains(e)).unwrap_or(true)
+            pred(c)
         ).map(|(i, _)| i)
     }
 
@@ -359,24 +360,24 @@ mod tests {
     fn find_loop() { 
         let mut t = Tng::empty();
         assert_eq!(t.ncomps(), 0);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_comp(|c| c.is_circle()), None);
 
         t.append_arc(TngComp::arc([0, 1]));
         assert_eq!(t.ncomps(), 1);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_comp(|c| c.is_circle()), None);
 
         t.append_arc(TngComp::arc([2, 3]));
         assert_eq!(t.ncomps(), 2);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_comp(|c| c.is_circle()), None);
 
         t.append_arc(TngComp::arc([2, 3]));
         assert_eq!(t.ncomps(), 2);
-        assert_eq!(t.find_loop(None), Some(1));
+        assert_eq!(t.find_comp(|c| c.is_circle()), Some(1));
 
         t.remove_at(1);
 
         assert_eq!(t.ncomps(), 1);
-        assert_eq!(t.find_loop(None), None);
+        assert_eq!(t.find_comp(|c| c.is_circle()), None);
     }
 
     #[test]

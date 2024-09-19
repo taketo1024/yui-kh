@@ -342,13 +342,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn find_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
-        let avoid = if !allow_marked { 
-            self.base_pt
-        } else { 
-            None
+        let pred = |c: &TngComp| { 
+            c.is_circle() && (allow_marked || self.base_pt.map(|e| !c.contains(e)).unwrap_or(true))
         };
         for (k, v) in self.iter_verts() { 
-            if let Some(r) = v.tng.find_loop(avoid) { 
+            if let Some(r) = v.tng.find_comp(&pred) { 
                 return Some((*k, r))
             }
         }
