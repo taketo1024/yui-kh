@@ -155,6 +155,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn add_edge(&mut self, k: &TngKey, l: &TngKey, f: LcCob<R>) { 
+        assert!(!f.is_zero());
+
         let v = self.vertices.get_mut(k).unwrap();
         v.out_edges.insert(*l, f);
 
@@ -306,9 +308,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
             let ck0 = k0.appended(l0);
             for (k1, f) in v0.out_edges.iter() { 
-                let ck1 = k1.appended(l0);
                 let cf = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-
+                if cf.is_zero() { continue }
+                
+                let ck1 = k1.appended(l0);
                 let cv0 = vertices.get_mut(&ck0).unwrap();
                 cv0.out_edges.insert(ck1, cf);
 
@@ -317,10 +320,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
 
             for (l1, f) in w0.out_edges.iter() { 
-                let ck1 = k0.appended(l1);
                 let e = R::from_sign(Sign::from_parity(i0 as i64));
                 let cf = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                
+                if cf.is_zero() { continue }
+
+                let ck1 = k0.appended(l1);
                 let cv0 = vertices.get_mut(&ck0).unwrap();
                 cv0.out_edges.insert(ck1, cf);
 
