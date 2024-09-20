@@ -79,6 +79,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub(crate) fn out_edges(&self) -> &HashMap<TngKey, LcCob<R>> {
         &self.out_edges
     }
+
+    fn convert_edges<F>(&self, f: F) -> Self
+    where F: Fn(Edge) -> Edge { 
+        let key = self.key;
+        let tng = self.tng.convert_edges(&f);
+        let in_edges = self.in_edges.clone();
+        let out_edges = self.out_edges.iter().map(|(k, cob)|
+            (k.clone(), cob.convert_edges(&f))
+        ).collect();
+        TngVertex { key, tng, in_edges, out_edges }
+    }
 }
 
 impl<R> Display for TngVertex<R>
@@ -141,6 +152,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn crossing(&self, i: usize) -> &Crossing {
         &self.crossings[i]
+    }
+
+    pub fn find_crossing(&self, x: &Crossing) -> Option<usize> { 
+        self.crossings.iter().position(|y| x == y)
     }
 
     pub fn vertex(&self, v: &TngKey) -> &TngVertex<R> { 
@@ -367,12 +382,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
 
-        let mut v = self.vertices.remove(k).unwrap();
-        let c = v.tng.remove_at(r);
+        let c = self.vertex(k).tng.comp(r);
+        assert!(c.is_circle());
+        
         let marked = self.base_pt.map(|e| c.contains(e)).unwrap_or(false);
 
         if marked { 
-            self.deloop_in(&mut v, &c, KhAlgGen::X, Dot::X, Dot::None, true);
+            let mut v = self.vertices.remove(k).unwrap();
+            self.deloop_with(&mut v, r, KhAlgGen::X, Dot::X, Dot::None, true);
 
             let k_new = v.key;
             self.vertices.insert(k_new, v);
@@ -381,11 +398,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
             vec![k_new]
         } else { 
-            let mut v0 = v;
+            let mut v0 = self.vertices.remove(k).unwrap();
             let mut v1 = v0.clone();
 
-            self.deloop_in(&mut v0, &c, KhAlgGen::X, Dot::X, Dot::None, false);
-            self.deloop_in(&mut v1, &c, KhAlgGen::I, Dot::None, Dot::Y, true);
+            self.deloop_with(&mut v0, r, KhAlgGen::X, Dot::X, Dot::None, false);
+            self.deloop_with(&mut v1, r, KhAlgGen::I, Dot::None, Dot::Y, true);
 
             let k0 = v0.key;
             let k1 = v1.key;
@@ -399,14 +416,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn deloop_in(&mut self, v: &mut TngVertex<R>, c: &TngComp, label: KhAlgGen, birth_dot: Dot, death_dot: Dot, remove: bool) { 
-        assert!(c.is_circle());
+    fn deloop_with(&mut self, v: &mut TngVertex<R>, r: usize, label: KhAlgGen, birth_dot: Dot, death_dot: Dot, remove: bool) { 
+        // remove circle
+        let circ = v.tng.remove_at(r);
 
+        // update key
         let k_old = v.key;
-
         v.key.label.push(label);
         let k_new = v.key;
 
+        // cap incoming cobs
         let v_in = v.in_edges.iter().cloned().collect_vec();
         for j in v_in.iter() { 
             v.in_edges.remove(j);
@@ -419,7 +438,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             };
 
             let (h, t) = (&self.h, &self.t);
-            let f_new = f_old.cap_off(Bottom::Tgt, c, death_dot).part_eval(h, t);
+            let f_new = f_old.cap_off(Bottom::Tgt, &circ, death_dot).part_eval(h, t);
 
             if !f_new.is_zero() {
                 u.out_edges.insert(k_new, f_new);
@@ -427,6 +446,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         }
         
+        // cup outgoing cobs
         let v_out = v.out_edges.keys().cloned().collect_vec();
         for l in v_out.iter() { 
             let w = self.vertices.get_mut(l).unwrap();
@@ -437,7 +457,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let f_old = v.out_edges.remove(l).unwrap();
 
             let (h, t) = (&self.h, &self.t);
-            let f_new = f_old.cap_off(Bottom::Src, c, birth_dot).part_eval(h, t);
+            let f_new = f_old.cap_off(Bottom::Src, &circ, birth_dot).part_eval(h, t);
 
             if !f_new.is_zero() { 
                 v.out_edges.insert(*l, f_new);
@@ -678,12 +698,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let vertices = self.iter_verts().map(|(k1, v1)| {
             let k2 = k1.clone();
-            let t2 = v1.tng().convert_edges(&f);
-            let in_edges = v1.in_edges.clone();
-            let out_edges = v1.out_edges().iter().map(|(k, cob)|
-                (k.clone(), cob.convert_edges(&f))
-            ).collect();
-            let v2 = TngVertex { key: k2, tng: t2, in_edges, out_edges };
+            let v2 = v1.convert_edges(&f);
             (k2, v2)
         }).collect();
 
