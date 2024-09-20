@@ -809,6 +809,7 @@ pub trait LcCobTrait: Sized {
     fn connect_comp(self, c: &CobComp) -> Self;
     fn connected(&self, c: &Cob) -> Self;
     fn cap_off(self, b: Bottom, c: &TngComp, dot: Dot) -> Self;
+    fn should_part_eval(&self) -> bool;
     fn part_eval(self, h: &Self::R, t: &Self::R) -> Self;
     fn eval(&self, h: &Self::R, t: &Self::R) -> Self::R;
 }
@@ -888,8 +889,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.map_cob(|cob| cob.cap_off(b, c, dot) )
     }
 
+    fn should_part_eval(&self) -> bool {
+        self.gens().any(|c| c.should_part_eval())
+    }
+
     fn part_eval(self, h: &Self::R, t: &Self::R) -> Self {
-        if self.gens().any(|c| c.should_part_eval()) { 
+        if self.should_part_eval() { 
             LcCob::sum(self.into_iter().map(|(cob, r)|
                 cob.part_eval(h, t) * r
             ))
@@ -908,6 +913,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 #[cfg(test)]
 mod tests {
     use num_traits::Zero;
+    use yui::hashmap;
     use yui::poly::Poly2;
 
     use super::CobComp;
@@ -1297,5 +1303,23 @@ mod tests {
 
         let c = CobComp::closed(3);
         assert_eq!(c.eval(&h, &t), R::from_iter([(ht(2, 0), 2), (ht(0, 1), 8)])); // 2(H^2 + 4T)
+    }
+
+    #[test]
+    fn part_eval() { 
+        let mut c0 = CobComp::id(TngComp::circ([1]));
+        c0.add_dot(Dot::X);
+
+        let mut c1 = CobComp::id(TngComp::circ([1]));
+        c1.add_dot(Dot::X);
+        c1.add_dot(Dot::X);
+
+        let c = LcCob::from_iter(hashmap! { 
+            Cob::from(c0) => -2,
+            Cob::from(c1) => 1
+        });
+
+        assert!(!c.is_zero());
+        assert!(c.part_eval(&2, &0).is_zero()); // X^2 = 2X
     }
 }
