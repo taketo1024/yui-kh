@@ -456,8 +456,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         fn score<_R>(v: &TngVertex<_R>, w: &TngVertex<_R>) -> usize
         where _R: Ring, for<'x> &'x _R: RingOps<_R> { 
-            let v_out = v.out_edges.len();
-            let w_in  = w.in_edges.len();
+            let v_out = v.out_edges.len(); // nnz in column k
+            let w_in  = w.in_edges.len();  // nnz in row l
             (v_out - 1) * (w_in - 1)
         }
 
@@ -520,25 +520,26 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 continue
             }
 
+            let (h, t) = (&self.h, &self.t);
+            
             let b = &self.vertex(k1).out_edges[l0];
             let c = &self.vertex(k0).out_edges[l1];
-            
-            let cab = c * &ainv * b;
-            let v1 = self.vertices.get_mut(k1).unwrap();
+            let cab = (c * &ainv * b).part_eval(h, t);
 
-            let d = if let Some(d) = v1.out_edges.get(l1) { 
+            if cab.is_zero() { 
+                continue
+            } 
+
+            let s = if let Some(d) = self.vertex(k1).out_edges.get(l1) { 
                 d - cab
             } else { 
                 -cab
             };
 
-            let (h, t) = (&self.h, &self.t);
-            let d = d.part_eval(h, t);
-
-            if d.is_zero() { 
+            if s.is_zero() { 
                 self.remove_edge(k1, l1);
             } else { 
-                self.add_edge(k1, l1, d);
+                self.add_edge(k1, l1, s);
             }
         }
 
