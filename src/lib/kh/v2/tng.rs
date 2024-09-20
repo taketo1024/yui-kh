@@ -48,6 +48,15 @@ impl TngComp {
     pub fn connect(&mut self, other: Self) { 
         self.0.connect(other.0)
     }
+
+    pub fn convert_edges<F>(&self, f: F) -> Self
+    where F: Fn(Edge) -> Edge { 
+        let path = Path::new(
+            self.0.edges().iter().map(|e| f(*e)),
+            self.0.is_circle()
+        );
+        Self::from(path)
+    }
 }
 
 impl Display for TngComp {
@@ -211,13 +220,9 @@ impl Tng {
 
     pub fn convert_edges<F>(&self, f: F) -> Self
     where F: Fn(Edge) -> Edge { 
-        Self::new(self.comps.iter().map(|c| {
-            let path = Path::new(
-                c.0.edges().iter().map(|e| f(*e)),
-                c.0.is_circle()
-            );
-            TngComp::from(path)
-        }))
+        Self::new(
+            self.comps.iter().map(|c| c.convert_edges(&f))
+        )
     }
 }
 
