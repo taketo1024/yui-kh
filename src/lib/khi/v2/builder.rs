@@ -4,7 +4,9 @@ use yui::{Ring, RingOps};
 use yui_link::{Crossing, InvLink};
 
 use crate::kh::v2::builder::TngComplexBuilder;
-use crate::kh::v2::tng_complex::TngComplex;
+use crate::kh::v2::cob::LcCobTrait;
+use crate::kh::v2::tng::{Tng, TngComp};
+use crate::kh::v2::tng_complex::{TngComplex, TngKey};
 use crate::kh::KhComplex;
 
 pub struct SymTngBuilder<R> 
@@ -17,10 +19,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool, preserve_sym: bool) -> TngComplex<R> { 
+    pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> TngComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
         b.process_asym();
-        b.process_sym(preserve_sym);
+        if equivariant { 
+            b.process_sym_equiv();
+        } else { 
+            b.process_sym_nonequiv();
+        }
         b.into_tng_complex()
     }
 
@@ -97,31 +103,47 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.complex = c;
     }
 
-    fn process_sym(&mut self, preserve_sym: bool) { 
-        let l = &self.link;
+    fn process_sym_nonequiv(&mut self) { 
+        // MEMO not a good idea to strip off this field.
+        // TngComplexBuilder should take a &mut to TngComplex. 
+        
         let complex = std::mem::take(&mut self.complex);
         let x_sym = std::mem::take(&mut self.crossing_sym);
 
         let mut b = TngComplexBuilder::from(complex);
         b.set_crossings(x_sym);
+        b.process_all();
 
-        if preserve_sym { 
-            b.auto_deloop = false;
-            b.auto_elim = false;
-            while let Some(x) = b.choose_next() { 
-                b.process(x);
+        self.complex = b.into_tng_complex();
+    }
 
-                // on-axis deloop
-                while let Some((k, r)) = b.complex().find_comp(|c| 
-                    c.is_circle() && &c.convert_edges(|e| l.inv_e(e)) == c
-                ) { 
-                    b.deloop(&k, r)
+    fn process_sym_equiv(&mut self) { 
+        let complex = std::mem::take(&mut self.complex);
+        let x_sym = std::mem::take(&mut self.crossing_sym);
+        
+        let mut b = TngComplexBuilder::from(complex);
+        b.auto_deloop = false;
+        b.auto_elim = false;
+        b.set_crossings(x_sym);
+
+        while let Some(x) = b.choose_next() { 
+            b.process(x);
+
+            // on-axis symmetric deloop
+            while let Some((k, r)) = b.complex().find_comp(|c| 
+                self.is_symmetric_circle(c)
+            ) { 
+                let ks = b.deloop(&k, r);
+                for k in ks { 
+                    if let Some((i, j)) = b.complex().find_edge(&k, |i, j| {
+                        self.is_symmetric_cob(b.complex(), i, j)
+                    }) { 
+                        b.eliminate(&i, &j);
+                    }
                 }
-
-                // TODO: symmetric elimination
             }
-        } else {
-            b.process_all();
+
+            // off-axis equivariant deloop
         }
 
         self.complex = b.into_tng_complex();
@@ -129,6 +151,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.complex
+    }
+
+    fn is_symmetric_circle(&self, c: &TngComp) -> bool { 
+        c.is_circle() && &c.convert_edges(|e| self.link.inv_e(e)) == c
+    }
+
+    fn is_symmetric_tng(&self, c: &Tng) -> bool { 
+        &c.convert_edges(|e| self.link.inv_e(e)) == c
+    }
+
+    fn is_symmetric_cob(&self, complex: &TngComplex<R>, i: &TngKey, j: &TngKey) -> bool { 
+        let t1 = complex.vertex(i).tng();
+        let t2 = complex.vertex(i).tng();
+        let f = complex.edge(i, j);
+        self.is_symmetric_tng(t1) && self.is_symmetric_tng(t2) && f.is_invertible() 
     }
 }
 
