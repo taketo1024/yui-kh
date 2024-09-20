@@ -88,6 +88,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     h: R,
