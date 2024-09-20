@@ -57,26 +57,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let x = &l.link().data()[i];
 
             if i == l.inv_x(i) {
-                // println!("{x} is on-axis.");
-
                 take = !take;
-                // println!("  passed on-axis crossing, take = {take}.");
 
                 if !sym.contains(x) {
-                    // println!("  take {x}.");
                     sym.insert(x.clone());
                 }
             } else {
-                // println!("{x} is off-axis.");
-
                 let e = x.edge(j);
                 if e == l.inv_e(e) { // on-axis edge
                     take = !take;
-                    // println!("  passed on-axis edge, take = {take}.");
                 }
 
                 if take && !asym.contains(x) { 
-                    // println!("  take {x}.");
                     asym.insert(x.clone());
                 }
             }
@@ -106,7 +98,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn process_sym_nonequiv(&mut self) { 
         // MEMO not a good idea to strip off this field.
         // TngComplexBuilder should take a &mut to TngComplex. 
-        
+
         let complex = std::mem::take(&mut self.complex);
         let x_sym = std::mem::take(&mut self.crossing_sym);
 
