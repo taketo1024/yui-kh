@@ -31,16 +31,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // First build complex for the off-axis halves. 
         let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
-        b.add_crossings(&x_asym);
+        b.set_crossings(x_asym);
+        b.process_all();
 
         let c1 = b.into_tng_complex();
         let c2 = c1.convert_edges(|e| l.inv_e(e));
-
-        println!("c1");
-        c1.print_d();
-
-        println!("c2");
-        c2.print_d();
 
         // Combine the two halves 
         let c = TngComplex::init(h, t, deg_shift, base_pt);
@@ -48,9 +43,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // Complete the complex by adding on-axis crossings
         let mut b = TngComplexBuilder::from(c);
-
-        // TODO deloop only symmetric ones
-        b.add_crossings(&x_sym);
+        b.set_crossings(x_sym);
+        b.process_all();
         b.into_tng_complex()
     }
 
