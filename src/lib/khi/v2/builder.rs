@@ -17,10 +17,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> TngComplex<R> { 
+    pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool, preserve_sym: bool) -> TngComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
         b.process_asym();
-        b.process_sym();
+        b.process_sym(preserve_sym);
         b.into_tng_complex()
     }
 
@@ -97,13 +97,32 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.complex = c;
     }
 
-    fn process_sym(&mut self) { 
+    fn process_sym(&mut self, preserve_sym: bool) { 
+        let l = &self.link;
         let complex = std::mem::take(&mut self.complex);
         let x_sym = std::mem::take(&mut self.crossing_sym);
 
         let mut b = TngComplexBuilder::from(complex);
         b.set_crossings(x_sym);
-        b.process_all();
+
+        if preserve_sym { 
+            b.auto_deloop = false;
+            b.auto_elim = false;
+            while let Some(x) = b.choose_next() { 
+                b.process(x);
+
+                // on-axis deloop
+                while let Some((k, r)) = b.complex().find_comp(|c| 
+                    c.is_circle() && &c.convert_edges(|e| l.inv_e(e)) == c
+                ) { 
+                    b.deloop(&k, r)
+                }
+
+                // TODO: symmetric elimination
+            }
+        } else {
+            b.process_all();
+        }
 
         self.complex = b.into_tng_complex();
     }
@@ -126,14 +145,9 @@ mod tests {
         use yui::poly::HPoly;
         type R = HPoly<'H', FF2>;
     
-        let l = InvLink::sinv_knot_from_code([
-            [1,27,2,26],[19,2,20,3],[3,13,4,12],[4,31,5,32],[30,5,31,6],
-            [13,7,14,6],[8,27,9,28],[9,1,10,34],[10,18,11,17],[24,11,25,12],
-            [14,21,15,22],[28,16,29,15],[33,16,34,17],[18,26,19,25],[20,8,21,7],
-            [29,23,30,22],[23,33,24,32]
-        ]);
+        let l = InvLink::load("3_1").unwrap();
         let (h, t) = (R::variable(), R::zero());
-        let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false);
+        let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false, true);
         
         c.print_d();
     }
