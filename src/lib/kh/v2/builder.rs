@@ -19,6 +19,7 @@ use super::tng_complex::{TngComplex, TngKey};
 
 pub struct TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
+    crossings: Vec<Crossing>,
     complex: TngComplex<R>,
     elements: Vec<Elem<R>>,
     pub auto_deloop: bool,
@@ -28,7 +29,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> From<TngComplex<R>> for TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     fn from(complex: TngComplex<R>) -> Self {
-        Self { complex, elements: vec![], auto_deloop: true, auto_elim: true }
+        Self { crossings: vec![], complex, elements: vec![], auto_deloop: true, auto_elim: true }
     }
 }
 
@@ -48,44 +49,49 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             b.elements = Self::make_canon_cycles(l, base_pt);
         }
         
-        b.add_crossings(l.data());
+        b.set_crossings(l.data().clone());
+        b.process_all();
         b.finalize();
 
         let canon_cycles = b.eval_elements();
         let complex = b.into_raw_complex();
 
         KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
-
     }
 
     pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
+        let crossings = vec![];
         let complex = TngComplex::init(h, t, deg_shift, base_pt);
         let elements = vec![];
 
         let auto_deloop = true;
         let auto_elim   = true;
 
-        Self { complex, elements, auto_deloop, auto_elim }
+        Self { crossings, complex, elements, auto_deloop, auto_elim }
     }
 
-    pub fn add_crossings<'a, I>(&mut self, crossings: I)
-    where I: IntoIterator<Item = &'a Crossing> {
-        let mut crossings = crossings.into_iter().collect_vec();
-        while !crossings.is_empty() {
-            let x = self.choose_next(&mut crossings);
-            self.add_crossing(x);
+    pub fn complex(&self) -> &TngComplex<R> { 
+        &self.complex
+    }
+
+    pub fn set_crossings<I>(&mut self, crossings: I)
+    where I: IntoIterator<Item = Crossing> {
+        self.crossings = crossings.into_iter().collect_vec();
+    }
+
+    pub fn choose_next(&mut self) -> Option<Crossing> { 
+        if self.crossings.is_empty() { 
+            return None;
         }
-    }
-
-    fn choose_next<'a>(&mut self, crossings: &mut Vec<&'a Crossing>) -> &'a Crossing { 
-        if crossings.len() == 1 { 
-            return crossings.remove(0);
+        if self.crossings.len() == 1 { 
+            let x = self.crossings.remove(0);
+            return Some(x);
         }
 
         let mut candidate = 0;
         let mut score = 0;
 
-        for (i, x) in crossings.iter().enumerate() { 
+        for (i, x) in self.crossings.iter().enumerate() { 
             let arcs = if x.is_resolved() { 
                 let a = x.arcs();
                 vec![a.0, a.1]
@@ -111,14 +117,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         }
 
-        crossings.remove(candidate)
+        let x = self.crossings.remove(candidate);
+        Some(x)
     }
 
-    pub fn add_crossing(&mut self, x: &Crossing) { 
-        self.complex.append(x);
+    pub fn process_all(&mut self) { 
+        while let Some(x) = self.choose_next() { 
+            self.process(x)
+        }
+    }
+
+    pub fn process(&mut self, x: Crossing) { 
+        self.complex.append(&x);
 
         for e in self.elements.iter_mut() { 
-            e.append(x);
+            e.append(&x);
         }
 
         if self.auto_deloop { 
@@ -128,7 +141,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn deloop(&mut self, k: &TngKey, r: usize) {
+    pub fn deloop(&mut self, k: &TngKey, r: usize) {
         let c = self.complex.vertex(k).tng().comp(r);
         for e in self.elements.iter_mut() { 
             e.deloop(k, c);
@@ -143,7 +156,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn eliminate(&mut self, k: &TngKey) {
+    pub fn eliminate(&mut self, k: &TngKey) {
         if let Some((i, j)) = self.complex.find_inv_edge(k) { 
             let i_out = self.complex.vertex(&i).out_edges();
             for e in self.elements.iter_mut() { 
