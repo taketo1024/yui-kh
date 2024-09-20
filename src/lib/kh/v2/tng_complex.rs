@@ -96,14 +96,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     deg_shift: (isize, isize),
     base_pt: Option<Edge>,
     vertices: HashMap<TngKey, TngVertex<R>>,
-    dim: usize,
+    crossings: Vec<Crossing>,
 }
 
 impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, vertices: HashMap<TngKey, TngVertex<R>>, dim: usize) -> Self { 
+    fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, vertices: HashMap<TngKey, TngVertex<R>>, crossings: Vec<Crossing>) -> Self { 
         let (h, t) = (h.clone(), t.clone());
-        TngComplex{ h, t, deg_shift, base_pt, vertices, dim }
+        TngComplex{ h, t, deg_shift, base_pt, vertices, crossings }
     }
 
     pub fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
@@ -112,7 +112,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let v0 = TngVertex::init();
         vertices.insert(k0, v0);
 
-        TngComplex::new(h, t, deg_shift, base_pt, vertices, 0)
+        TngComplex::new(h, t, deg_shift, base_pt, vertices, vec![])
     }
 
     pub fn ht(&self) -> (&R, &R) { 
@@ -128,7 +128,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn dim(&self) -> usize { 
-        self.dim
+        self.crossings.iter().filter(|x| !x.is_resolved()).count()
     }
 
     pub fn rank(&self, i: isize) -> usize { 
@@ -137,6 +137,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let w = k.state.weight() as isize;
             w == i - i0
         }).count()
+    }
+
+    pub fn crossing(&self, i: usize) -> &Crossing {
+        &self.crossings[i]
     }
 
     pub fn vertex(&self, v: &TngKey) -> &TngVertex<R> { 
@@ -192,6 +196,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         } else { 
             self.append_a(x)
         }
+
+        self.crossings.push(x.clone());
     }
 
     fn append_x(&mut self, x: &Crossing) {
@@ -220,8 +226,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         for (k, l) in rmv { 
             self.remove_edge(&k, &l);
         }
-
-        self.dim += 1;
 
         // self.validate();
     }
@@ -293,7 +297,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     // See [Bar-Natan '05] Section 5.
     // https://arxiv.org/abs/math/0410495
-    pub fn connect(&mut self, other: TngComplex<R>) { 
+    pub fn connect(&mut self, mut other: TngComplex<R>) { 
         assert_eq!(self.ht(), other.ht());
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
@@ -339,7 +343,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.base_pt = self.base_pt.or(other.base_pt);
         self.deg_shift.0 += other.deg_shift.0;
         self.deg_shift.1 += other.deg_shift.1;
-        self.dim += other.dim;
+        self.crossings.append(&mut other.crossings);
 
         self.validate();
     }
@@ -669,6 +673,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn convert_edges<F>(&self, f: F) -> Self
     where F: Fn(Edge) -> Edge { 
+        let base_pt = self.base_pt.map(|e| f(e));
+        let crossings = self.crossings.iter().map(|x| x.convert_edges(&f)).collect();
+
         let vertices = self.iter_verts().map(|(k1, v1)| {
             let k2 = k1.clone();
             let t2 = v1.tng().convert_edges(&f);
@@ -680,9 +687,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (k2, v2)
         }).collect();
 
-        let base_pt = self.base_pt.map(|e| f(e));
-
-        TngComplex::new(&self.h, &self.t, self.deg_shift, base_pt, vertices, self.dim)
+        TngComplex::new(&self.h, &self.t, self.deg_shift, base_pt, vertices, crossings)
     }
 }
 
