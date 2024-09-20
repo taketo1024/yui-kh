@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::marker::PhantomData;
 
 use yui::{Ring, RingOps};
 use yui_link::{Crossing, InvLink};
@@ -10,12 +9,22 @@ use crate::kh::KhComplex;
 
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    _r: PhantomData<R> 
+    link: InvLink,
+    crossing_sym: HashSet<Crossing>,
+    crossing_asym: HashSet<Crossing>,
+    complex: TngComplex<R>
 }
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> TngComplex<R> { 
+        let mut b = Self::init(l, h, t, reduced);
+        b.process_asym();
+        b.process_sym();
+        b.into_tng_complex()
+    }
+
+    pub fn init(l: &InvLink, h: &R, t: &R, reduced: bool) -> SymTngBuilder<R> { 
         assert!(l.link().is_knot(), "Only invertible knots are supported.");
         assert!(l.link().data().iter().all(|x| !x.is_resolved()));
 
@@ -27,25 +36,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             None
         };
 
-        let (x_sym, x_asym) = Self::split_crossings(l);
+        let complex = TngComplex::init(h, t, deg_shift, base_pt);
+        let (sym, asym) = Self::split_crossings(l);
 
-        // First build complex for the off-axis halves. 
-        let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
-        b.set_crossings(x_asym);
-        b.process_all();
-
-        let c1 = b.into_tng_complex();
-        let c2 = c1.convert_edges(|e| l.inv_e(e));
-
-        // Combine the two halves 
-        let c = TngComplex::init(h, t, deg_shift, base_pt);
-        let c = c.connect(&c1).connect(&c2);
-
-        // Complete the complex by adding on-axis crossings
-        let mut b = TngComplexBuilder::from(c);
-        b.set_crossings(x_sym);
-        b.process_all();
-        b.into_tng_complex()
+        SymTngBuilder { link: l.clone(), complex, crossing_sym: sym, crossing_asym: asym }
     }
 
     fn split_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -86,6 +80,37 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         (sym, asym)
     }
+
+    fn process_asym(&mut self) { 
+        let (h, t) = self.complex.ht();
+        let l = &self.link;
+        let x_asym = std::mem::take(&mut self.crossing_asym);
+
+        let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
+        b.set_crossings(x_asym);
+        b.process_all();
+
+        let c1 = b.into_tng_complex();
+        let c2 = c1.convert_edges(|e| l.inv_e(e));
+
+        let c = self.complex.connect(&c1).connect(&c2);
+        self.complex = c;
+    }
+
+    fn process_sym(&mut self) { 
+        let complex = std::mem::take(&mut self.complex);
+        let x_sym = std::mem::take(&mut self.crossing_sym);
+
+        let mut b = TngComplexBuilder::from(complex);
+        b.set_crossings(x_sym);
+        b.process_all();
+
+        self.complex = b.into_tng_complex();
+    }
+
+    pub fn into_tng_complex(self) -> TngComplex<R> { 
+        self.complex
+    }
 }
 
 #[cfg(test)]
@@ -107,7 +132,9 @@ mod tests {
             [14,21,15,22],[28,16,29,15],[33,16,34,17],[18,26,19,25],[20,8,21,7],
             [29,23,30,22],[23,33,24,32]
         ]);
-        let c = SymTngBuilder::build_tng_complex(&l, &R::variable(), &R::zero(), false);
+        let (h, t) = (R::variable(), R::zero());
+        let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false);
+        
         c.print_d();
     }
 }
