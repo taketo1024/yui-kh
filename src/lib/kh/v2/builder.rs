@@ -141,7 +141,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn deloop(&mut self, k: &TngKey, r: usize) {
+    pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex.vertex(k).tng().comp(r);
         for e in self.elements.iter_mut() { 
             e.deloop(k, c);
@@ -150,21 +150,24 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let keys = self.complex.deloop(k, r);
 
         if self.auto_elim { 
-            for k in keys { 
-                self.eliminate(&k)
+            for k in keys.iter() { 
+                if let Some((i, j)) = self.complex.find_inv_edge(k) { 
+                    self.eliminate(&i, &j)
+                }
             }
+            vec![]
+        } else {
+            keys
         }
     }
 
-    pub fn eliminate(&mut self, k: &TngKey) {
-        if let Some((i, j)) = self.complex.find_inv_edge(k) { 
-            let i_out = self.complex.vertex(&i).out_edges();
-            for e in self.elements.iter_mut() { 
-                e.eliminate(&i, &j, i_out);
-            }
-            
-            self.complex.eliminate(&i, &j);
+    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
+        let i_out = self.complex.vertex(&i).out_edges();
+        for e in self.elements.iter_mut() { 
+            e.eliminate(i, j, i_out);
         }
+        
+        self.complex.eliminate(i, j);
     }
 
     pub fn finalize(&mut self) { 
