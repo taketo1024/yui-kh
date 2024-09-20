@@ -450,48 +450,59 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
+    pub fn find_edge<'a, 'b, F>(&'a self, k: &'a TngKey, pred: F) -> Option<(TngKey, TngKey)>
+    where 'a: 'b, F: Fn(&'b TngKey, &'b TngKey) -> bool { 
         let mut cand = None;
         let mut cand_s = usize::MAX;
 
-        fn score<_R>(v: &TngVertex<_R>, w: &TngVertex<_R>) -> usize
-        where _R: Ring, for<'x> &'x _R: RingOps<_R> { 
-            let v_out = v.out_edges.len(); // nnz in column k
-            let w_in  = w.in_edges.len();  // nnz in row l
-            (v_out - 1) * (w_in - 1)
-        }
-
-        // collect candidate edges into v, and out from v. 
+        // collect candidate edges into and out from v. 
 
         let v = self.vertex(k);
-        let edges = v.in_edges.iter().map(|j| (j, k)).chain(
-            v.out_edges.keys().map(|l| (k, l))
+        let edges = Iterator::chain(
+            v.in_edges.iter().map(|i| (i, k)),
+            v.out_edges.keys().map(|i| (k, i))
         );
 
-        for (k, l) in edges { 
-            let f = self.edge(k, l);
-            if f.is_invertible() { 
-                let v = self.vertex(k);
-                let w = self.vertex(l);
-                let s = score(v, w);
+        let score = |i, j| {
+            let ni = self.vertex(i).out_edges.len(); // nnz in column i
+            let nj = self.vertex(j).in_edges.len();  // nnz in row j
+            (ni - 1) * (nj - 1)
+        };
+
+        for (i, j) in edges { 
+            if pred(i, j) { 
+                let s = score(i, j);
 
                 if s == 0 {
-                    info!("({}) good pivot {}: {} -> {}", self.nverts(), f, v, w);
-                    return Some((*k, *l));
+                    return Some((*i, *j));
                 } else if s < cand_s { 
-                    cand = Some((k, l));
+                    cand = Some((i, j));
                     cand_s = s;
                 }
             }
         }
 
-        if let Some((k, l)) = cand { 
-            info!("({}) pivot (score: {cand_s}) {}: {} -> {}", self.nverts(), self.edge(k, l), self.vertex(k), self.vertex(l));
-            Some((*k, *l))
+        if let Some((i, j)) = cand { 
+            Some((*i, *j))
         } else { 
             None
         }
     }
+
+    pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
+        let pred = |i, j| self.edge(i, j).is_invertible();
+        self.find_edge(k, pred)
+    }
+
+    //  Gaussian Elimination
+    //
+    //       a
+    //  v0 - - -> w0         .             .
+    //     \   / b
+    //       /         ==>  
+    //     /   \ c              d - ca⁻¹b
+    //  v1 -----> w1         v1 ---------> w1
+    //       d                
 
     pub fn eliminate(&mut self, k0: &TngKey, l0: &TngKey) {
         let v0 = self.vertex(k0);
@@ -501,17 +512,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         info!("({}) eliminate {}: {} -> {}", self.nverts(), a, &v0, &w0);
 
         let Some(ainv) = a.inv() else { 
-            panic!()
+            panic!("{a} is not invertible.")
         };
         
-        //       a
-        //  v0 - - -> w0
-        //     \   / b
-        //       / 
-        //     /   \ c
-        //  v1 -----> w1
-        //       d
-
         let w0_in  = w0.in_edges.iter().cloned().collect_vec();
         let v0_out = v0.out_edges.keys().cloned().collect_vec();
         
