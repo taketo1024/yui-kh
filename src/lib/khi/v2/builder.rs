@@ -91,8 +91,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let c1 = b.into_tng_complex();
         let c2 = c1.convert_edges(|e| l.inv_e(e));
 
-        let c = self.complex.connect(&c1).connect(&c2);
-        self.complex = c;
+        self.complex.connect(c1);
+        self.complex.connect(c2);
     }
 
     fn process_sym_nonequiv(&mut self) { 

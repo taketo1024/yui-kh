@@ -293,8 +293,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     // See [Bar-Natan '05] Section 5.
     // https://arxiv.org/abs/math/0410495
-    pub fn connect(&self, other: &TngComplex<R>) -> TngComplex<R> { 
+    pub fn connect(&mut self, other: TngComplex<R>) { 
         assert_eq!(self.ht(), other.ht());
+        assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
         // create vertices
         let mut vertices = cartesian!(self.vertices.iter(), other.vertices.iter()).map(|((k, v), (l, w))| {  
@@ -334,16 +335,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         });
 
-        let (h, t) = (self.h.clone(), self.t.clone());
-        let deg_shift = self.deg_shift;
-        let base_pt = self.base_pt;
-        let dim = self.dim + other.dim;
+        self.vertices = vertices;
+        self.base_pt = self.base_pt.or(other.base_pt);
+        self.deg_shift.0 += other.deg_shift.0;
+        self.deg_shift.1 += other.deg_shift.1;
+        self.dim += other.dim;
 
-        let c = TngComplex{ h, t, deg_shift, base_pt, vertices, dim };
-
-        // c.validate();
-
-        c
+        self.validate();
     }
 
     pub fn find_comp<F>(&self, pred: F) -> Option<(TngKey, usize)>
@@ -866,14 +864,14 @@ mod tests {
         c0.append(&x0);
         c1.append(&x1);
 
-        let c = c0.connect(&c1);
+        c0.connect(c1);
 
-        assert_eq!(c.dim(), 2);
-        assert_eq!(c.rank(0), 1);
-        assert_eq!(c.rank(1), 2);
-        assert_eq!(c.rank(2), 1);
+        assert_eq!(c0.dim(), 2);
+        assert_eq!(c0.rank(0), 1);
+        assert_eq!(c0.rank(1), 2);
+        assert_eq!(c0.rank(2), 1);
 
-        c.validate();
+        c0.validate();
     }
 
     #[test]
@@ -888,14 +886,14 @@ mod tests {
         c0.append(&x1);
         c1.append(&x2);
 
-        let c = c0.connect(&c1);
+        c0.connect(c1);
 
-        assert_eq!(c.dim(), 3);
-        assert_eq!(c.rank(0), 1);
-        assert_eq!(c.rank(1), 3);
-        assert_eq!(c.rank(2), 3);
-        assert_eq!(c.rank(3), 1);
+        assert_eq!(c0.dim(), 3);
+        assert_eq!(c0.rank(0), 1);
+        assert_eq!(c0.rank(1), 3);
+        assert_eq!(c0.rank(2), 3);
+        assert_eq!(c0.rank(3), 1);
 
-        c.validate();
+        c0.validate();
     }
 }
