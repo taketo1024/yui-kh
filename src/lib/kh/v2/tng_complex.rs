@@ -222,6 +222,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         w.in_edges.remove(k);
     }
 
+    // TODO rename to add_crossing
     pub fn append(&mut self, x: &Crossing) {
         info!("({}) append: {x}", self.nverts());
 
@@ -237,44 +238,39 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
         // create vertices
-        let mut vertices = cartesian!(self.vertices.iter(), other.vertices.iter()).map(|((k, v), (l, w))| {  
-            let mut cv = TngVertex::init();
-            cv.key = k.appended(l);
-            cv.tng = v.tng.connected(&w.tng); // D(v, w)
-            (cv.key, cv)
-        }).collect::<HashMap<_, _>>();
+        let vertices = std::mem::take(&mut self.vertices);
+        self.vertices = cartesian!(vertices.iter(), other.vertices.iter()).map(|((k, v), (l, w))| {  
+            let kl = k.appended(l);
+            let mut vw = TngVertex::init();
+            vw.key = kl;
+            vw.tng = v.tng.connected(&w.tng); // D(v, w)
+            (kl, vw)
+        }).collect();
 
         // create edges
-        cartesian!(self.vertices.iter(), other.vertices.iter()).for_each(|((k0, v0), (l0, w0))| {
+        cartesian!(vertices.iter(), other.vertices.iter()).for_each(|((k0, v0), (l0, w0))| {
             let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
-            let ck0 = k0.appended(l0);
+            let k0_l0 = k0.appended(l0);
+            
             for (k1, f) in v0.out_edges.iter() { 
-                let cf = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-                if cf.is_zero() { continue }
+                let k1_l0 = k1.appended(l0);
+                let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
                 
-                let ck1 = k1.appended(l0);
-                let cv0 = vertices.get_mut(&ck0).unwrap();
-                cv0.out_edges.insert(ck1, cf);
-
-                let cv1 = vertices.get_mut(&ck1).unwrap();
-                cv1.in_edges.insert(ck0);
+                if !f_id.is_zero() { 
+                    self.add_edge(&k0_l0, &k1_l0, f_id);
+                }                
             }
 
             for (l1, f) in w0.out_edges.iter() { 
+                let k0_l1 = k0.appended(l1);
                 let e = R::from_sign(Sign::from_parity(i0 as i64));
-                let cf = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                if cf.is_zero() { continue }
-
-                let ck1 = k0.appended(l1);
-                let cv0 = vertices.get_mut(&ck0).unwrap();
-                cv0.out_edges.insert(ck1, cf);
-
-                let cv1 = vertices.get_mut(&ck1).unwrap();
-                cv1.in_edges.insert(ck0);
+                let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
+                if !id_f.is_zero() { 
+                    self.add_edge(&k0_l0, &k0_l1, id_f);
+                }
             }
         });
 
-        self.vertices = vertices;
         self.base_pt = self.base_pt.or(other.base_pt);
         self.deg_shift.0 += other.deg_shift.0;
         self.deg_shift.1 += other.deg_shift.1;
