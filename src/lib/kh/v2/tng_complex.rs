@@ -200,11 +200,38 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
     }
 
+    fn remove_vertex(&mut self, k: &TngKey) { 
+        let v = self.vertex(k);
+        let in_edges = v.in_edges.iter().cloned().collect_vec();
+        let out_edges = v.out_edges.keys().cloned().collect_vec();
+
+        self.vertices.remove(k);
+
+        for j in in_edges { 
+            let b = self.vertices.get_mut(&j).unwrap().out_edges.remove(k);
+            assert!(b.is_some());
+        }
+        
+        for l in out_edges { 
+            let b = self.vertices.get_mut(&l).unwrap().in_edges.remove(k);
+            assert!(b);
+        }
+    }
+    
     pub fn edge(&self, k: &TngKey, l: &TngKey) -> &LcCob<R> {
         &self.vertices[k].out_edges[l]
     }
 
+    fn has_edge(&self, k: &TngKey, l: &TngKey) -> bool { 
+        debug_assert_eq!(
+            self.vertices[k].out_edges.contains_key(l), 
+            self.vertices[l].in_edges.contains(k)
+        );
+        self.vertices[k].out_edges.contains_key(l)
+    }
+
     fn add_edge(&mut self, k: &TngKey, l: &TngKey, f: LcCob<R>) { 
+        assert!(!self.has_edge(k, l));
         assert!(!f.is_zero());
 
         let v = self.vertices.get_mut(k).unwrap();
@@ -214,12 +241,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         w.in_edges.insert(*k);
     }
 
-    fn remove_edge(&mut self, k: &TngKey, l: &TngKey) { 
-        let v = self.vertices.get_mut(k).unwrap();
-        v.out_edges.remove(l);
-
+    fn remove_edge(&mut self, k: &TngKey, l: &TngKey) -> LcCob<R> { 
+        assert!(self.has_edge(k, l));
         let w = self.vertices.get_mut(l).unwrap();
         w.in_edges.remove(k);
+
+        let v = self.vertices.get_mut(k).unwrap();
+        v.out_edges.remove(l).unwrap()
     }
 
     // TODO rename to add_crossing
@@ -435,81 +463,56 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     //  Gaussian Elimination
     //
     //       a
-    //  v0 - - -> w0         .             .
+    //  v0 - - -> v1         .             .
     //     \   / b
     //       /         ==>  
     //     /   \ c              d - ca⁻¹b
-    //  v1 -----> w1         v1 ---------> w1
+    //  w0 -----> w1         w0 ---------> w1
     //       d                
 
-    pub fn eliminate(&mut self, k0: &TngKey, l0: &TngKey) {
+    pub fn eliminate(&mut self, k0: &TngKey, k1: &TngKey) {
         let v0 = self.vertex(k0);
-        let w0 = self.vertex(l0);
-        let a = &v0.out_edges[l0];
+        let v1 = self.vertex(k1);
+        let a = &v0.out_edges[k1];
 
-        info!("({}) eliminate {}: {} -> {}", self.nverts(), a, &v0, &w0);
+        info!("({}) eliminate {}: {} -> {}", self.nverts(), a, &v0, &v1);
 
         let Some(ainv) = a.inv() else { 
             panic!("{a} is not invertible.")
         };
         
-        let w0_in  = w0.in_edges.iter().cloned().collect_vec();
         let v0_out = v0.out_edges.keys().cloned().collect_vec();
+        let w0_in  = v1.in_edges.iter().cloned().collect_vec();
         
-        for (k1, l1) in cartesian!(w0_in.iter(), v0_out.iter()) {
-            if k1 == k0 || l1 == l0 { 
+        for (l0, l1) in cartesian!(w0_in.iter(), v0_out.iter()) {
+            if l0 == k0 || l1 == k1 { 
                 continue
             }
 
             let (h, t) = (&self.h, &self.t);
             
-            let b = &self.vertex(k1).out_edges[l0];
-            let c = &self.vertex(k0).out_edges[l1];
+            let b = self.edge(l0, k1);
+            let c = self.edge(k0, l1);
             let cab = (c * &ainv * b).part_eval(h, t);
 
             if cab.is_zero() { 
                 continue
             } 
 
-            let s = if let Some(d) = self.vertex(k1).out_edges.get(l1) { 
+            let s = if self.has_edge(l0, l1) { 
+                let d = self.remove_edge(l0, l1);
                 d - cab
             } else { 
                 -cab
             };
 
-            if s.is_zero() { 
-                self.remove_edge(k1, l1);
-            } else { 
-                self.add_edge(k1, l1, s);
+            if !s.is_zero() { 
+                self.add_edge(l0, l1, s);
             }
         }
 
-        // remove edges into w0
-        for k1 in w0_in.iter() {
-            self.remove_edge(k1, l0);
-        }
-
-        // remove edges out from v0
-        for l1 in v0_out.iter() {
-            self.remove_edge(k0, l1);
-        }
-
-        let v0_in  = self.vertex(k0).in_edges.iter().cloned().collect_vec();
-        let w0_out = self.vertex(l0).out_edges.keys().cloned().collect_vec();
-
-        // remove edges into v0
-        for j in v0_in.iter() { 
-            self.remove_edge(j, k0);
-        }
-
-        // remove edges out from w0
-        for j in w0_out.iter() { 
-            self.remove_edge(l0, j);
-        }
-
-        // remove v0 and w0.
-        self.vertices.remove(k0);
-        self.vertices.remove(l0);
+        self.remove_vertex(k0);
+        self.remove_vertex(k1);
 
         // self.validate();
     }
