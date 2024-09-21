@@ -39,6 +39,12 @@ impl TngKey {
         res.append(other.clone());
         res
     }
+
+    fn add_label(&self, l: KhAlgGen) -> TngKey {
+        let mut res = self.clone();
+        res.label.push(l);
+        res
+    }
 }
 
 impl From<&KhGen> for TngKey {
@@ -218,6 +224,58 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
     
+    fn rename_vertex_key(&mut self, k_old: &TngKey, k_new: TngKey) { 
+        assert_ne!(k_old, &k_new);
+
+        let in_edges = self.vertex(k_old).in_edges.clone(); 
+        let in_removed = in_edges.into_iter().map(|j| {
+            let f = self.remove_edge(&j, k_old);
+            (j, f)
+        }).collect_vec();
+
+        let out_edges = self.vertex(k_old).out_edges.keys().cloned().collect_vec();
+        let out_removed = out_edges.into_iter().map(|l| {
+            let f = self.remove_edge(k_old, &l);
+            (l, f)
+        }).collect_vec();
+
+        let mut v = self.vertices.remove(k_old).unwrap();
+        v.key = k_new;
+        self.vertices.insert(k_new, v);
+
+        for (j, f) in in_removed { 
+            self.add_edge(&j, &k_new, f);
+        }
+
+        for (l, f) in out_removed { 
+            self.add_edge(&k_new, &l, f);
+        }
+    }
+
+    fn duplicate_vertex(&mut self, k: &TngKey, k_new: TngKey) { 
+        assert_ne!(k, &k_new);
+
+        let in_edges = self.vertex(k).in_edges.clone(); 
+        let out_edges = self.vertex(k).out_edges.keys().cloned().collect_vec();
+
+        let mut v_new = self.vertex(k).clone();
+        v_new.key = k_new;
+        v_new.in_edges.clear();
+        v_new.out_edges.clear();
+
+        self.vertices.insert(k_new, v_new);
+
+        for j in in_edges { 
+            let f = self.edge(&j, k).clone();
+            self.add_edge(&j, &k_new, f);
+        }
+
+        for l in out_edges { 
+            let f = self.edge(k, &l).clone();
+            self.add_edge(&k_new, &l, f);
+        }
+    }
+    
     pub fn edge(&self, k: &TngKey, l: &TngKey) -> &LcCob<R> {
         &self.vertices[k].out_edges[l]
     }
@@ -250,6 +308,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         v.out_edges.remove(l).unwrap()
     }
 
+    fn modify_edge<F>(&mut self, k: &TngKey, l: &TngKey, map: F)
+    where F: Fn(LcCob<R>) -> LcCob<R> {
+        assert!(self.has_edge(k, l));
+
+        let f = self.remove_edge(k, l);
+        let map_f = map(f);
+
+        if !map_f.is_zero() { 
+            self.add_edge(k, l, map_f);
+        }
+    }
+    
     // TODO rename to add_crossing
     pub fn append(&mut self, x: &Crossing) {
         info!("({}) append: {x}", self.nverts());
@@ -331,88 +401,51 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         
         let marked = self.base_pt.map(|e| c.contains(e)).unwrap_or(false);
 
-        if marked { 
-            let mut v = self.vertices.remove(k).unwrap();
-            self.deloop_with(&mut v, r, KhAlgGen::X, Dot::X, Dot::None, true);
+        #[allow(non_snake_case)]
+        let updated_keys = if marked { 
+            let k_X = k.add_label(KhAlgGen::X);
 
-            let k_new = v.key;
-            self.vertices.insert(k_new, v);
+            self.rename_vertex_key(k, k_X);
+            self.deloop_with(&k_X, r, Dot::X, Dot::None);
 
-            // self.validate();
-
-            vec![k_new]
+            vec![k_X]
         } else { 
-            let mut v0 = self.vertices.remove(k).unwrap();
-            let mut v1 = v0.clone();
+            let k_X = k.add_label(KhAlgGen::X);
+            let k_1 = k.add_label(KhAlgGen::I);
 
-            self.deloop_with(&mut v0, r, KhAlgGen::X, Dot::X, Dot::None, false);
-            self.deloop_with(&mut v1, r, KhAlgGen::I, Dot::None, Dot::Y, true);
+            self.rename_vertex_key(k, k_X);
+            self.duplicate_vertex(&k_X, k_1);
 
-            let k0 = v0.key;
-            let k1 = v1.key;
+            self.deloop_with(&k_X, r, Dot::X, Dot::None);
+            self.deloop_with(&k_1, r, Dot::None, Dot::Y);
 
-            self.vertices.insert(k0, v0);
-            self.vertices.insert(k1, v1);
+            vec![k_X, k_1]
+        };
 
-            // self.validate();
-
-            vec![k0, k1]
-        }
+        updated_keys
     }
 
-    fn deloop_with(&mut self, v: &mut TngVertex<R>, r: usize, label: KhAlgGen, birth_dot: Dot, death_dot: Dot, remove: bool) { 
+    fn deloop_with(&mut self, k: &TngKey, r: usize, birth_dot: Dot, death_dot: Dot) { 
         // remove circle
-        let circ = v.tng.remove_at(r);
+        let circ = self.vertices.get_mut(k).unwrap().tng.remove_at(r);
 
-        // update key
-        let k_old = v.key;
-        v.key.label.push(label);
-        let k_new = v.key;
+        let v = &self.vertices[k];
+        let v_in = v.in_edges.iter().cloned().collect_vec();
+        let v_out = v.out_edges.keys().cloned().collect_vec();
 
         // cap incoming cobs
-        let v_in = v.in_edges.iter().cloned().collect_vec();
+        let (h, t) = (self.h.clone(), self.t.clone());
         for j in v_in.iter() { 
-            v.in_edges.remove(j);
-            let u = self.vertices.get_mut(j).unwrap();
-
-            let f_old = if remove {
-                u.out_edges.remove(&k_old).unwrap()
-            } else { 
-                u.out_edges[&k_old].clone()
-            };
-
-            let (h, t) = (&self.h, &self.t);
-            let f_new = f_old.cap_off(Bottom::Tgt, &circ, death_dot).part_eval(h, t);
-
-            if !f_new.is_zero() {
-                u.out_edges.insert(k_new, f_new);
-                v.in_edges.insert(*j);
-            }
+            self.modify_edge(j, k, |f|
+                f.cap_off(Bottom::Tgt, &circ, death_dot).part_eval(&h, &t)
+            );
         }
         
         // cup outgoing cobs
-        let v_out = v.out_edges.keys().cloned().collect_vec();
         for l in v_out.iter() { 
-            let w = self.vertices.get_mut(l).unwrap();
-            if remove {
-                w.in_edges.remove(&k_old);
-            }
-
-            let f_old = v.out_edges.remove(l).unwrap();
-
-            let (h, t) = (&self.h, &self.t);
-            let f_new = f_old.cap_off(Bottom::Src, &circ, birth_dot).part_eval(h, t);
-
-            if !f_new.is_zero() { 
-                v.out_edges.insert(*l, f_new);
-                w.in_edges.insert(k_new);
-            }
-        }
-    }
-
-    pub fn deloop_all(&mut self, allow_marked: bool) { 
-        while let Some((k, i)) = self.find_loop(allow_marked) { 
-            self.deloop(&k, i);
+            self.modify_edge(k, l, |f|
+                f.cap_off(Bottom::Src, &circ, birth_dot).part_eval(&h, &t)
+            );
         }
     }
 
