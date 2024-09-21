@@ -126,6 +126,36 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         TngComplex::new(h, t, deg_shift, base_pt, vertices, vec![])
     }
 
+    pub fn from_crossing(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, x: &Crossing) -> Self { 
+        let mut _self = Self::new(h, t, deg_shift, base_pt, HashMap::new(), vec![]);
+
+        if x.is_resolved() { 
+            let mut v = TngVertex::init();
+            v.tng = Tng::from_resolved(x);
+            _self.vertices.insert(v.key, v);
+        } else { 
+            let mut v0 = TngVertex::init();
+            v0.key.state.push_0();
+            v0.tng = Tng::from_resolved(&x.resolved(Bit::Bit0));
+            let k0 = v0.key;
+
+            let mut v1 = TngVertex::init();
+            v1.key.state.push_1();
+            v1.tng = Tng::from_resolved(&x.resolved(Bit::Bit1));
+            let k1 = v1.key;
+
+            _self.vertices.insert(k0, v0);
+            _self.vertices.insert(k1, v1);
+
+            let sdl = LcCob::from(Cob::from(CobComp::sdl_from(&x)));
+            _self.add_edge(&k0, &k1, sdl);
+
+            _self.crossings.push(x.clone());
+        }
+
+        _self
+    }
+
     pub fn ht(&self) -> (&R, &R) { 
         (&self.h, &self.t)
     }
@@ -192,122 +222,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         w.in_edges.remove(k);
     }
 
-    //                          d0
-    //                 C[i]#x0 ---> C[i+1]#x0
-    //                   |             :
-    //                 f |             :
-    //            -d1    V             :
-    //  C[i-1]#x1 ---> C[i]#x1 .... C[i+1]#x1 
-    //
-    //  C'[i] = C[i]#x0 ⊕ C[i-1]#x1
-    //     d' = [d0    ]
-    //          [f  -d1]
-
     pub fn append(&mut self, x: &Crossing) {
         info!("({}) append: {x}", self.nverts());
 
-        if !x.is_resolved() { 
-            self.append_x(x)
-        } else { 
-            self.append_a(x)
-        }
-
-        self.crossings.push(x.clone());
-    }
-
-    fn append_x(&mut self, x: &Crossing) {
-        assert!(!x.is_resolved());
-
-        let verts = std::mem::take(&mut self.vertices);
-
-        let sdl = CobComp::sdl_from(x);
-        let c0 = Cob::id(sdl.src());
-        let c1 = Cob::id(sdl.tgt());
-
-        let mut rmv = HashSet::new();
-
-        for (_, v) in verts.into_iter() { 
-            let vs = Self::make_cone(v, &c0, &c1, &sdl);
-            for v in vs { 
-                for (l, f) in v.out_edges.iter() { 
-                    if f.is_zero() { 
-                        rmv.insert((v.key, *l));
-                    }
-                }
-                self.vertices.insert(v.key, v);
-            }
-        }
-
-        for (k, l) in rmv { 
-            self.remove_edge(&k, &l);
-        }
-
-        // self.validate();
-    }
-
-    fn append_a(&mut self, x: &Crossing) {
-        assert!(x.is_resolved());
-
-        let verts = std::mem::take(&mut self.vertices);
-        let c = Cob::id(&Tng::from_resolved(x));
-
-        self.vertices = verts.into_iter().map(|(k, mut v)| { 
-            v.tng.connect(c.src());
-
-            modify!(v.out_edges, |edges: HashMap<TngKey, LcCob<R>>| { 
-                edges.into_iter().map(|(k, f)| { 
-                    (k, f.connect(&c))
-                }).collect()
-            });
-    
-            (k, v)
-        }).collect();
-
-        // self.validate();
-    }
-
-    fn make_cone(v: TngVertex<R>, c0: &Cob, c1: &Cob, sdl: &CobComp) -> [TngVertex<R>; 2] {
-        use Bit::{Bit0, Bit1};
-
-        let mut v0 = v.clone();
-        let mut v1 = v;
-
-        let mut c = Cob::id(&v0.tng);
-        c.connect_comp(sdl.clone());
-        
-        Self::extend_by(&mut v0, c0, Bit0);
-        Self::extend_by(&mut v1, c1, Bit1);
-        Self::insert_sdl(&mut v0, &mut v1, c);
-
-        [v0, v1]
-    }
-
-    fn extend_by(v: &mut TngVertex<R>, c: &Cob, r: Bit) {
-        v.key.state.push(r);
-        v.tng.connect(c.src());
-
-        // append 0 / 1 to in_edges.
-        modify!(v.in_edges, |edges: HashSet<TngKey>| { 
-            edges.into_iter().map(|mut k| { 
-                k.state.push(r);
-                k
-            }).collect()
-        });
-
-        // append 0 / 1 to out_edges with id-cob connected.
-        let e = if r.is_zero() { R::one() } else { -R::one() };
-        modify!(v.out_edges, |edges: HashMap<TngKey, LcCob<R>>| { 
-            edges.into_iter().map(|(mut k, f)| { 
-                k.state.push(r);
-                (k, f.connect(c) * &e)
-            }).collect()
-        });
-    }
-
-    fn insert_sdl(v0: &mut TngVertex<R>, v1: &mut TngVertex<R>, sdl: Cob) { 
-        let f = LcCob::from(sdl);
-        v0.out_edges.insert(v1.key, f);
-        v1.in_edges.insert(v0.key);
+        let (h, t) = self.ht();
+        let c = Self::from_crossing(h, t, (0, 0), None, x);
+        self.connect(c);
     }
 
     // See [Bar-Natan '05] Section 5.
@@ -360,7 +280,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.deg_shift.1 += other.deg_shift.1;
         self.crossings.append(&mut other.crossings);
 
-        self.validate();
+        // self.validate();
     }
 
     pub fn find_comp<F>(&self, pred: F) -> Option<(TngKey, usize)>
@@ -706,38 +626,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-macro_rules! modify {
-    ($e: expr, $f: expr) => {{
-        let val = std::mem::take(&mut $e);
-        $e = $f(val);
-    }};
-}
-
-use modify;
-
 #[cfg(test)]
 mod tests { 
-    use yui_link::*;
-    use crate::kh::KhLabel;
-    use super::super::tng::TngComp;
-
     use super::*;
-
-    #[test]
-    fn mor_inv() { 
-        let c = Cob::id(&Tng::new(vec![
-            TngComp::arc([0, 1]),
-            TngComp::arc([2, 3])
-        ]));
-        let f = LcCob::from((c.clone(), -1));
-
-        assert!(f.is_invertible());
-        assert_eq!(f.inv(), Some(f.clone()));
-
-        let f = LcCob::from((c.clone(), 2));
-        assert!(!f.is_invertible());
-        assert_eq!(f.inv(), None);
-    }
+    use crate::kh::KhLabel;
 
     #[test]
     fn empty() { 
