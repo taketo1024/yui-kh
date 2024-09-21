@@ -1164,6 +1164,22 @@ mod tests {
     }
 
     #[test]
+    fn mor_inv() { 
+        let c = Cob::id(&Tng::new(vec![
+            TngComp::arc([0, 1]),
+            TngComp::arc([2, 3])
+        ]));
+        let f = LcCob::from((c.clone(), -1));
+
+        assert!(f.is_invertible());
+        assert_eq!(f.inv(), Some(f.clone()));
+
+        let f = LcCob::from((c.clone(), 2));
+        assert!(!f.is_invertible());
+        assert_eq!(f.inv(), None);
+    }
+
+    #[test]
     fn stack_closed() {
         let mut c0 = Cob::from(CobComp::closed(0));
         let c1 = Cob::from(CobComp::closed(1));
