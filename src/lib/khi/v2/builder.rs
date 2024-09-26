@@ -14,6 +14,7 @@ use crate::kh::KhComplex;
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {
     e_map: HashMap<Edge, Edge>,
+    key_map: HashMap<TngKey, TngKey>,
     on_axis: HashSet<Crossing>,
     off_axis: HashSet<Crossing>,
     complex: TngComplex<R>
@@ -46,9 +47,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let complex = TngComplex::init(h, t, deg_shift, base_pt);
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
+        let key_map = HashMap::new();
         let (on_axis, off_axis) = Self::separate_crossings(l);
 
-        SymTngBuilder { e_map, on_axis, off_axis, complex }
+        SymTngBuilder { e_map, key_map, on_axis, off_axis, complex }
     }
 
     fn separate_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -92,6 +94,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let c1 = b.into_tng_complex();
         let c2 = c1.convert_edges(|e| self.inv_e(e));
 
+        for ((k1, _), (k2, _)) in cartesian!(c1.iter_verts(), c2.iter_verts()) { 
+            let k  = k1 + k2;
+            let tk = k2 + k1;
+            self.key_map.insert(k, tk);
+        }
+
         self.complex.connect(c1);
         self.complex.connect(c2);
     }
@@ -111,10 +119,26 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for x in xs.iter() { 
             self.complex.append(x);
+            self.update_key_map(x);
 
             // on-axis deloop
             // off-axis deloop
         }
+    }
+
+    fn update_key_map(&mut self, x: &Crossing) { 
+        if x.is_resolved() { return }
+
+        // (k <-> l) ==> (k0 <-> l0, k1 <-> l1) 
+        self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
+            let mut e0 = (*k, *l);
+            let mut e1 = e0;
+            e0.0.state.push(Bit::Bit0);
+            e0.1.state.push(Bit::Bit0);
+            e1.0.state.push(Bit::Bit1);
+            e1.1.state.push(Bit::Bit1);
+            [e0, e1]
+        }).collect();
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
