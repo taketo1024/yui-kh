@@ -174,6 +174,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.base_pt
     }
 
+    pub fn contains_base_pt(&self, c: &TngComp) -> bool { 
+        self.base_pt.map(|e| c.contains(e)).unwrap_or(false)
+    }
+
     pub fn dim(&self) -> usize { 
         self.crossings.iter().filter(|x| !x.is_resolved()).count()
     }
@@ -188,10 +192,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn crossing(&self, i: usize) -> &Crossing {
         &self.crossings[i]
-    }
-
-    pub fn find_crossing(&self, x: &Crossing) -> Option<usize> { 
-        self.crossings.iter().position(|y| x == y)
     }
 
     pub fn vertex(&self, v: &TngKey) -> &TngVertex<R> { 
@@ -392,16 +392,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         None
     }
 
-    pub fn find_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
+    pub fn find_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
         self.find_comp(|c|
-            c.is_circle() && (allow_marked || self.base_pt.map(|e| !c.contains(e)).unwrap_or(true))
+            c.is_circle() && (allow_based || !self.contains_base_pt(c))
         )
     }
 
-    pub fn find_merge_or_split_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
-        let base_pt = self.base_pt;
+    pub fn find_merge_or_split_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
         let ok = |c: &TngComp| {
-            c.is_circle() && (allow_marked || base_pt.map(|e| !c.contains(e)).unwrap_or(true))
+            c.is_circle() && (allow_based || !self.contains_base_pt(c))
         };
         
         self.vertices.iter().find_map(|(k, v)|
@@ -437,10 +436,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let c = self.vertex(k).tng.comp(r);
         assert!(c.is_circle());
         
-        let marked = self.base_pt.map(|e| c.contains(e)).unwrap_or(false);
+        let based = self.contains_base_pt(c);
 
         #[allow(non_snake_case)]
-        let updated_keys = if marked { 
+        let updated_keys = if based { 
             let k_X = k.add_label(KhAlgGen::X);
 
             self.rename_vertex_key(k, k_X);
@@ -818,7 +817,7 @@ mod tests {
     }
 
     #[test]
-    fn deloop_marked() { 
+    fn deloop_based() { 
         let mut c = TngComplex::init(&0, &0, (0, 0), Some(0)); // base point = 0
         let x0 = Crossing::from_pd_code([0, 1, 1, 0]).resolved(Bit::Bit0); // unknot
         c.append(&x0);
