@@ -191,6 +191,14 @@ impl CobComp {
         self.src != self.tgt
     }
 
+    pub fn is_merge(&self) -> bool { 
+        self.src.ncomps() == 2 && self.tgt.ncomps() == 1
+    }
+
+    pub fn is_split(&self) -> bool { 
+        self.src.ncomps() == 1 && self.tgt.ncomps() == 2
+    }
+
     pub fn is_zero(&self) -> bool { 
         self.is_closed() && 
         self.genus % 2 == 0 &&
@@ -479,6 +487,10 @@ impl Cob {
 
     pub fn comp(&self, i: usize) -> &CobComp { 
         &self.comps[i]
+    }
+
+    pub fn comps(&self) -> impl Iterator<Item = &CobComp> { 
+        self.comps.iter()
     }
 
     pub fn src(&self) -> Tng { 
