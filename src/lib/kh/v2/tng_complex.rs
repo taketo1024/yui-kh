@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::ops::Add;
 
 use log::info; 
 use itertools::Itertools;
@@ -16,8 +17,8 @@ use super::tng::{Tng, TngComp};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct TngKey { 
-    pub(crate) state: State,
-    pub(crate) label: KhLabel
+    pub state: State,
+    pub label: KhLabel
 }
 
 impl TngKey { 
@@ -34,15 +35,18 @@ impl TngKey {
         self.label.append(other.label);
     }
 
-    fn appended(&self, other: &TngKey) -> TngKey { 
-        let mut res = self.clone();
-        res.append(other.clone());
-        res
-    }
-
-    fn add_label(&self, l: KhAlgGen) -> TngKey {
+    fn push_label(&self, l: KhAlgGen) -> TngKey {
         let mut res = self.clone();
         res.label.push(l);
+        res
+    }
+}
+
+impl<'a> Add for &'a TngKey {
+    type Output = TngKey;
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut res = *self;
+        res.append(*rhs);
         res
     }
 }
@@ -347,7 +351,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // create vertices
         let vertices = std::mem::take(&mut self.vertices);
         self.vertices = cartesian!(vertices.iter(), other.vertices.iter()).map(|((k, v), (l, w))| {  
-            let kl = k.appended(l);
+            let kl = k + l;
             let mut vw = TngVertex::init();
             vw.key = kl;
             vw.tng = v.tng.connected(&w.tng); // D(v, w)
@@ -357,10 +361,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // create edges
         cartesian!(vertices.iter(), other.vertices.iter()).for_each(|((k0, v0), (l0, w0))| {
             let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
-            let k0_l0 = k0.appended(l0);
+            let k0_l0 = k0 + l0;
             
             for (k1, f) in v0.out_edges.iter() { 
-                let k1_l0 = k1.appended(l0);
+                let k1_l0 = k1 + l0;
                 let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
                 
                 if !f_id.is_zero() { 
@@ -369,7 +373,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
 
             for (l1, f) in w0.out_edges.iter() { 
-                let k0_l1 = k0.appended(l1);
+                let k0_l1 = k0 + l1;
                 let e = R::from_sign(Sign::from_parity(i0 as i64));
                 let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
                 if !id_f.is_zero() { 
@@ -396,15 +400,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         #[allow(non_snake_case)]
         let updated_keys = if based { 
-            let k_X = k.add_label(KhAlgGen::X);
+            let k_X = k.push_label(KhAlgGen::X);
 
             self.rename_vertex_key(k, k_X);
             self.deloop_with(&k_X, r, Dot::X, Dot::None);
 
             vec![k_X]
         } else { 
-            let k_X = k.add_label(KhAlgGen::X);
-            let k_1 = k.add_label(KhAlgGen::I);
+            let k_X = k.push_label(KhAlgGen::X);
+            let k_1 = k.push_label(KhAlgGen::I);
 
             self.rename_vertex_key(k, k_X);
             self.duplicate_vertex(&k_X, k_1);
