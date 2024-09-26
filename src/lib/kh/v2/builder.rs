@@ -135,10 +135,50 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         if self.auto_deloop { 
-            while let Some((k, r)) = self.complex.find_merge_or_split_loop(false) { 
+            while let Some((k, r)) = self.find_merge_or_split_loop(false) { 
                 self.deloop(&k, r);
             }
         }
+    }
+
+    pub fn find_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
+        self.complex.iter_verts().find_map(|(k, v)| {
+            v.tng().find_comp(|c| 
+                c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
+            ).map(|r| (*k, r))
+        })
+    }
+
+    pub fn find_merge_or_split_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
+        let ok = |c: &TngComp| {
+            c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
+        };
+        
+        self.complex.iter_verts().find_map(|(k, v)|
+            v.out_edges().find_map(|l|
+                self.complex.edge(k, l).gens().find_map(|cob| 
+                    cob.comps().find_map(|cob| 
+                        if cob.is_merge() { 
+                            let Some(r_loc) = cob.src().find_comp(&ok) else { 
+                                return None
+                            };
+                            let circ = cob.src().comp(r_loc);
+                            let r = v.tng().find_comp(|c| c == circ).unwrap();
+                            Some((*k, r))
+                        } else if cob.is_split() {
+                            let Some(r_loc) = cob.tgt().find_comp(&ok) else { 
+                                return None
+                            };
+                            let circ = cob.tgt().comp(r_loc);
+                            let r = self.complex.vertex(l).tng().find_comp(|c| c == circ).unwrap();
+                            Some((*l, r))
+                        } else { 
+                            None
+                        }
+                    )
+                )
+            )
+        )
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
@@ -151,7 +191,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         if self.auto_elim { 
             for k in keys.iter() { 
-                if let Some((i, j)) = self.complex.find_inv_edge(k) { 
+                if let Some((i, j)) = self.find_inv_edge(k) { 
                     self.eliminate(&i, &j)
                 }
             }
@@ -161,18 +201,65 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
-        let i_out = self.complex.vertex(&i).out_edges();
-        for e in self.elements.iter_mut() { 
-            e.eliminate(i, j, i_out);
+    pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
+        let mut cand = None;
+        let mut cand_s = usize::MAX;
+
+        // collect candidate edges into and out from v. 
+
+        let v = self.complex.vertex(k);
+        let edges = Iterator::chain(
+            v.in_edges().map(|i| (i, k)),
+            v.out_edges().map(|i| (k, i))
+        );
+
+        let score = |i, j| {
+            let ni = self.complex.vertex(i).out_edges().count(); // nnz in column i
+            let nj = self.complex.vertex(j).in_edges().count();  // nnz in row j
+            (ni - 1) * (nj - 1)
+        };
+
+        for (i, j) in edges { 
+            let f = self.complex.edge(i, j);
+            if f.is_invertible() { 
+                let s = score(i, j);
+
+                if s == 0 {
+                    return Some((*i, *j));
+                } else if s < cand_s { 
+                    cand = Some((i, j));
+                    cand_s = s;
+                }
+            }
         }
-        
+
+        if let Some((i, j)) = cand { 
+            Some((*i, *j))
+        } else { 
+            None
+        }
+    }
+
+    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
+        self.eliminate_elements(i, j);
         self.complex.eliminate(i, j);
+    }
+
+    fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
+        let mut elements = std::mem::take(&mut self.elements);
+        let a = self.complex.edge(i, j);
+        for e in elements.iter_mut() { 
+            let i_out = self.complex.keys_out_from(i).map(|k| 
+                (k, self.complex.edge(i, k))
+            );
+            e.eliminate(i, j, a, i_out);
+        }
+        self.elements = elements;
     }
 
     pub fn finalize(&mut self) { 
         for b in [false, true] { 
-            while let Some((k, r)) = self.complex.find_loop(b) { 
+            while let Some((k, r)) = self.find_loop(b) { 
                 self.deloop(&k, r);
             }
         }    
@@ -304,21 +391,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (k_new, f_new)
     }
 
-    pub fn eliminate(&mut self, i: &TngKey, j: &TngKey, i_out: &HashMap<TngKey, LcCob<R>>) {
+    pub fn eliminate<'a, I>(&mut self, i: &TngKey, j: &TngKey, a: &LcCob<R>, i_out: I)
+    where I: IntoIterator<Item = (&'a TngKey, &'a LcCob<R>)> {
         // mors into i can be simply dropped.
         self.retr_cob.remove(i);
 
         // mors into j must be redirected by -ca^{-1}
         let Some(f) = self.retr_cob.remove(j) else { return };
-
-        let a = &i_out[&j];
         let ainv = a.inv().unwrap();
 
-        for (k, c) in i_out.iter() { 
+        for (k, c) in i_out { 
             if k == j { continue }
 
             let caf = c * &ainv * &f;
-            let d = if let Some(d) = self.retr_cob.get(k) { 
+            let d = if let Some(d) = self.retr_cob.remove(k) { 
                 d - caf
             } else { 
                 -caf
@@ -326,8 +412,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
             if !d.is_zero() { 
                 self.retr_cob.insert(*k, d);
-            } else { 
-                self.retr_cob.remove(k);
             }
         }
     }

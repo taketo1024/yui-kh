@@ -82,8 +82,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.tng
     }
 
-    pub(crate) fn out_edges(&self) -> &HashMap<TngKey, LcCob<R>> {
-        &self.out_edges
+    pub fn in_edges(&self) -> impl Iterator<Item = &TngKey> {
+        self.in_edges.iter()
+    }
+
+    pub fn out_edges(&self) -> impl Iterator<Item = &TngKey> {
+        self.out_edges.keys()
     }
 
     fn convert_edges<F>(&self, f: F) -> Self
@@ -206,12 +210,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
     }
 
-    fn keys_into(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
-        self.vertex(k).in_edges.iter()
+    pub fn keys_into(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
+        self.vertex(k).in_edges()
     }
 
-    fn keys_out_from(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
-        self.vertex(k).out_edges.keys()
+    pub fn keys_out_from(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
+        self.vertex(k).out_edges()
     }
 
     fn remove_vertex(&mut self, k: &TngKey) { 
@@ -382,54 +386,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // self.validate();
     }
 
-    pub fn find_comp<F>(&self, pred: F) -> Option<(TngKey, usize)>
-    where F: Fn(&TngComp) -> bool {
-        for (k, v) in self.iter_verts() { 
-            if let Some(r) = v.tng.find_comp(&pred) { 
-                return Some((*k, r))
-            }
-        }
-        None
-    }
-
-    pub fn find_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
-        self.find_comp(|c|
-            c.is_circle() && (allow_based || !self.contains_base_pt(c))
-        )
-    }
-
-    pub fn find_merge_or_split_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
-        let ok = |c: &TngComp| {
-            c.is_circle() && (allow_based || !self.contains_base_pt(c))
-        };
-        
-        self.vertices.iter().find_map(|(k, v)|
-            v.out_edges.iter().find_map(|(l, f)|
-                f.gens().find_map(|cob| 
-                    cob.comps().find_map(|cob| 
-                        if cob.is_merge() { 
-                            let Some(r_loc) = cob.src().find_comp(&ok) else { 
-                                return None
-                            };
-                            let circ = cob.src().comp(r_loc);
-                            let r = v.tng.find_comp(|c| c == circ).unwrap();
-                            Some((*k, r))
-                        } else if cob.is_split() {
-                            let Some(r_loc) = cob.tgt().find_comp(&ok) else { 
-                                return None
-                            };
-                            let circ = cob.tgt().comp(r_loc);
-                            let r = self.vertex(l).tng.find_comp(|c| c == circ).unwrap();
-                            Some((*l, r))
-                        } else { 
-                            None
-                        }
-                    )
-                )
-            )
-        )
-    }
-
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
 
@@ -483,50 +439,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 f.cap_off(Bottom::Src, &circ, birth_dot).part_eval(&h, &t)
             );
         }
-    }
-
-    pub fn find_inv_edge_with<'a, 'b, F>(&'a self, k: &'a TngKey, pred: F) -> Option<(TngKey, TngKey)>
-    where 'a: 'b, F: Fn(&'b TngKey, &'b TngKey) -> bool { 
-        let mut cand = None;
-        let mut cand_s = usize::MAX;
-
-        // collect candidate edges into and out from v. 
-
-        let v = self.vertex(k);
-        let edges = Iterator::chain(
-            v.in_edges.iter().map(|i| (i, k)),
-            v.out_edges.keys().map(|i| (k, i))
-        );
-
-        let score = |i, j| {
-            let ni = self.vertex(i).out_edges.len(); // nnz in column i
-            let nj = self.vertex(j).in_edges.len();  // nnz in row j
-            (ni - 1) * (nj - 1)
-        };
-
-        for (i, j) in edges { 
-            let f = self.edge(i, j);
-            if f.is_invertible() && pred(i, j) { 
-                let s = score(i, j);
-
-                if s == 0 {
-                    return Some((*i, *j));
-                } else if s < cand_s { 
-                    cand = Some((i, j));
-                    cand_s = s;
-                }
-            }
-        }
-
-        if let Some((i, j)) = cand { 
-            Some((*i, *j))
-        } else { 
-            None
-        }
-    }
-
-    pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
-        self.find_inv_edge_with(k, |_, _| true)
     }
 
     //  Gaussian Elimination
@@ -772,15 +684,22 @@ mod tests {
         assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
 
-        let e = c.find_loop(false);
-        assert!(e.is_some());
-        
-        let Some((k, r)) = e else { panic!() };
-        let keys = c.deloop(&k, r);
+        let k = TngKey::init();
+        let updated = c.deloop(&k, 0);
 
         assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 2);
-        assert_eq!(keys.len(), 2);
+
+        assert_eq!(updated, vec![
+            TngKey {
+                state: State::empty(), 
+                label: KhLabel::from_iter([KhAlgGen::X])
+            },
+            TngKey {
+                state: State::empty(), 
+                label: KhLabel::from_iter([KhAlgGen::I])
+            }
+        ]);
     }
 
     #[test]
@@ -797,23 +716,31 @@ mod tests {
         assert_eq!(c.rank(1), 2);
         assert_eq!(c.rank(2), 1);
 
-        let e = c.find_loop(false);
-        assert!(e.is_some());
-
-        let Some((k, r)) = e else { panic!() };
-
-        assert_eq!(k, TngKey {
+        let k = TngKey {
             state: State::from([1,0]), 
             label: KhLabel::from_iter([])
-        });
-        assert_eq!(r, 2);
+        };
+        let r = 2;
 
-        c.deloop(&k, r);
+        assert!(c.vertex(&k).tng().comp(r).is_circle());
+
+        let updated = c.deloop(&k, r);
 
         assert_eq!(c.dim(), 2);
         assert_eq!(c.rank(0), 1);
         assert_eq!(c.rank(1), 3); // delooped here
         assert_eq!(c.rank(2), 1);
+
+        assert_eq!(updated, vec![
+            TngKey {
+                state: State::from([1,0]), 
+                label: KhLabel::from_iter([KhAlgGen::X])
+            },
+            TngKey {
+                state: State::from([1,0]), 
+                label: KhLabel::from_iter([KhAlgGen::I])
+            }
+        ]);
     }
 
     #[test]
@@ -825,18 +752,18 @@ mod tests {
         assert_eq!(c.dim(), 0);
         assert_eq!(c.rank(0), 1);
 
-        let e = c.find_loop(false);
-        assert!(e.is_none());
-        
-        let e = c.find_loop(true);
-        assert!(e.is_some());
-        
-        let Some((k, r)) = e else { panic!() };
-        let keys = c.deloop(&k, r);
+        let k = TngKey::init();
+        let updated = c.deloop(&k, 0);
 
         assert_eq!(c.dim(), 0);
-        assert_eq!(c.rank(0), 1); // not 2
-        assert_eq!(keys.len(), 1); // not 2
+        assert_eq!(c.rank(0), 1);
+
+        assert_eq!(updated, vec![
+            TngKey {
+                state: State::empty(), 
+                label: KhLabel::from_iter([KhAlgGen::X])
+            },
+        ]);
     }
 
     #[test]

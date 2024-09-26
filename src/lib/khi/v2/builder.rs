@@ -1,3 +1,4 @@
+#![allow(unused)]
 use std::collections::{HashMap, HashSet};
 
 use yui::{Ring, RingOps};
@@ -107,21 +108,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         for x in self.crossing_sym.iter() { 
             self.complex.append(x);
 
-            // on-axis symmetric deloop
-            while let Some((k, r)) = self.complex.find_comp(|c| 
-                self.is_symmetric_circle(c)
-            ) { 
-                let ks = self.complex.deloop(&k, r);
-                for k in ks { 
-                    if let Some((i, j)) = self.complex.find_inv_edge_with(&k, |i, j| {
-                        self.is_symmetric_cob(i, j)
-                    }) { 
-                        self.complex.eliminate(&i, &j);
-                    }
-                }
-            }
-
-            // off-axis equivariant deloop
+            // on-axis deloop
+            // off-axis deloop
         }
     }
 
@@ -131,20 +119,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn inv_e(&self, e: Edge) -> Edge { 
         self.e_map[&e]
-    }
-
-    fn is_symmetric_circle(&self, c: &TngComp) -> bool { 
-        c.is_circle() && &c.convert_edges(|e| self.inv_e(e)) == c
-    }
-
-    fn is_symmetric_tng(&self, c: &Tng) -> bool { 
-        &c.convert_edges(|e| self.inv_e(e)) == c
-    }
-
-    fn is_symmetric_cob(&self, i: &TngKey, j: &TngKey) -> bool { 
-        let t1 = self.complex.vertex(i).tng();
-        let t2 = self.complex.vertex(j).tng();
-        self.is_symmetric_tng(t1) && self.is_symmetric_tng(t2) 
     }
 }
 
@@ -171,12 +145,12 @@ mod tests {
         use yui::poly::HPoly;
         type R = HPoly<'H', FF2>;
     
-        init_logger(log::LevelFilter::Trace);
+        // init_logger(log::LevelFilter::Trace);
 
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (R::variable(), R::zero());
         let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false, true);
         
-        c.print_d();
+        // c.print_d();
     }
 }
