@@ -135,7 +135,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         if self.auto_deloop { 
-            while let Some((k, r)) = self.complex.find_loop(false) { 
+            while let Some((k, r)) = self.complex.find_merge_or_split_loop(false) { 
                 self.deloop(&k, r);
             }
         }
@@ -171,12 +171,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn finalize(&mut self) { 
-        if self.auto_deloop { 
-            while let Some((k, r)) = self.complex.find_loop(true) { 
+        for b in [false, true] { 
+            while let Some((k, r)) = self.complex.find_loop(b) { 
                 self.deloop(&k, r);
             }
-        }
-        
+        }    
         for e in self.elements.iter_mut() { 
             e.finalize();
         }
@@ -425,6 +424,17 @@ mod tests {
         assert_eq!(c[-1].rank(), 0);
         assert_eq!(c[ 0].rank(), 4);
         assert_eq!(c[ 1].rank(), 0);
+    }
+
+    #[test]
+    fn test_tangle() { 
+        let mut c = TngComplexBuilder::new(&0, &0, (0, 0), None);
+        c.set_crossings([
+            Crossing::from_pd_code([4,2,5,1]),
+            Crossing::from_pd_code([3,6,4,1])
+        ]);
+
+        c.process_all();
     }
 
     #[test]
