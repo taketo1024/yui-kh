@@ -1,6 +1,8 @@
 #![allow(unused)]
 use std::collections::{HashMap, HashSet};
+use cartesian::cartesian;
 
+use yui::bitseq::Bit;
 use yui::{Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
 
@@ -12,8 +14,8 @@ use crate::kh::KhComplex;
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {
     e_map: HashMap<Edge, Edge>,
-    crossing_sym: HashSet<Crossing>,
-    crossing_asym: HashSet<Crossing>,
+    on_axis: HashSet<Crossing>,
+    off_axis: HashSet<Crossing>,
     complex: TngComplex<R>
 }
 
@@ -21,11 +23,11 @@ impl<R> SymTngBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> TngComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
-        b.process_asym();
+        b.process_off_axis();
         if equivariant { 
-            b.process_sym_equiv();
+            b.process_on_axis_equiv();
         } else { 
-            b.process_sym_nonequiv();
+            b.process_on_axis_nonequiv();
         }
         b.into_tng_complex()
     }
@@ -44,15 +46,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let complex = TngComplex::init(h, t, deg_shift, base_pt);
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
-        let (sym, asym) = Self::split_crossings(l);
+        let (on_axis, off_axis) = Self::separate_crossings(l);
 
-        SymTngBuilder { e_map, complex, crossing_sym: sym, crossing_asym: asym }
+        SymTngBuilder { e_map, on_axis, off_axis, complex }
     }
 
-    fn split_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
-        let mut sym = HashSet::new();
-        let mut asym = HashSet::new();
-        let mut take = false; // a flag to collect only half of the asymmetric crossings.
+    fn separate_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
+        let mut on_axis = HashSet::new();
+        let mut off_axis = HashSet::new();
+        let mut take = false; // a flag to collect only half of the off-axis crossings.
 
         l.link().traverse_edges((0, 0), |i, j| { 
             let x = &l.link().data()[i];
@@ -60,8 +62,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             if i == l.inv_x(i) {
                 take = !take;
 
-                if !sym.contains(x) {
-                    sym.insert(x.clone());
+                if !on_axis.contains(x) {
+                    on_axis.insert(x.clone());
                 }
             } else {
                 let e = x.edge(j);
@@ -69,22 +71,22 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     take = !take;
                 }
 
-                if take && !asym.contains(x) { 
-                    asym.insert(x.clone());
+                if take && !off_axis.contains(x) { 
+                    off_axis.insert(x.clone());
                 }
             }
         });
 
-        assert_eq!(sym.len() + 2 * asym.len(), l.link().crossing_num());
+        assert_eq!(on_axis.len() + 2 * off_axis.len(), l.link().crossing_num());
 
-        (sym, asym)
+        (on_axis, off_axis)
     }
 
-    fn process_asym(&mut self) { 
+    fn process_off_axis(&mut self) { 
         let (h, t) = self.complex.ht();
 
         let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
-        b.set_crossings(self.crossing_asym.clone());
+        b.set_crossings(self.off_axis.clone());
         b.process_all();
 
         let c1 = b.into_tng_complex();
@@ -94,18 +96,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.complex.connect(c2);
     }
 
-    fn process_sym_nonequiv(&mut self) { 
+    fn process_on_axis_nonequiv(&mut self) { 
         let complex = std::mem::take(&mut self.complex);
         
         let mut b = TngComplexBuilder::from(complex);
-        b.set_crossings(self.crossing_sym.clone());
+        b.set_crossings(self.on_axis.clone());
         b.process_all();
 
         self.complex = b.into_tng_complex();
     }
 
-    fn process_sym_equiv(&mut self) { 
-        for x in self.crossing_sym.iter() { 
+    fn process_on_axis_equiv(&mut self) { 
+        let xs = self.on_axis.clone();
+
+        for x in xs.iter() { 
             self.complex.append(x);
 
             // on-axis deloop
