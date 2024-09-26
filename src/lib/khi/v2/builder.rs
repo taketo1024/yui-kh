@@ -1,7 +1,7 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use yui::{Ring, RingOps};
-use yui_link::{Crossing, InvLink};
+use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::v2::builder::TngComplexBuilder;
 use crate::kh::v2::tng::{Tng, TngComp};
@@ -10,7 +10,7 @@ use crate::kh::KhComplex;
 
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    link: InvLink,
+    e_map: HashMap<Edge, Edge>,
     crossing_sym: HashSet<Crossing>,
     crossing_asym: HashSet<Crossing>,
     complex: TngComplex<R>
@@ -42,9 +42,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let complex = TngComplex::init(h, t, deg_shift, base_pt);
+        let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
         let (sym, asym) = Self::split_crossings(l);
 
-        SymTngBuilder { link: l.clone(), complex, crossing_sym: sym, crossing_asym: asym }
+        SymTngBuilder { e_map, complex, crossing_sym: sym, crossing_asym: asym }
     }
 
     fn split_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -80,14 +81,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn process_asym(&mut self) { 
         let (h, t) = self.complex.ht();
-        let l = &self.link;
 
         let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
         b.set_crossings(self.crossing_asym.clone());
         b.process_all();
 
         let c1 = b.into_tng_complex();
-        let c2 = c1.convert_edges(|e| l.inv_e(e));
+        let c2 = c1.convert_edges(|e| self.inv_e(e));
 
         self.complex.connect(c1);
         self.complex.connect(c2);
@@ -129,12 +129,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.complex
     }
 
+    fn inv_e(&self, e: Edge) -> Edge { 
+        self.e_map[&e]
+    }
+
     fn is_symmetric_circle(&self, c: &TngComp) -> bool { 
-        c.is_circle() && &c.convert_edges(|e| self.link.inv_e(e)) == c
+        c.is_circle() && &c.convert_edges(|e| self.inv_e(e)) == c
     }
 
     fn is_symmetric_tng(&self, c: &Tng) -> bool { 
-        &c.convert_edges(|e| self.link.inv_e(e)) == c
+        &c.convert_edges(|e| self.inv_e(e)) == c
     }
 
     fn is_symmetric_cob(&self, i: &TngKey, j: &TngKey) -> bool { 
@@ -151,12 +155,24 @@ mod tests {
     use num_traits::Zero;
     use yui_homology::{ChainComplexCommon, DisplaySeq};
 
+    fn init_logger(l: log::LevelFilter) {
+        use simplelog::*;
+        TermLogger::init(
+            l,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto
+        ).unwrap()
+    }
+
     #[test]
     fn test() { 
         use yui::FF2;
         use yui::poly::HPoly;
         type R = HPoly<'H', FF2>;
     
+        init_logger(log::LevelFilter::Trace);
+
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (R::variable(), R::zero());
         let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false, true);
