@@ -486,7 +486,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn find_edge<'a, 'b, F>(&'a self, k: &'a TngKey, pred: F) -> Option<(TngKey, TngKey)>
+    pub fn find_inv_edge_with<'a, 'b, F>(&'a self, k: &'a TngKey, pred: F) -> Option<(TngKey, TngKey)>
     where 'a: 'b, F: Fn(&'b TngKey, &'b TngKey) -> bool { 
         let mut cand = None;
         let mut cand_s = usize::MAX;
@@ -506,7 +506,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         for (i, j) in edges { 
-            if pred(i, j) { 
+            let f = self.edge(i, j);
+            if f.is_invertible() && pred(i, j) { 
                 let s = score(i, j);
 
                 if s == 0 {
@@ -526,8 +527,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
-        let pred = |i, j| self.edge(i, j).is_invertible();
-        self.find_edge(k, pred)
+        self.find_inv_edge_with(k, |_, _| true)
     }
 
     //  Gaussian Elimination

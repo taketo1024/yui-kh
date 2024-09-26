@@ -4,7 +4,6 @@ use yui::{Ring, RingOps};
 use yui_link::{Crossing, InvLink};
 
 use crate::kh::v2::builder::TngComplexBuilder;
-use crate::kh::v2::cob::LcCobTrait;
 use crate::kh::v2::tng::{Tng, TngComp};
 use crate::kh::v2::tng_complex::{TngComplex, TngKey};
 use crate::kh::KhComplex;
@@ -127,7 +126,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             ) { 
                 let ks = b.deloop(&k, r);
                 for k in ks { 
-                    if let Some((i, j)) = b.complex().find_edge(&k, |i, j| {
+                    if let Some((i, j)) = b.complex().find_inv_edge_with(&k, |i, j| {
                         self.is_symmetric_cob(b.complex(), i, j)
                     }) { 
                         b.eliminate(&i, &j);
@@ -155,9 +154,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn is_symmetric_cob(&self, complex: &TngComplex<R>, i: &TngKey, j: &TngKey) -> bool { 
         let t1 = complex.vertex(i).tng();
-        let t2 = complex.vertex(i).tng();
-        let f = complex.edge(i, j);
-        self.is_symmetric_tng(t1) && self.is_symmetric_tng(t2) && f.is_invertible() 
+        let t2 = complex.vertex(j).tng();
+        self.is_symmetric_tng(t1) && self.is_symmetric_tng(t2) 
     }
 }
 
