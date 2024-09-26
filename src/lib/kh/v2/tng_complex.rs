@@ -398,6 +398,39 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
+    pub fn find_merge_or_split_loop(&self, allow_marked: bool) -> Option<(TngKey, usize)> { 
+        let base_pt = self.base_pt;
+        let ok = |c: &TngComp| {
+            c.is_circle() && (allow_marked || base_pt.map(|e| !c.contains(e)).unwrap_or(true))
+        };
+        
+        self.vertices.iter().find_map(|(k, v)|
+            v.out_edges.iter().find_map(|(l, f)|
+                f.gens().find_map(|cob| 
+                    cob.comps().find_map(|cob| 
+                        if cob.is_merge() { 
+                            let Some(r_loc) = cob.src().find_comp(&ok) else { 
+                                return None
+                            };
+                            let circ = cob.src().comp(r_loc);
+                            let r = v.tng.find_comp(|c| c == circ).unwrap();
+                            Some((*k, r))
+                        } else if cob.is_split() {
+                            let Some(r_loc) = cob.tgt().find_comp(&ok) else { 
+                                return None
+                            };
+                            let circ = cob.tgt().comp(r_loc);
+                            let r = self.vertex(l).tng.find_comp(|c| c == circ).unwrap();
+                            Some((*l, r))
+                        } else { 
+                            None
+                        }
+                    )
+                )
+            )
+        )
+    }
+
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
 
