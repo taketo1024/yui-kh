@@ -40,7 +40,7 @@ impl CobComp {
         let src = Tng::from_resolved(&x.resolved(Bit0));
         let tgt = Tng::from_resolved(&x.resolved(Bit1));
 
-        Self::plain(src, tgt)
+        Self::plain(src, tgt, 0)
     }
 
     pub fn new(src: Tng, tgt: Tng, genus: usize, dots: (usize, usize)) -> Self { 
@@ -48,14 +48,15 @@ impl CobComp {
         Self { src, tgt, genus, dots }
     }
 
-    pub fn plain(src: Tng, tgt: Tng) -> Self { 
-        Self::new(src, tgt, 0, (0, 0))
+    pub fn plain(src: Tng, tgt: Tng, genus: usize) -> Self { 
+        Self::new(src, tgt, genus, (0, 0))
     }
 
     pub fn id(c: TngComp) -> Self { 
         Self::plain(
             Tng::from(c.clone()), 
             Tng::from(c),
+            0
         )
     }
 
@@ -71,7 +72,8 @@ impl CobComp {
 
         Self::plain(
             Tng::new(vec![r0.0, r0.1]), 
-            Tng::new(vec![r1.0, r1.1])
+            Tng::new(vec![r1.0, r1.1]),
+            0
         )
     }
 
@@ -79,7 +81,8 @@ impl CobComp {
         assert!(from.0.is_circle() || from.1.is_circle());
         Self::plain(
             Tng::new(vec![from.0, from.1]), 
-            Tng::new(vec![to])
+            Tng::new(vec![to]),
+            0
         )
     }
 
@@ -87,7 +90,8 @@ impl CobComp {
         assert!(to.0.is_circle() || to.1.is_circle());
         Self::plain(
             Tng::new(vec![from]), 
-            Tng::new(vec![to.0, to.1])
+            Tng::new(vec![to.0, to.1]),
+            0
         )
     }
 
@@ -95,14 +99,16 @@ impl CobComp {
         assert!(c.is_circle());
         Self::plain(
             Tng::empty(),
-            Tng::from(c)
+            Tng::from(c),
+            0
         )
     }
 
     pub fn cap(c: TngComp) -> Self { 
         Self::plain(
             Tng::from(c),
-            Tng::empty()
+            Tng::empty(),
+            0
         )
     }
 
@@ -157,9 +163,8 @@ impl CobComp {
         self.bottom(b).index_of(c)
     }
 
-    pub fn has_dots(&self) -> bool { 
-        self.dots.0 > 0 || 
-        self.dots.1 > 0
+    pub fn is_plain(&self) -> bool { 
+        self.dots == (0, 0)
     }
 
     pub fn is_closed(&self) -> bool {
@@ -221,7 +226,8 @@ impl CobComp {
         if self.is_invertible() { 
             let inv = Self::plain(
                 self.tgt.clone(),
-                self.src.clone() 
+                self.src.clone(),
+                0
             );
             Some(inv)
         } else {
@@ -423,7 +429,7 @@ impl Display for CobComp {
             "".to_string()
         };
 
-        let dots = if self.has_dots() { 
+        let dots = if !self.is_plain() { 
             let (p, q) = self.dots;
             let m = Var2::<'X','Y', _>::from((p, q));
             format!("{}", m)
@@ -943,7 +949,7 @@ mod tests {
             TngComp::arc([2, 4]),
             TngComp::circ([6]),
         ]);
-        let c = CobComp::plain(src, tgt);
+        let c = CobComp::plain(src, tgt, 0);
         
         let c0 = TngComp::arc([1, 2]);
         let c1 = TngComp::circ([6]);
@@ -966,7 +972,7 @@ mod tests {
             TngComp::arc([2, 4]),
             TngComp::circ([11]),
         ]);
-        let c = CobComp::plain(src, tgt);
+        let c = CobComp::plain(src, tgt, 0);
 
         let c1 = CobComp::id(
             TngComp::arc([0, 1])
@@ -995,7 +1001,7 @@ mod tests {
             TngComp::circ([11]),
         ]);
 
-        let mut c = CobComp::plain(src, tgt);
+        let mut c = CobComp::plain(src, tgt, 0);
         c.connect(CobComp::id(
             TngComp::arc([0, 1])
         ));
@@ -1010,7 +1016,8 @@ mod tests {
                 TngComp::arc([0, 1, 3]),
                 TngComp::arc([2, 4]),
                 TngComp::circ([11]),
-            ])
+            ]),
+            0
         ));
     }
 
@@ -1027,7 +1034,7 @@ mod tests {
             TngComp::circ([11]),
         ]);
 
-        let mut c = CobComp::plain(src, tgt);
+        let mut c = CobComp::plain(src, tgt, 0);
         c.connect(CobComp::id(
             TngComp::arc([1, 3])
         ));
@@ -1041,7 +1048,8 @@ mod tests {
                 TngComp::arc([2, 4]),
                 TngComp::circ([1, 3]),
                 TngComp::circ([11]),
-            ])
+            ]),
+            0
         ));
     }
 
@@ -1057,6 +1065,7 @@ mod tests {
         let c2 = CobComp::plain(
             Tng::from(TngComp::circ([10])),
             Tng::new(vec![TngComp::circ([10]), TngComp::circ([11])]),
+            0
         );
         let c3 = CobComp::cup(
             TngComp::circ([20])
@@ -1093,6 +1102,7 @@ mod tests {
                 TngComp::arc([1, 2]),
                 TngComp::arc([3, 4])
             ]),
+            0
         );
         let c1 = CobComp::id(
             TngComp::arc([1, 3])
@@ -1132,7 +1142,8 @@ mod tests {
         let cc0 = CobComp::id(TngComp::arc([0, 1]));
         let cc1 = CobComp::plain(
             Tng::from(TngComp::circ([2])), 
-            Tng::from(TngComp::circ([3]))
+            Tng::from(TngComp::circ([3])),
+            0
         );
 
         assert!(cc0.is_invertible());
@@ -1141,7 +1152,8 @@ mod tests {
         assert!(cc1.is_invertible());
         assert_eq!(cc1.inv(), Some(CobComp::plain(
             Tng::from(TngComp::circ([3])), 
-            Tng::from(TngComp::circ([2]))
+            Tng::from(TngComp::circ([2])),
+            0
         )));
 
         let c0 = Cob::new(vec![cc0, cc1]);
