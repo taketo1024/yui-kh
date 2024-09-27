@@ -230,6 +230,8 @@ impl Display for Tng {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_empty() { 
             write!(f, "∅")
+        } else if self.comps.len() == 1 { 
+            write!(f, "{}", self.comps[0])
         } else { 
             let arcs = self.comps.iter().map(|a| 
                 a.to_string()
