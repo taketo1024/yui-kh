@@ -34,6 +34,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.process_off_axis();
         if equivariant { 
             b.process_on_axis_equiv();
+            b.finalize_equiv();
         } else { 
             b.process_on_axis_nonequiv();
         }
@@ -132,7 +133,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         for x in xs.iter() { 
             self.append_x(x);
 
-            while let Some((k, r)) = self.find_loop() { 
+            while let Some((k, r)) = self.find_good_equiv_loop(false) { 
                 let updated = self.deloop_equiv(&k, r);
                 for k in updated { 
                     if let Some((i, j)) = self.find_equiv_inv_edge(&k) { 
@@ -158,18 +159,51 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 e1.1.state.push(Bit::Bit1);
                 [e0, e1]
             }).collect();
-
-            self.print_keys();
         }
     }
 
-    fn find_loop(&self) -> Option<(TngKey, usize)> { 
+    fn find_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
         self.complex.iter_verts().find_map(|(k, v)| {
             v.tng().find_comp(|c| 
                 c.is_circle() && 
-                !self.complex.contains_base_pt(c)
+                (allow_based || !self.complex.contains_base_pt(c))
             ).map(|r| (*k, r))
         })
+    }
+
+    fn find_good_equiv_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
+        let find_in = |k: &TngKey, loc_tng: &Tng| { 
+            if let Some(r_loc) = loc_tng.find_comp(|c| { 
+                c.is_circle() && 
+                (!self.is_sym_key(k) || self.is_sym_comp(c)) &&
+                (allow_based || !self.complex.contains_base_pt(c))
+            }) {
+                let circ = loc_tng.comp(r_loc);
+                let v = self.complex.vertex(k);
+                let r = v.tng().find_comp(|c| c == circ).unwrap();
+                Some((*k, r))
+            } else {
+                None
+            }
+        };
+        
+        self.complex.iter_verts().find_map(|(k, v)|
+            v.out_edges().filter(|l| 
+                self.is_equiv_edge(k, l)
+            ).find_map(|l|
+                self.complex.edge(k, l).gens().find_map(|cob| {
+                    cob.comps().find_map(|c| 
+                        if c.is_cap() || c.is_merge() { 
+                            find_in(k, c.src())
+                        } else if c.is_cup() || c.is_split() {
+                            find_in(l, c.tgt())
+                        } else { 
+                            None
+                        }
+                    )
+                })
+            )
+        )
     }
 
     fn deloop_equiv(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
@@ -308,9 +342,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn is_equiv_inv_edge(&self, i: &TngKey, j: &TngKey) -> bool { 
         let f = self.complex.edge(i, j);
+        f.is_invertible() && self.is_equiv_edge(i, j)
+    }
 
+    fn is_equiv_edge(&self, i: &TngKey, j: &TngKey) -> bool { 
         if self.is_sym_key(i) && self.is_sym_key(j) { 
-            f.is_invertible()
+            true
         } else if !self.is_sym_key(i) && !self.is_sym_key(j) { 
             //  i - - -> j 
             //    \   /   
@@ -320,9 +357,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let ti = self.inv_key(i);
             let tj = self.inv_key(j);
 
-            f.is_invertible() 
-            && !self.complex.keys_into(j).contains(ti)
-            && !self.complex.keys_into(tj).contains(i)
+            !self.complex.keys_into(j).contains(ti) && 
+            !self.complex.keys_into(tj).contains(i)
         } else { 
             false
         }
@@ -357,6 +393,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         if self.auto_validate { 
             self.validate_equiv();
         }
+    }
+
+    fn finalize_equiv(&mut self) {
+        println!("finalize:\n");
+
+        for b in [false, true] { 
+            while let Some((k, r)) = self.find_loop(b) { 
+                self.deloop_equiv(&k, r);
+            }
+        }    
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
