@@ -339,7 +339,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     // TODO rename to add_crossing
     pub fn append(&mut self, x: &Crossing) {
-        info!("({}) append: {x}", self.nverts());
+        info!("(n: {}, v: {}) append: {x}", self.dim(), self.nverts());
 
         let (h, t) = self.ht();
         let c = Self::from_crossing(h, t, (0, 0), None, x);
@@ -395,7 +395,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
-        info!("({}) deloop {} at {r}", self.nverts(), &self.vertices[k]);
+        info!("(n: {}, v: {}) deloop {} at {r}", self.dim(), self.nverts(), &self.vertices[k]);
 
         let c = self.vertex(k).tng.comp(r);
         assert!(c.is_circle());
@@ -465,7 +465,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             panic!("{a} is not invertible.")
         };
 
-        info!("({}) eliminate {}: {} -> {}", self.nverts(), a, self.vertex(k0), self.vertex(k1));
+        info!("(n: {}, v: {}) eliminate {}: {} -> {}", self.dim(), self.nverts(), a, self.vertex(k0), self.vertex(k1));
         
         let v0_out = self.keys_out_from(k0).cloned().collect_vec();
         let v1_in  = self.keys_into(k1).cloned().collect_vec();
