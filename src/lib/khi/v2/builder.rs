@@ -25,20 +25,22 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> TngComplex<R> { 
+    pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> KhComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
-        if cfg!(test) {
-            b.auto_validate = true;
-        }
 
         b.process_off_axis();
-        if equivariant { 
-            b.process_on_axis_equiv();
-            b.finalize_equiv();
-        } else { 
-            b.process_on_axis_nonequiv();
-        }
-        b.into_tng_complex()
+        b.process_on_axis_nonequiv();
+        b.into_tng_complex().into_kh_complex(vec![])
+    }
+
+    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) { 
+        let mut b = Self::init(l, h, t, reduced);
+        b.auto_validate = true;
+
+        b.process_off_axis();
+        b.process_on_axis_equiv();
+
+        // TODO
     }
 
     pub fn init(l: &InvLink, h: &R, t: &R, reduced: bool) -> SymTngBuilder<R> { 
@@ -486,7 +488,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 mod tests { 
     use super::*;
     use num_traits::Zero;
-    use yui_homology::{ChainComplexCommon, DisplaySeq};
+
+    use yui::FF2;
+    use yui::poly::HPoly;
+    use yui_homology::{ChainComplexCommon, DisplaySeq, DisplayTable, RModStr};
 
     fn init_logger(l: log::LevelFilter) {
         use simplelog::*;
@@ -499,19 +504,29 @@ mod tests {
     }
 
     #[test]
+    fn test_kh_3_1() { 
+    
+        // init_logger(log::LevelFilter::Trace);
+
+        let l = InvLink::load("3_1").unwrap();
+        let (h, t) = (FF2::zero(), FF2::zero());
+        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false, true);
+        let h = c.homology(false);
+
+        assert_eq!(h[0].rank(), 2);
+        assert_eq!(h[1].rank(), 0);
+        assert_eq!(h[2].rank(), 2);
+        assert_eq!(h[3].rank(), 2);
+    }
+
+    #[test]
     fn test() { 
-        use yui::FF2;
-        use yui::poly::HPoly;
         type R = HPoly<'H', FF2>;
     
         // init_logger(log::LevelFilter::Trace);
 
         let l = InvLink::load("5_1").unwrap();
         let (h, t) = (R::variable(), R::zero());
-        let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false, true);
-        let c = c.into_raw_complex();
-        let h = c.homology(false);
-
-        h.print_seq("i");
+        let _c = SymTngBuilder::build_khi_complex(&l, &h, &t, false, true);
     }
 }
