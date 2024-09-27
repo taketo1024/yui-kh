@@ -11,7 +11,7 @@ use yui_homology::{XChainComplex, XModStr, Grid1};
 use yui_link::{Crossing, Edge, State};
 use yui::bitseq::Bit;
 
-use crate::kh::{KhAlgGen, KhGen, KhLabel};
+use crate::kh::{KhAlgGen, KhChain, KhComplex, KhGen, KhLabel};
 use super::cob::{Cob, Dot, Bottom, CobComp, LcCob, LcCobTrait};
 use super::tng::{Tng, TngComp};
 
@@ -505,7 +505,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (ni - 1) * (nj - 1)
     }
 
-    pub fn into_complex(self) -> XChainComplex<KhGen, R> {
+    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> {
         debug_assert!(self.is_finalizable());
 
         let n = self.dim();
@@ -532,6 +532,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 ).collect()
             })
         })
+    }
+
+    pub fn into_kh_complex(self, canon_cycles: Vec<KhChain<R>>) -> KhComplex<R> { 
+        let reduced = self.base_pt.is_some();
+        let deg_shift = self.deg_shift;
+        let inner = self.into_raw_complex();
+
+        KhComplex::new_impl(inner, canon_cycles, reduced, deg_shift)
     }
 
     fn is_finalizable(&self) -> bool { 
