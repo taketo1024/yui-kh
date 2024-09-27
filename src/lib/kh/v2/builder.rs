@@ -167,9 +167,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             v.out_edges().find_map(|l|
                 self.complex.edge(k, l).gens().find_map(|cob| 
                     cob.comps().find_map(|c| 
-                        if c.is_merge() { 
+                        if c.is_cap() || c.is_merge() { 
                             find_in(k, c.src())
-                        } else if c.is_split() {
+                        } else if c.is_cup() || c.is_split() {
                             find_in(l, c.tgt())
                         } else { 
                             None
