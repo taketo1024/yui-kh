@@ -5,7 +5,6 @@ use itertools::Itertools;
 use num_traits::Zero;
 use yui::bitseq::Bit;
 use yui::{hashmap, Ring, RingOps};
-use yui_homology::XChainComplex;
 use yui_link::{Crossing, Edge, Link};
 
 use crate::ext::LinkExt;
@@ -54,9 +53,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.finalize();
 
         let canon_cycles = b.eval_elements();
-        let complex = b.into_raw_complex();
+        let complex = b.into_tng_complex().into_kh_complex(canon_cycles);
 
-        KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
+        complex
     }
 
     pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
@@ -245,10 +244,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.complex
-    }
-
-    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> { 
-        self.complex.into_complex()
     }
 
     fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<Elem<R>> { 

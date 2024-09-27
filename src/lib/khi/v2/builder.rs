@@ -509,7 +509,7 @@ mod tests {
         let l = InvLink::load("5_1").unwrap();
         let (h, t) = (R::variable(), R::zero());
         let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false, true);
-        let c = c.into_complex();
+        let c = c.into_raw_complex();
         let h = c.homology(false);
 
         h.print_seq("i");
