@@ -196,6 +196,14 @@ impl CobComp {
         self.src != self.tgt
     }
 
+    pub fn is_cup(&self) -> bool { 
+        self.src.ncomps() == 0 && self.tgt.ncomps() == 1
+    }
+
+    pub fn is_cap(&self) -> bool { 
+        self.src.ncomps() == 1 && self.tgt.ncomps() == 0
+    }
+
     pub fn is_merge(&self) -> bool { 
         self.src.ncomps() == 2 && self.tgt.ncomps() == 1
     }
