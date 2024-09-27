@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use cartesian::cartesian;
 
 use itertools::Itertools;
+use log::info;
 use yui::bitseq::Bit;
 use yui::{Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
@@ -39,6 +40,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         b.process_off_axis();
         b.process_on_axis_equiv();
+
+        b.print_keys();
+        b.complex.print_d();
 
         // TODO
     }
@@ -237,7 +241,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.is_sym_key(k));
         assert!(self.is_sym_comp(c));
 
-        println!("deloop sym:\n  {c} in {}\n", self.complex.vertex(&k));
+        info!("deloop sym: {c} in {}", self.complex.vertex(&k));
 
         let updated = self.complex.deloop(k, r);
 
@@ -266,7 +270,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let tc = c.convert_edges(|e| self.inv_e(e));
 
-        println!("deloop asym:\n  {c} <--> {tc} in {}\n", self.complex.vertex(&k));
+        info!("deloop asym: {c} <--> {tc} in {}", self.complex.vertex(&k));
 
         let ks = self.complex.deloop(k, r);
 
@@ -304,9 +308,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let tc = c.convert_edges(|e| self.inv_e(e));
         let tr = self.complex.vertex(&tk).tng().index_of(&tc).unwrap();
 
-        println!("deloop parallel:");
-        println!("  {c} in {}", self.complex.vertex(&k));
-        println!("  {tc} in {}\n", self.complex.vertex(&tk));
+        info!("deloop parallel:");
+        info!("  {c} in {}", self.complex.vertex(&k));
+        info!("  {tc} in {}", self.complex.vertex(&tk));
         
         let ks = self.complex.deloop(k, r);
         let tks = self.complex.deloop(&tk, tr);
@@ -370,15 +374,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert_eq!(self.is_sym_key(i), self.is_sym_key(j));
 
         if self.is_sym_key(i) { 
-            println!("eliminate sym:\n  {i} -> {j}: {}\n", self.complex.edge(i, j));
+            info!("eliminate sym: {i} -> {j}: {}", self.complex.edge(i, j));
             self.complex.eliminate(i, j);
         } else { 
             let ti = *self.inv_key(i);
             let tj = *self.inv_key(j);
 
-            println!("eliminate parallel:");
-            println!("  {i} -> {j}: {}", self.complex.edge(i, j));
-            println!("  {ti} -> {tj}: {}\n", self.complex.edge(&ti, &tj));
+            info!("eliminate parallel:");
+            info!("  {i} -> {j}: {}", self.complex.edge(i, j));
+            info!("  {ti} -> {tj}: {}", self.complex.edge(&ti, &tj));
 
             assert!(self.complex.has_edge(&i, &j));
             assert!(self.complex.has_edge(&ti, &tj));
@@ -398,7 +402,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn finalize_equiv(&mut self) {
-        println!("finalize:\n");
+        info!("finalize");
 
         for b in [false, true] { 
             while let Some((k, r)) = self.find_loop(b) { 
@@ -461,9 +465,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn validate_equiv(&self) {
-        self.print_keys();
-        self.complex.print_d();
-
         for (k, _) in self.complex.iter_verts() { 
             assert!(self.key_map.contains_key(k), "no inv-key for {k}");
             let tk = self.inv_key(k);
@@ -505,9 +506,6 @@ mod tests {
 
     #[test]
     fn test_kh_3_1() { 
-    
-        // init_logger(log::LevelFilter::Trace);
-
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
         let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false, true);
@@ -523,7 +521,7 @@ mod tests {
     fn test() { 
         type R = HPoly<'H', FF2>;
     
-        // init_logger(log::LevelFilter::Trace);
+        init_logger(log::LevelFilter::Debug);
 
         let l = InvLink::load("5_1").unwrap();
         let (h, t) = (R::variable(), R::zero());
