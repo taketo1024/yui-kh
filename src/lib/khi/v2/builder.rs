@@ -6,13 +6,15 @@ use itertools::Itertools;
 use log::info;
 use yui::bitseq::Bit;
 use yui::{Ring, RingOps};
+use yui_homology::{ChainComplexTrait, Grid1, XChainComplex, XModStr};
 use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::v2::builder::TngComplexBuilder;
 use crate::kh::v2::cob::LcCobTrait;
 use crate::kh::v2::tng::{Tng, TngComp};
 use crate::kh::v2::tng_complex::{TngComplex, TngKey};
-use crate::kh::KhComplex;
+use crate::kh::{KhChain, KhComplex, KhGen};
+use crate::khi::{KhIChain, KhIComplex, KhIGen};
 
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {
@@ -34,17 +36,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.into_tng_complex().into_kh_complex(vec![])
     }
 
-    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) { 
+    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> KhIComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
-        b.auto_validate = true;
 
         b.process_off_axis();
         b.process_on_axis_equiv();
+        b.finalize_equiv();;
 
-        b.print_keys();
-        b.complex.print_d();
-
-        // TODO
+        b.into_khi_complex()
     }
 
     pub fn init(l: &InvLink, h: &R, t: &R, reduced: bool) -> SymTngBuilder<R> { 
@@ -413,6 +412,55 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.complex
+    }
+
+    fn into_khi_complex(mut self) -> KhIComplex<R> {
+        assert!(self.complex.is_finalizable());
+        
+        let n = self.complex.dim();
+        let deg_shift = self.complex.deg_shift();
+        let i0 = deg_shift.0;
+        let i1 = i0 + (n as isize) + 1;
+
+        let key_map = std::mem::take(&mut self.key_map);
+        let inv_key = move |k: &TngKey| -> TngKey { 
+            key_map[k]
+        };
+
+        let c = self.complex.into_raw_complex();
+
+        let summands = Grid1::generate(i0..=i1, |i| { 
+            let b_gens = c[i].gens().iter().map(|x| KhIGen::B(*x));
+            let q_gens = c[i - 1].gens().iter().map(|x| KhIGen::Q(*x));
+            XModStr::free(b_gens.chain(q_gens))
+        });
+
+        let d = move |i: isize, x: &KhIGen| -> KhIChain<R> { 
+            match x { 
+                KhIGen::B(x) => {
+                    let z = KhChain::from(*x);
+                    let dx = c.d(i, &z).map_gens(|y| KhIGen::B(*y));
+                    let qx = KhIChain::from(KhIGen::Q(*x));
+                    let qtx = {
+                        let k = TngKey::from(x);
+                        let tk = inv_key(&k);
+                        let tx = tk.as_gen(deg_shift);
+                        KhIChain::from(KhIGen::Q(tx))
+                    };
+                    dx + qx + qtx
+                },
+                KhIGen::Q(x) => {
+                    let z = KhChain::from(*x);
+                    c.d(i, &z).map_gens(|y| KhIGen::Q(*y))
+                }
+            }
+        };
+
+        let inner = XChainComplex::new(summands, 1, move |i, z| { 
+            z.apply(|x| d(i, x))
+        });
+
+        KhIComplex::new_impl(inner, vec![], deg_shift)
     }
 
     fn inv_e(&self, e: Edge) -> Edge { 
