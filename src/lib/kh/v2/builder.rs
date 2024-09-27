@@ -181,7 +181,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
-    pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
+    pub fn deloop(&mut self, k: &TngKey, r: usize) {
         let c = self.complex.vertex(k).tng().comp(r);
         for e in self.elements.iter_mut() { 
             e.deloop(k, c);
@@ -195,9 +195,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     self.eliminate(&i, &j)
                 }
             }
-            vec![]
-        } else {
-            keys
         }
     }
 
