@@ -50,7 +50,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         
         b.set_crossings(l.data().clone());
         b.process_all();
-        b.finalize();
 
         let canon_cycles = b.eval_elements();
         let complex = b.into_tng_complex().into_kh_complex(canon_cycles);
@@ -124,6 +123,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         while let Some(x) = self.choose_next() { 
             self.process(x)
         }
+        self.finalize();
     }
 
     pub fn process(&mut self, x: Crossing) { 
