@@ -26,10 +26,6 @@ impl TngKey {
         Self { state: State::empty(), label: KhLabel::empty() }
     }
 
-    fn as_gen(&self, deg_shift: (isize, isize)) -> KhGen { 
-        KhGen::new(self.state, self.label, deg_shift)
-    }
-
     fn append(&mut self, other: TngKey) { 
         self.state.append(other.state);
         self.label.append(other.label);
@@ -39,6 +35,10 @@ impl TngKey {
         let mut res = self.clone();
         res.label.push(l);
         res
+    }
+
+    pub fn as_gen(&self, deg_shift: (isize, isize)) -> KhGen { 
+        KhGen::new(self.state, self.label, deg_shift)
     }
 }
 
@@ -212,6 +212,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn iter_verts(&self) -> impl Iterator<Item = (&TngKey, &TngVertex<R>)> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
+    }
+
+    pub fn keys_of_weight(&self, w: usize) -> impl Iterator<Item = &TngKey> { 
+        self.vertices.keys().filter(move |k| k.state.weight() == w).sorted()
     }
 
     pub fn keys_into(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
@@ -514,23 +518,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let summands = Grid1::generate(i0..=i1, |i| { 
             let w = (i - i0) as usize;
-            let gens = self.vertices.keys().filter_map(|k| 
-                (k.state.weight() == w).then(|| 
-                    k.as_gen(self.deg_shift)
-                )
-            ).sorted();
+            let gens = self.keys_of_weight(w).map(|k| k.as_gen(self.deg_shift));
             XModStr::free(gens)
         });
 
-        XChainComplex::new(summands, 1, move |_, z| { 
+        let d = move |x: &KhGen| { 
             let (h, t) = self.ht();
-            z.apply(|x| {
-                let k = TngKey::from(x);
-                let v = self.vertex(&k);
-                v.out_edges.iter().map(|(l, f)|
-                    (l.as_gen(x.deg_shift), f.eval(h, t))
-                ).collect()
-            })
+            let k = TngKey::from(x);
+            let v = self.vertex(&k);
+            v.out_edges.iter().map(|(l, f)|
+                (l.as_gen(x.deg_shift), f.eval(h, t))
+            ).collect()
+        };
+
+        XChainComplex::new(summands, 1, move |_, z| { 
+            z.apply(&d)
         })
     }
 
@@ -542,7 +544,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         KhComplex::new_impl(inner, canon_cycles, reduced, deg_shift)
     }
 
-    fn is_finalizable(&self) -> bool { 
+    pub fn is_finalizable(&self) -> bool { 
         self.vertices.iter().all(|(_, v)|
             v.tng.is_empty()
         )
