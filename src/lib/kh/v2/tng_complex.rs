@@ -292,8 +292,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn edge(&self, k: &TngKey, l: &TngKey) -> &LcCob<R> {
         &self.vertices[k].out_edges[l]
     }
-
-    fn has_edge(&self, k: &TngKey, l: &TngKey) -> bool { 
+    
+    pub fn has_edge(&self, k: &TngKey, l: &TngKey) -> bool { 
         debug_assert_eq!(
             self.vertices[k].out_edges.contains_key(l), 
             self.vertices[l].in_edges.contains(k)
