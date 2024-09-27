@@ -123,16 +123,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
             // symmetric deloop
             while let Some((k, r)) = self.find_loop(true) { 
-                println!("deloop symmetric: {} at {r}\n", self.complex.vertex(&k));
-
                 self.deloop_sym(&k, r);
-                
-                self.print_keys();
                 // TODO eliminate sym
             }
 
             // asymmetric deloop
+            while let Some((k, r)) = self.find_loop(false) { 
+                self.deloop_asym(&k, r);
+                // TODO eliminate sym
+            }
         }
+
+        self.complex.print_d();
     }
 
     fn find_loop(&self, symmetric: bool) -> Option<(TngKey, usize)> { 
@@ -148,7 +150,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn update_key_map(&mut self, x: &Crossing) { 
         if x.is_resolved() { return }
 
-        // (k <-> l) ==> (k0 <-> l0, k1 <-> l1) 
+        // k <-> l  =>  k0 <-> l0,
+        //              k1 <-> l1
         self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
             let mut e0 = (*k, *l);
             let mut e1 = e0;
@@ -163,20 +166,92 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn deloop_sym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
+        let c = self.complex.vertex(k).tng().comp(r);
+
         assert!(self.is_sym_key(k));
-        {
-            let c = self.complex.vertex(k).tng().comp(r);
-            assert!(self.is_sym_comp(c));
-            assert!(!self.complex.contains_base_pt(c));
+        assert!(self.is_sym_comp(c));
+
+        println!("deloop symmetric: {c} in {}\n", self.complex.vertex(&k));
+
+        let updated = self.complex.deloop(k, r);
+
+        self.remove_key_pair(k);
+
+        for &k_new in updated.iter() { 
+            self.add_key_pair(k_new, k_new);
         }
 
-        let keys = self.complex.deloop(k, r);
+        self.print_keys();
 
-        self.key_map.remove(k);
-        self.key_map.insert(keys[0], keys[0]);
-        self.key_map.insert(keys[1], keys[1]);
+        updated
+    }
 
-        keys
+    fn deloop_asym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
+        let c = self.complex.vertex(k).tng().comp(r);
+
+        assert!(!self.is_sym_key(k) || !self.is_sym_comp(c));
+
+        // TODO support deloop on based loop
+        assert!(!self.complex.contains_base_pt(c));
+
+        #[allow(non_snake_case)]
+        let updated = if self.is_sym_key(k) { 
+            // asymmetric loop on symmetric key
+            //          ⚪︎1 | ⚪︎1
+            //  ⚪︎1 | ⚪︎X  <-->  ⚪︎X | ⚪︎1
+            //          ⚪︎X | ⚪︎X
+
+            let tc = c.convert_edges(|e| self.inv_e(e));
+
+            println!("deloop asymmetric: {c} <--> {tc} in {}\n", self.complex.vertex(&k));
+
+            let ks = self.complex.deloop(k, r);
+
+            let (k_X, k_1) = (ks[0], ks[1]);
+            let (k_XX, k_X1) = { 
+                let tr = self.complex.vertex(&k_X).tng().index_of(&tc).unwrap();
+                let tks = self.complex.deloop(&k_X, tr);
+                (tks[0], tks[1])
+            };
+            let (k_1X, k_11) = { 
+                let tr = self.complex.vertex(&k_1).tng().index_of(&tc).unwrap();
+                let tks = self.complex.deloop(&k_1, tr);
+                (tks[0], tks[1])
+            };
+
+            self.remove_key_pair(k);
+
+            self.add_key_pair(k_XX, k_XX);
+            self.add_key_pair(k_X1, k_1X);
+            self.add_key_pair(k_11, k_11);
+
+            vec![k_XX, k_X1, k_11]
+        } else { 
+            // (symmetric or asymmetric) loop on asymmetric key
+            //  ⚪︎1 | ..  <-->  .. | ⚪︎1
+            //  ⚪︎X | ..  <-->  .. | ⚪︎X
+
+            let tk = *self.inv_key(k);
+            let tc = c.convert_edges(|e| self.inv_e(e));
+            let tr = self.complex.vertex(&tk).tng().index_of(&tc).unwrap();
+
+            println!("deloop asymmetric: {c} in {} <--> {tc} in {}\n", self.complex.vertex(&k), self.complex.vertex(&tk));
+            
+            let ks = self.complex.deloop(k, r);
+            let tks = self.complex.deloop(&tk, tr);
+
+            self.remove_key_pair(k);
+
+            for (&k_new, &tk_new) in Iterator::zip(ks.iter(), tks.iter()) { 
+                self.add_key_pair(k_new, tk_new);
+            }
+
+            ks
+        };
+
+        self.print_keys();
+
+        updated
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
@@ -191,6 +266,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.key_map[&k]
     }
 
+    fn add_key_pair(&mut self, k: TngKey, tk: TngKey) { 
+        self.key_map.insert(k, tk);
+        if k != tk { 
+            self.key_map.insert(k, tk);
+        }
+    }
+
+    fn remove_key_pair(&mut self, k: &TngKey) { 
+        let tk = self.key_map.remove(k).unwrap();
+        if k != &tk { 
+            self.key_map.remove(&tk);
+        }
+    }
+
     fn is_sym_key(&self, k: &TngKey) -> bool { 
         self.inv_key(k) == k
     }
@@ -202,12 +291,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     #[allow(unused)]
     fn print_keys(&self) {
         let mut done = HashSet::new();
-        for (&k, &tk) in self.key_map.iter() { 
+        for (k, tk) in self.key_map.iter() { 
             if done.contains(&k) { continue }
             if k == tk {
-                println!("{k}");
+                println!("{}", self.complex.vertex(k));
             } else { 
-                println!("{k} ↔ {tk}");
+                println!("{} ↔ {}", self.complex.vertex(k), self.complex.vertex(tk));
             }
             done.insert(k);
             done.insert(tk);
@@ -245,6 +334,11 @@ mod tests {
         let (h, t) = (R::variable(), R::zero());
         let c = SymTngBuilder::build_tng_complex(&l, &h, &t, false, true);
         
-        // c.print_d();
+        c.print_d();
+
+        let c = c.into_complex();
+        let h = c.homology(false);
+
+        h.print_seq("i");
     }
 }
