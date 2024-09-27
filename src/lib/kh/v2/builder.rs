@@ -202,42 +202,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
-        let mut cand = None;
-        let mut cand_s = usize::MAX;
-
-        // collect candidate edges into and out from v. 
-
         let v = self.complex.vertex(k);
         let edges = Iterator::chain(
             v.in_edges().map(|i| (i, k)),
             v.out_edges().map(|i| (k, i))
         );
 
-        let score = |i, j| {
-            let ni = self.complex.vertex(i).out_edges().count(); // nnz in column i
-            let nj = self.complex.vertex(j).in_edges().count();  // nnz in row j
-            (ni - 1) * (nj - 1)
-        };
-
-        for (i, j) in edges { 
+        edges.filter_map(|(i, j)| {
             let f = self.complex.edge(i, j);
-            if f.is_invertible() { 
-                let s = score(i, j);
-
-                if s == 0 {
-                    return Some((*i, *j));
-                } else if s < cand_s { 
-                    cand = Some((i, j));
-                    cand_s = s;
-                }
-            }
-        }
-
-        if let Some((i, j)) = cand { 
-            Some((*i, *j))
-        } else { 
-            None
-        }
+            f.is_invertible().then(|| {
+                let s = self.complex.elim_weight(i, j);
+                (s, i, j)
+            })
+        })
+        .min_by_key(|(s, _, _)| *s)
+        .map(|(_, i, j)| (*i, *j))
     }
 
     pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {

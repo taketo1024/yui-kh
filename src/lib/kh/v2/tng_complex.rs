@@ -332,7 +332,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.add_edge(k, l, map_f);
         }
     }
-    
+
     // TODO rename to add_crossing
     pub fn append(&mut self, x: &Crossing) {
         info!("({}) append: {x}", self.nverts());
@@ -497,6 +497,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.remove_vertex(k1);
 
         // self.validate();
+    }
+
+    pub fn elim_weight(&self, k: &TngKey, l: &TngKey) -> usize { 
+        let ni = self.vertex(k).out_edges().count(); // nnz in column i
+        let nj = self.vertex(l).in_edges().count();  // nnz in row j
+        (ni - 1) * (nj - 1)
     }
 
     pub fn into_complex(self) -> XChainComplex<KhGen, R> {
