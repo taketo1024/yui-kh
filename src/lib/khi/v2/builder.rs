@@ -121,9 +121,28 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.complex.append(x);
             self.update_key_map(x);
 
-            // on-axis deloop
-            // off-axis deloop
+            // symmetric deloop
+            while let Some((k, r)) = self.find_loop(true) { 
+                println!("deloop symmetric: {} at {r}\n", self.complex.vertex(&k));
+
+                self.deloop_sym(&k, r);
+                
+                self.print_keys();
+                // TODO eliminate sym
+            }
+
+            // asymmetric deloop
         }
+    }
+
+    fn find_loop(&self, symmetric: bool) -> Option<(TngKey, usize)> { 
+        self.complex.iter_verts().find_map(|(k, v)| {
+            v.tng().find_comp(|c| 
+                c.is_circle() && 
+                !self.complex.contains_base_pt(c) && 
+                symmetric == (self.is_sym_key(k) && self.is_sym_comp(c))
+            ).map(|r| (*k, r))
+        })
     }
 
     fn update_key_map(&mut self, x: &Crossing) { 
@@ -139,6 +158,25 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e1.1.state.push(Bit::Bit1);
             [e0, e1]
         }).collect();
+
+        self.print_keys();
+    }
+
+    fn deloop_sym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
+        assert!(self.is_sym_key(k));
+        {
+            let c = self.complex.vertex(k).tng().comp(r);
+            assert!(self.is_sym_comp(c));
+            assert!(!self.complex.contains_base_pt(c));
+        }
+
+        let keys = self.complex.deloop(k, r);
+
+        self.key_map.remove(k);
+        self.key_map.insert(keys[0], keys[0]);
+        self.key_map.insert(keys[1], keys[1]);
+
+        keys
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
@@ -147,6 +185,34 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn inv_e(&self, e: Edge) -> Edge { 
         self.e_map[&e]
+    }
+
+    fn inv_key(&self, k: &TngKey) -> &TngKey { 
+        &self.key_map[&k]
+    }
+
+    fn is_sym_key(&self, k: &TngKey) -> bool { 
+        self.inv_key(k) == k
+    }
+
+    fn is_sym_comp(&self, c: &TngComp) -> bool { 
+        &c.convert_edges(|e| self.inv_e(e)) == c
+    }
+
+    #[allow(unused)]
+    fn print_keys(&self) {
+        let mut done = HashSet::new();
+        for (&k, &tk) in self.key_map.iter() { 
+            if done.contains(&k) { continue }
+            if k == tk {
+                println!("{k}");
+            } else { 
+                println!("{k} ↔ {tk}");
+            }
+            done.insert(k);
+            done.insert(tk);
+        }
+        println!();
     }
 }
 
