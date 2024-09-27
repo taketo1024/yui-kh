@@ -19,13 +19,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     key_map: HashMap<TngKey, TngKey>,
     on_axis: HashSet<Crossing>,
     off_axis: HashSet<Crossing>,
-    complex: TngComplex<R>
+    complex: TngComplex<R>,
+    auto_validate: bool
 }
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn build_tng_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> TngComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
+        if cfg!(test) {
+            b.auto_validate = true;
+        }
+
         b.process_off_axis();
         if equivariant { 
             b.process_on_axis_equiv();
@@ -51,8 +56,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
         let key_map = HashMap::new();
         let (on_axis, off_axis) = Self::separate_crossings(l);
+        let auto_validate = false;
 
-        SymTngBuilder { e_map, key_map, on_axis, off_axis, complex }
+        SymTngBuilder { e_map, key_map, on_axis, off_axis, complex, auto_validate }
     }
 
     fn separate_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -104,6 +110,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.complex.connect(c1);
         self.complex.connect(c2);
+
+        if self.auto_validate { 
+            self.validate_equiv();
+        }
     }
 
     fn process_on_axis_nonequiv(&mut self) { 
@@ -178,10 +188,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.deloop_parallel(&k, r)
         };
 
-        self.print_keys();
-        self.complex.print_d();
-
-        self.validate();
+        if self.auto_validate { 
+            self.validate_equiv();
+        }
 
         updated
     }
@@ -345,8 +354,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.remove_key_pair(i);
         self.remove_key_pair(j);
 
-        self.print_keys();
-        self.complex.print_d();
+        if self.auto_validate { 
+            self.validate_equiv();
+        }
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
@@ -402,13 +412,24 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         println!();
     }
 
-    #[allow(unused)]
-    fn validate(&self) {
+    fn validate_equiv(&self) {
+        self.print_keys();
+        self.complex.print_d();
+
         for (k, _) in self.complex.iter_verts() { 
             assert!(self.key_map.contains_key(k), "no inv-key for {k}");
+            let tk = self.inv_key(k);
+
             for l in self.complex.keys_out_from(k) { 
                 assert!(self.key_map.contains_key(l), "no inv-key for {l}");
-                // check equivariance
+                let tl = self.inv_key(l);
+
+                assert!(self.complex.has_edge(tk, tl));
+
+                let f = self.complex.edge(k, l);
+                let tf = self.complex.edge(tk, tl);
+
+                assert_eq!(&f.convert_edges(|e| self.inv_e(e)), tf);
             }
         }
     }
