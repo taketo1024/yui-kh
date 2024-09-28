@@ -1,33 +1,34 @@
-#![allow(non_snake_case)]
+#![allow(non_snake_case, unused)]
 use itertools::Itertools;
+use num_traits::Zero;
+
+use log::*;
 use yui::poly::HPoly;
 use yui::FF2;
+use yui_homology::DisplayTable;
+use yui_kh::khi::v2::builder::SymTngBuilder;
 use yui_link::InvLink;
 use yui_kh::khi::ssi_invariants;
 
 type R = FF2;
 type P = HPoly<'H', R>;
 
-fn init_logger() { 
+fn init_logger(l: LevelFilter) { 
     use simplelog::*;
+
+    let mut cb = simplelog::ConfigBuilder::new();
+    cb.set_location_level(LevelFilter::Off);
+    cb.set_target_level(LevelFilter::Off);
+    cb.set_thread_level(LevelFilter::Off);
+    cb.set_level_color(Level::Trace, Some(Color::Green));
+    let config = cb.build();
+
     TermLogger::init(
-        LevelFilter::Debug,
-        Config::default(),
+        l,
+        config,
         TerminalMode::Mixed,
         ColorChoice::Always
     ).unwrap();
-}
-
-#[test]
-fn shit() { 
-    let l = [
-        [0,26,1,25],[18,1,19,2],[2,12,3,11],[3,30,4,31],[29,4,30,5],
-        [12,6,13,5],[7,26,8,27],[8,0,9,33],[9,17,10,16],[23,10,24,11],
-        [13,20,14,21],[27,15,28,14],[32,15,33,16],[17,25,18,24],[19,7,20,6],
-        [28,22,29,21],[22,32,23,31]
-    ];
-    let l = format!("[{}]", l.iter().map(|x| format!("[{}]", x.map(|i| (i + 1).to_string()).join(","))).join(","));
-    println!("{l}");
 }
 
 // cargo test -r -- --exact k9_46 --nocapture --include-ignored
@@ -49,7 +50,7 @@ fn k9_46() {
 #[test]
 #[ignore]
 fn k15n_103488() { 
-    init_logger();
+    init_logger(LevelFilter::Info);
     
     let l = InvLink::sinv_knot_from_code(
         [[1,11,2,10],[2,20,3,19],[5,17,6,16],[6,25,7,26],[9,22,10,23],[12,30,13,29],[14,8,15,7],[15,27,16,26],[18,4,19,3],[20,11,21,12],[21,1,22,30],[23,4,24,5],[24,18,25,17],[27,8,28,9],[28,14,29,13]],
@@ -66,7 +67,7 @@ fn k15n_103488() {
 #[test]
 #[ignore]
 fn knotJ() { 
-    init_logger();
+    init_logger(LevelFilter::Info);
     
     let l = InvLink::sinv_knot_from_code([
         [1,27,2,26],[19,2,20,3],[3,13,4,12],[4,31,5,32],[30,5,31,6],
@@ -141,7 +142,7 @@ fn k10_104() {
 #[test]
 #[ignore]
 fn k13n_1496() { 
-    init_logger();
+    init_logger(LevelFilter::Info);
     
     // see [Boyle-Issa,2021]
     let l = InvLink::sinv_knot_from_code(
@@ -158,7 +159,7 @@ fn k13n_1496() {
 #[test]
 #[ignore]
 fn W4_1() { 
-    init_logger();
+    init_logger(LevelFilter::Info);
     
     let l = InvLink::sinv_knot_from_code(
         [
@@ -179,7 +180,7 @@ fn W4_1() {
 #[ignore]
 // cargo test -r -- --exact W3_1 --nocapture --include-ignored
 fn W3_1() { 
-    init_logger();
+    init_logger(LevelFilter::Info);
     
     let l = InvLink::sinv_knot_from_code(
         [
@@ -200,7 +201,7 @@ fn W3_1() {
 #[ignore]
 // cargo test -r -- --exact cable4_1 --nocapture --include-ignored
 fn cable4_1() { 
-    init_logger();
+    init_logger(LevelFilter::Info);
     
     let l = InvLink::sinv_knot_from_code(
         [
@@ -215,4 +216,27 @@ fn cable4_1() {
     let ssi = ssi_invariants(&l, &c);
 
     println!("{ssi:?}");
+}
+
+#[test]
+#[ignore]
+// cargo test -r -- --exact k9_46_interlock --nocapture --include-ignored
+fn k9_46_interlock() { 
+    type R = HPoly<'H', FF2>;
+
+    init_logger(log::LevelFilter::Info);
+
+    let l = InvLink::sinv_knot_from_code([
+        [2,50,3,49],[4,48,5,47],[7,24,8,25],[9,52,10,53],[12,60,13,59],
+        [14,58,15,57],[16,36,17,35],[18,34,19,33],[20,32,21,31],[21,40,22,41],
+        [23,38,24,39],[25,6,26,7],[26,46,27,45],[28,44,29,43],[30,42,31,41],
+        [32,20,33,19],[34,18,35,17],[37,54,38,55],[39,22,40,23],[42,30,43,29],
+        [44,28,45,27],[46,6,47,5],[48,4,49,3],[50,2,51,1],[51,10,52,11],
+        [53,8,54,9],[55,36,56,37],[56,16,57,15],[58,14,59,13],[60,12,1,11]
+    ]);
+    let (h, t) = (R::variable(), R::zero());
+    let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false);
+    let h = c.homology(true);
+
+    h.gen_table().print_table("i", "j");
 }

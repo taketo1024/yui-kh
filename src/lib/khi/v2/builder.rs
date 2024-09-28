@@ -1,4 +1,3 @@
-#![allow(unused)]
 use std::collections::{HashMap, HashSet};
 use cartesian::cartesian;
 
@@ -13,7 +12,7 @@ use crate::kh::v2::builder::TngComplexBuilder;
 use crate::kh::v2::cob::LcCobTrait;
 use crate::kh::v2::tng::{Tng, TngComp};
 use crate::kh::v2::tng_complex::{TngComplex, TngKey};
-use crate::kh::{KhChain, KhComplex, KhGen};
+use crate::kh::{KhChain, KhComplex};
 use crate::khi::{KhIChain, KhIComplex, KhIGen};
 
 pub struct SymTngBuilder<R> 
@@ -28,7 +27,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> KhComplex<R> { 
+    pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
 
         b.process_off_axis();
@@ -36,12 +35,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.into_tng_complex().into_kh_complex(vec![])
     }
 
-    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool, equivariant: bool) -> KhIComplex<R> { 
+    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhIComplex<R> { 
         let mut b = Self::init(l, h, t, reduced);
 
         b.process_off_axis();
         b.process_on_axis_equiv();
-        b.finalize_equiv();;
+        b.finalize_equiv();
 
         b.into_khi_complex()
     }
@@ -542,37 +541,16 @@ mod tests {
     use yui::poly::HPoly;
     use yui_homology::{ChainComplexCommon, DisplaySeq, DisplayTable, RModStr};
 
-    fn init_logger(l: log::LevelFilter) {
-        use simplelog::*;
-        TermLogger::init(
-            l,
-            Config::default(),
-            TerminalMode::Mixed,
-            ColorChoice::Auto
-        ).unwrap()
-    }
-
     #[test]
     fn test_kh_3_1() { 
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
-        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false, true);
+        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false);
         let h = c.homology(false);
 
         assert_eq!(h[0].rank(), 2);
         assert_eq!(h[1].rank(), 0);
         assert_eq!(h[2].rank(), 2);
         assert_eq!(h[3].rank(), 2);
-    }
-
-    #[test]
-    fn test() { 
-        type R = HPoly<'H', FF2>;
-    
-        init_logger(log::LevelFilter::Debug);
-
-        let l = InvLink::load("5_1").unwrap();
-        let (h, t) = (R::variable(), R::zero());
-        let _c = SymTngBuilder::build_khi_complex(&l, &h, &t, false, true);
     }
 }
