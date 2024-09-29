@@ -8,7 +8,7 @@ use yui::{Ring, RingOps};
 use yui_homology::{ChainComplexTrait, Grid1, XChainComplex, XModStr};
 use yui_link::{Crossing, Edge, InvLink};
 
-use crate::kh::v2::builder::TngComplexBuilder;
+use crate::kh::v2::builder::{count_loops, TngComplexBuilder};
 use crate::kh::v2::cob::LcCobTrait;
 use crate::kh::v2::tng::TngComp;
 use crate::kh::v2::tng_complex::{TngComplex, TngKey};
@@ -132,10 +132,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn process_on_axis_equiv(&mut self) { 
-        let xs = self.on_axis.clone();
-
-        for x in xs.iter() { 
-            self.append_x(x);
+        while let Some(x) = self.choose_next() { 
+            self.append_x(&x);
 
             while let Some((k, r)) = self.find_loop(false) { 
                 let updated = self.deloop_equiv(&k, r);
@@ -146,6 +144,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 }
             }
         }
+    }
+
+    fn choose_next(&mut self) -> Option<Crossing> {
+        let Some(x) = self.on_axis.iter().max_by_key(|x|
+            count_loops(&self.complex, x)
+        ) else { 
+            return None
+        };
+
+        let x = x.clone();
+        self.on_axis.remove(&x);
+        Some(x)
     }
 
     fn append_x(&mut self, x: &Crossing) { 
