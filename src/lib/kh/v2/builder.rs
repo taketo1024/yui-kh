@@ -78,59 +78,28 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn choose_next(&mut self) -> Option<Crossing> { 
-        if self.crossings.is_empty() { 
-            return None;
-        }
-        if self.crossings.len() == 1 { 
-            let x = self.crossings.remove(0);
-            return Some(x);
-        }
+        let Some((i, _)) = self.crossings.iter().enumerate().max_by_key(|(_, x)|
+            count_loops(&self.complex, x)
+        ) else { 
+            return None
+        };
 
-        let mut candidate = 0;
-        let mut score = 0;
-
-        for (i, x) in self.crossings.iter().enumerate() { 
-            let arcs = if x.is_resolved() { 
-                let a = x.arcs();
-                vec![a.0, a.1]
-            } else { 
-                let a0 = x.resolved(Bit::Bit0).arcs();
-                let a1 = x.resolved(Bit::Bit1).arcs();
-                vec![a0.0, a0.1, a1.0, a1.1]
-            }.into_iter().filter(|a|
-                self.complex.base_pt().map(|e| !a.contains(e)).unwrap_or(true)
-            ).collect_vec();
-
-            let s = self.complex.iter_verts().map(|(_, v)| {
-                v.tng().comps().map(|c| 
-                    arcs.iter().filter(|a| 
-                        c.path().is_connectable_bothends(a)
-                    ).count()
-                ).sum::<usize>()
-            }).sum::<usize>();
-
-            if s > score { 
-                candidate = i;
-                score = s;
-            }
-        }
-
-        let x = self.crossings.remove(candidate);
+        let x = self.crossings.remove(i);
         Some(x)
     }
 
     pub fn process_all(&mut self) { 
         while let Some(x) = self.choose_next() { 
-            self.process(x)
+            self.process(&x)
         }
         self.finalize();
     }
 
-    pub fn process(&mut self, x: Crossing) { 
-        self.complex.append(&x);
+    pub fn process(&mut self, x: &Crossing) { 
+        self.complex.append(x);
 
         for e in self.elements.iter_mut() { 
-            e.append(&x);
+            e.append(x);
         }
 
         if self.auto_deloop { 
@@ -254,6 +223,30 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             z.eval(h, t, self.complex.deg_shift())
         ).collect()
     }
+}
+
+pub(crate) fn count_loops<R>(complex: &TngComplex<R>, x: &Crossing) -> usize
+where R: Ring, for<'x> &'x R: RingOps<R> { 
+    let arcs = if x.is_resolved() { 
+        let a = x.arcs();
+        vec![a.0, a.1]
+    } else { 
+        let a0 = x.resolved(Bit::Bit0).arcs();
+        let a1 = x.resolved(Bit::Bit1).arcs();
+        vec![a0.0, a0.1, a1.0, a1.1]
+    }.into_iter().filter(|a|
+        complex.base_pt().map(|e| !a.contains(e)).unwrap_or(true)
+    ).collect_vec();
+
+    let count = complex.iter_verts().map(|(_, v)| {
+        v.tng().comps().map(|c| 
+            arcs.iter().filter(|a| 
+                c.path().is_connectable_bothends(a)
+            ).count()
+        ).sum::<usize>()
+    }).sum::<usize>();
+
+    count
 }
 
 struct Elem<R>
