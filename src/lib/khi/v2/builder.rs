@@ -10,7 +10,7 @@ use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::v2::builder::TngComplexBuilder;
 use crate::kh::v2::cob::LcCobTrait;
-use crate::kh::v2::tng::{Tng, TngComp};
+use crate::kh::v2::tng::TngComp;
 use crate::kh::v2::tng_complex::{TngComplex, TngKey};
 use crate::kh::{KhChain, KhComplex};
 use crate::khi::{KhIChain, KhIComplex, KhIGen};
@@ -137,7 +137,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         for x in xs.iter() { 
             self.append_x(x);
 
-            while let Some((k, r)) = self.find_good_equiv_loop(false) { 
+            while let Some((k, r)) = self.find_loop(false) { 
                 let updated = self.deloop_equiv(&k, r);
                 for k in updated { 
                     if let Some((i, j)) = self.find_equiv_inv_edge(&k) { 
@@ -173,41 +173,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 (allow_based || !self.complex.contains_base_pt(c))
             ).map(|r| (*k, r))
         })
-    }
-
-    fn find_good_equiv_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
-        let find_in = |k: &TngKey, loc_tng: &Tng| { 
-            if let Some(r_loc) = loc_tng.find_comp(|c| { 
-                c.is_circle() && 
-                (!self.is_sym_key(k) || self.is_sym_comp(c)) &&
-                (allow_based || !self.complex.contains_base_pt(c))
-            }) {
-                let circ = loc_tng.comp(r_loc);
-                let v = self.complex.vertex(k);
-                let r = v.tng().find_comp(|c| c == circ).unwrap();
-                Some((*k, r))
-            } else {
-                None
-            }
-        };
-        
-        self.complex.iter_verts().find_map(|(k, v)|
-            v.out_edges().filter(|l| 
-                self.is_equiv_edge(k, l)
-            ).find_map(|l|
-                self.complex.edge(k, l).gens().find_map(|cob| {
-                    cob.comps().find_map(|c| 
-                        if c.is_cap() || c.is_merge() { 
-                            find_in(k, c.src())
-                        } else if c.is_cup() || c.is_split() {
-                            find_in(l, c.tgt())
-                        } else { 
-                            None
-                        }
-                    )
-                })
-            )
-        )
     }
 
     fn deloop_equiv(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
