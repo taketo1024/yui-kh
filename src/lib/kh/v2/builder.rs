@@ -134,7 +134,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         if self.auto_deloop { 
-            while let Some((k, r)) = self.find_good_loop(false) { 
+            while let Some((k, r)) = self.find_loop(false) { 
                 self.deloop(&k, r);
             }
         }
@@ -146,37 +146,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
             ).map(|r| (*k, r))
         })
-    }
-
-    pub fn find_good_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
-        let find_in = |k: &TngKey, loc_tng: &Tng| { 
-            if let Some(r_loc) = loc_tng.find_comp(|c| { 
-                c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
-            }) {
-                let circ = loc_tng.comp(r_loc);
-                let v = self.complex.vertex(k);
-                let r = v.tng().find_comp(|c| c == circ).unwrap();
-                Some((*k, r))
-            } else {
-                None
-            }
-        };
-        
-        self.complex.iter_verts().find_map(|(k, v)|
-            v.out_edges().find_map(|l|
-                self.complex.edge(k, l).gens().find_map(|cob| 
-                    cob.comps().find_map(|c| 
-                        if c.is_cap() || c.is_merge() { 
-                            find_in(k, c.src())
-                        } else if c.is_cup() || c.is_split() {
-                            find_in(l, c.tgt())
-                        } else { 
-                            None
-                        }
-                    )
-                )
-            )
-        )
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) {
