@@ -44,6 +44,34 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Self::new_v2(link, h, t, reduced)
     }
 
+    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        use super::v2::builder::TngComplexBuilder;
+
+        TngComplexBuilder::build_kh_complex(l, h, t, reduced)
+    }
+
+    #[cfg(feature = "old")]
+    pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        use super::v1::cube::KhCube;
+
+        assert!(!reduced || (!l.is_empty() && t.is_zero()));
+
+        let red_e = reduced.then(|| l.first_edge().unwrap());
+        let deg_shift = Self::deg_shift_for(l, reduced);
+        
+        let cube = KhCube::new(l, h, t, red_e, deg_shift);
+        let complex = cube.into_complex();
+
+        let canon_cycles = if t.is_zero() && l.is_knot() {
+            let p = l.first_edge().unwrap();
+            Self::make_canon_cycles(l, p, &R::zero(), h, reduced, deg_shift)
+        } else { 
+            vec![]
+        };
+
+        KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
+    }
+
     pub(crate) fn new_impl(inner: XChainComplex<KhGen, R>, canon_cycles: Vec<KhChain<R>>, reduced: bool, deg_shift: (isize, isize)) -> Self { 
         KhComplex { inner, canon_cycles, reduced, deg_shift }
     }
@@ -215,6 +243,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Self::new_v2(l, reduced)
     }
 
+    pub fn new_v2(l: Link, reduced: bool) -> Self { 
+        let c = KhComplex::new_v2(&l, &R::zero(), &R::zero(), reduced);
+        c.into_bigraded()
+    }
+
+    #[cfg(feature = "old")]
+    pub fn new_v1(l: Link, reduced: bool) -> Self { 
+        let c = KhComplex::new_v1(&l, &R::zero(), &R::zero(), reduced);
+        c.into_bigraded()
+    }
+
     pub fn is_reduced(&self) -> bool { 
         self.reduced
     }
@@ -273,5 +312,81 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn homology(&self, with_trans: bool) -> KhHomologyBigraded<R> {
         let h = self.inner.homology(with_trans);
         KhHomologyBigraded::new_impl(h)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use yui_homology::{ChainComplexCommon, RModStr};
+    use yui_link::Link;
+
+    use super::KhComplex;
+
+    #[test]
+    fn ckh_trefoil_v2() {
+        let l = Link::trefoil();
+        let c = KhComplex::new_v2(&l, &0, &0, false);
+
+        assert_eq!(c.h_range(), -3..=0);
+
+        assert_eq!(c[-3].rank(), 2);
+        assert_eq!(c[-2].rank(), 2);
+        assert_eq!(c[-1].rank(), 0);
+        assert_eq!(c[ 0].rank(), 2);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_trefoil_red_v2() {
+        let l = Link::trefoil();
+        let c = KhComplex::new_v2(&l, &0, &0, true);
+
+        assert_eq!(c.h_range(), -3..=0);
+
+        assert_eq!(c[-3].rank(), 1);
+        assert_eq!(c[-2].rank(), 1);
+        assert_eq!(c[-1].rank(), 0);
+        assert_eq!(c[ 0].rank(), 1);
+
+        c.check_d_all();
+    }
+}
+
+#[cfg(all(test, feature = "old"))]
+mod tests_old {
+    use yui_homology::{RModStr, ChainComplexCommon};
+    use yui_link::Link;
+
+    use super::KhComplex;
+
+    #[test]
+    fn ckh_trefoil() {
+        let l = Link::trefoil();
+        let c = KhComplex::new_v1(&l, &0, &0, false);
+
+        assert_eq!(c.h_range(), -3..=0);
+
+        assert_eq!(c[-3].rank(), 8);
+        assert_eq!(c[-2].rank(), 12);
+        assert_eq!(c[-1].rank(), 6);
+        assert_eq!(c[ 0].rank(), 4);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_trefoil_red() {
+        let l = Link::trefoil();
+        let c = KhComplex::new_v1(&l, &0, &0, true);
+
+        assert_eq!(c.h_range(), -3..=0);
+
+        assert_eq!(c[-3].rank(), 4);
+        assert_eq!(c[-2].rank(), 6);
+        assert_eq!(c[-1].rank(), 3);
+        assert_eq!(c[ 0].rank(), 2);
+
+        c.check_d_all();
     }
 }
