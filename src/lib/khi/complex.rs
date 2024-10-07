@@ -8,8 +8,9 @@ use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, X
 use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
+use crate::kh::KhComplex;
 use crate::khi::KhIHomology;
-use super::KhIGen;
+use crate::khi::KhIGen;
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
 
@@ -40,16 +41,38 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    pub(crate) fn new_impl(
-        inner: XChainComplex<KhIGen, R>,
-        canon_cycles: Vec<KhIChain<R>>,
-        deg_shift: (isize, isize)
-    ) -> Self { 
-        Self { inner, canon_cycles, deg_shift }
+    pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self { 
+        // TODO replace with new_v2
+        Self::new_v1(l, h, reduced)
     }
 
-    pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self { 
-        Self::new_v1(l, h, reduced)
+    #[cfg(feature = "old")]
+    pub fn new_v1(l: &InvLink, h: &R, reduced: bool) -> Self { 
+        use crate::khi::v1::cube::KhICube;
+
+        assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
+        assert!(!reduced || l.base_pt().is_some());
+
+        let deg_shift = KhComplex::deg_shift_for(l.link(), reduced);
+        let cube = KhICube::new(l, h, reduced, deg_shift);
+        let inner = cube.into_complex();
+
+        let canon_cycles = if l.base_pt().is_some() && l.link().is_knot() {
+            let p = l.base_pt().unwrap();
+            let zs = KhComplex::make_canon_cycles(l.link(), p, &R::zero(), h, reduced, deg_shift);
+            Iterator::chain(
+                zs.iter().map(|z| z.map_gens(|x| KhIGen::B(*x))),
+                zs.iter().map(|z| z.map_gens(|x| KhIGen::Q(*x)))
+            ).collect()
+        } else { 
+            vec![]
+        };
+
+        Self::new_impl(inner, canon_cycles, deg_shift)
+    }
+
+    pub(crate) fn new_impl(inner: XChainComplex<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>, deg_shift: (isize, isize)) -> Self { 
+        Self { inner, canon_cycles, deg_shift }
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
