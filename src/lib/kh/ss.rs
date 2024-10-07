@@ -8,7 +8,7 @@ use itertools::Itertools;
 use log::info;
 use yui_homology::{ChainComplexTrait, RModStr};
 use yui_link::Link;
-use yui_homology::utils::{ChainReducer, HomologyCalc};
+use yui_homology::utils::HomologyCalc;
 use yui::{EucRing, EucRingOps};
 
 use crate::misc::div_vec;
@@ -56,9 +56,44 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     ss
 }
 
-#[allow(unused)]
+fn div_v2<R>(l: &Link, c: &R, reduced: bool) -> i32
+where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
+    let r = if reduced { 1 } else { 2 };
+
+    let ckh = KhComplex::new_v2(l, c, &R::zero(), reduced);
+    let d0 = ckh.d_matrix(-1);
+    let d1 = ckh.d_matrix( 0);
+    let zs = ckh.canon_cycles();
+
+    assert_eq!(zs.len(), r);
+    assert!(zs.iter().all(|z| z.gens().all(|x| x.h_deg() == 0)));
+
+    let kh = HomologyCalc::calculate(d0, d1, true);
+
+    info!("homology: {}", kh.math_symbol());    
+    assert_eq!(kh.rank(), r);
+    
+    let t = kh.trans().unwrap();
+    let vs = zs.into_iter().map(|z| {
+        let v = ckh[0].vectorize(&z);
+        let v = t.forward(&v).subvec(0..r);
+        info!("{z} -> {v}");
+        v
+    }).collect_vec();
+
+    let v = &vs[0];
+    let Some(d) = div_vec(v, c) else { 
+        panic!("invalid divisibility for v = {:?}, c = {}", v.to_dense(), c)
+    };
+    
+    d
+}
+
+#[cfg(feature = "old")]
 fn div_v1<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
+    use yui_homology::utils::ChainReducer;
+
     let r = if reduced { 1 } else { 2 };
 
     let ckh = KhComplex::new_v1(l, c, &R::zero(), reduced);
@@ -107,38 +142,12 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     d
 }
 
-fn div_v2<R>(l: &Link, c: &R, reduced: bool) -> i32
+#[cfg(not(feature = "old"))]
+fn div_v1<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    let r = if reduced { 1 } else { 2 };
-
-    let ckh = KhComplex::new_v2(l, c, &R::zero(), reduced);
-    let d0 = ckh.d_matrix(-1);
-    let d1 = ckh.d_matrix( 0);
-    let zs = ckh.canon_cycles();
-
-    assert_eq!(zs.len(), r);
-    assert!(zs.iter().all(|z| z.gens().all(|x| x.h_deg() == 0)));
-
-    let kh = HomologyCalc::calculate(d0, d1, true);
-
-    info!("homology: {}", kh.math_symbol());    
-    assert_eq!(kh.rank(), r);
-    
-    let t = kh.trans().unwrap();
-    let vs = zs.into_iter().map(|z| {
-        let v = ckh[0].vectorize(&z);
-        let v = t.forward(&v).subvec(0..r);
-        info!("{z} -> {v}");
-        v
-    }).collect_vec();
-
-    let v = &vs[0];
-    let Some(d) = div_vec(v, c) else { 
-        panic!("invalid divisibility for v = {:?}, c = {}", v.to_dense(), c)
-    };
-    
-    d
+    panic!("set feature = old to enable v1.")
 }
+
 
 #[cfg(test)]
 mod tests {
