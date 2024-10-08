@@ -75,11 +75,8 @@ where
         let l = load_link(&self.args.link, self.args.mirror)?;
         let bigraded = h.is_zero() && t.is_zero();
 
-        let ckh = if self.args.no_simplify {
-            KhComplex::new_v1(&l, &h, &t, self.args.reduced)
-        } else {
-            KhComplex::new(&l, &h, &t, self.args.reduced)
-        };
+        // TODO no_simplify
+        let ckh = KhComplex::new(&l, &h, &t, self.args.reduced);
         
         // CKh table
         self.out(&ckh.gen_table().display_table("i", "j"));

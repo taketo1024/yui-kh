@@ -81,11 +81,9 @@ where
         }
     
         let l = load_link(&self.args.link, self.args.mirror)?;
-        let ckh = if self.args.no_simplify { 
-            KhComplex::new_v1(&l, &h, &t, self.args.reduced)
-        } else {
-            KhComplex::new(&l, &h, &t, self.args.reduced)
-        };
+
+        // TODO no-simplify
+        let ckh = KhComplex::new(&l, &h, &t, self.args.reduced);
 
         if bigraded { 
             let with_trans = self.args.show_gens || self.args.show_alpha;
