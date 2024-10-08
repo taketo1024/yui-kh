@@ -116,8 +116,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 #[derive(Debug, Default)]
 pub struct TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    h: R,
-    t: R,
+    ht: (R, R),
     deg_shift: (isize, isize),
     base_pt: Option<Edge>,
     vertices: HashMap<TngKey, TngVertex<R>>,
@@ -127,8 +126,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, vertices: HashMap<TngKey, TngVertex<R>>, crossings: Vec<Crossing>) -> Self { 
-        let (h, t) = (h.clone(), t.clone());
-        TngComplex{ h, t, deg_shift, base_pt, vertices, crossings }
+        let ht = (h.clone(), t.clone());
+        TngComplex{ ht, deg_shift, base_pt, vertices, crossings }
     }
 
     pub fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
@@ -170,8 +169,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         _self
     }
 
-    pub fn ht(&self) -> (&R, &R) { 
-        (&self.h, &self.t)
+    pub fn ht(&self) -> &(R, R) { 
+        &self.ht
     }
 
     pub fn deg_shift(&self) -> (isize, isize) { 
@@ -434,7 +433,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let v_out = self.keys_out_from(k).cloned().collect_vec();
 
         // cap incoming cobs
-        let (h, t) = (self.h.clone(), self.t.clone());
+        let (h, t) = self.ht.clone();
         for j in v_in.iter() { 
             self.modify_edge(j, k, |f|
                 f.cap_off(Bottom::Tgt, &circ, death_dot).part_eval(&h, &t)
@@ -475,7 +474,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 continue
             }
 
-            let (h, t) = (&self.h, &self.t);
+            let (h, t) = self.ht();
             
             let b = self.edge(l0, k1);
             let c = self.edge(k0, l1);
@@ -537,11 +536,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn into_kh_complex(self, canon_cycles: Vec<KhChain<R>>) -> KhComplex<R> { 
-        let reduced = self.base_pt.is_some();
+        let ht = self.ht().clone();
         let deg_shift = self.deg_shift;
+        let reduced = self.base_pt.is_some();
         let inner = self.into_raw_complex();
 
-        KhComplex::new_impl(inner, canon_cycles, reduced, deg_shift)
+        KhComplex::new_impl(inner, ht, deg_shift, reduced, canon_cycles)
     }
 
     pub fn is_finalizable(&self) -> bool { 
@@ -618,6 +618,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn convert_edges<F>(&self, f: F) -> Self
     where F: Fn(Edge) -> Edge { 
+        let (h, t) = self.ht();
         let base_pt = self.base_pt.map(|e| f(e));
         let crossings = self.crossings.iter().map(|x| x.convert_edges(&f)).collect();
 
@@ -627,7 +628,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (k2, v2)
         }).collect();
 
-        TngComplex::new(&self.h, &self.t, self.deg_shift, base_pt, vertices, crossings)
+        TngComplex::new(h, t, self.deg_shift, base_pt, vertices, crossings)
     }
 }
 

@@ -34,9 +34,10 @@ pub type KhComplexSummand<R> = XChainComplexSummand<KhGen, R>;
 pub struct KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     inner: XChainComplex<KhGen, R>,
-    canon_cycles: Vec<KhChain<R>>,
+    ht: (R, R),
+    deg_shift: (isize, isize),
     reduced: bool,
-    deg_shift: (isize, isize)
+    canon_cycles: Vec<KhChain<R>>,
 }
 
 impl<R> KhComplex<R>
@@ -73,12 +74,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         KhComplex::new_impl(complex, canon_cycles, reduced, deg_shift)
     }
 
-    pub(crate) fn new_impl(inner: XChainComplex<KhGen, R>, canon_cycles: Vec<KhChain<R>>, reduced: bool, deg_shift: (isize, isize)) -> Self { 
-        KhComplex { inner, canon_cycles, reduced, deg_shift }
+    pub(crate) fn new_impl(inner: XChainComplex<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
+        KhComplex { inner, ht, deg_shift, reduced, canon_cycles }
     }
 
-    pub fn canon_cycles(&self) -> &Vec<KhChain<R>> { 
-        &self.canon_cycles
+    pub fn ht(&self) -> &(R, R) { 
+        &self.ht
     }
 
     pub fn deg_shift(&self) -> (isize, isize) { 
@@ -97,6 +98,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         range_of(self.support().flat_map(|i| 
             self[i].gens().iter().map(|x| x.q_deg())
         ))
+    }
+
+    pub fn canon_cycles(&self) -> &Vec<KhChain<R>> { 
+        &self.canon_cycles
     }
 
     pub fn inner(&self) -> &XChainComplex<KhGen, R> {
@@ -134,6 +139,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn into_bigraded(self) -> KhComplexBigraded<R> {
+        assert_eq!(self.ht(), &(R::zero(), R::zero()));
+
+        let ht = self.ht.clone();
         let reduced = self.reduced;
 
         let h_range = self.h_range();
@@ -160,7 +168,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             dx.into_iter().collect()
         });
 
-        KhComplexBigraded { inner, canon_cycles, reduced, deg_shift }
+        KhComplexBigraded { inner, ht, deg_shift, reduced, canon_cycles }
     }
 
     pub fn deg_shift_for(l: &Link, reduced: bool) -> (isize, isize) {
@@ -222,17 +230,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> KhComplex<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn homology(&self) -> KhHomology<R> {
-        let h = self.inner.homology(true);
-        KhHomology::new_impl(h)
+        self.into()
     }
 }
 
 pub struct KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     inner: XChainComplex2<KhGen, R>,
-    canon_cycles: Vec<KhChain<R>>,
+    ht: (R, R),
+    deg_shift: (isize, isize),
     reduced: bool,
-    deg_shift: (isize, isize)
+    canon_cycles: Vec<KhChain<R>>,
 }
 
 impl<R> KhComplexBigraded<R>
@@ -250,6 +258,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new_v1(l: &Link, reduced: bool) -> Self { 
         let c = KhComplex::new_v1(l, &R::zero(), &R::zero(), reduced);
         c.into_bigraded()
+    }
+
+    pub fn ht(&self) -> &(R, R) { 
+        &self.ht
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
@@ -320,8 +332,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> KhComplexBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn homology(&self) -> KhHomologyBigraded<R> {
-        let h = self.inner.homology(true);
-        KhHomologyBigraded::new_impl(h)
+        self.into()
     }
 }
 

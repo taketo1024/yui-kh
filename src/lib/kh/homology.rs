@@ -15,6 +15,9 @@ use super::{KhComplex, KhComplexBigraded};
 pub struct KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     inner: XHomology<KhGen, R>,
+    ht: (R, R),
+    deg_shift: (isize, isize),
+    reduced: bool,
 }
 
 impl<R> KhHomology<R> 
@@ -32,8 +35,20 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         KhComplex::new_v1(l, h, t, reduced).homology()
     }
 
-    pub(crate) fn new_impl(inner: XHomology<KhGen, R>) -> Self { 
-        Self { inner }
+    pub(crate) fn new_impl(inner: XHomology<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool) -> Self { 
+        Self { inner, ht, deg_shift, reduced }
+    }
+
+    pub fn ht(&self) -> &(R, R) { 
+        &self.ht
+    }
+
+    pub fn deg_shift(&self) -> (isize, isize) { 
+        self.deg_shift
+    }
+
+    pub fn is_reduced(&self) -> bool { 
+        self.reduced
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
@@ -48,6 +63,9 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn into_bigraded(&self) -> KhHomologyBigraded<R> { 
         // TODO: check (h, t)
 
+        let ht = self.ht.clone();
+        let deg_shift = self.deg_shift;
+        let reduced = self.reduced;
         let table = self.collect_bigr_gens();
 
         let h_range = range_of(table.keys().map(|i| i.0));
@@ -70,7 +88,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             XModStr::new(gens, *rank, tors.clone(), trans)
         });
 
-        KhHomologyBigraded::new_impl(inner)
+        KhHomologyBigraded::new_impl(inner, ht, deg_shift, reduced)
     }
 
     fn collect_bigr_gens(&self) -> HashMap<isize2, (usize, Vec<R>, Vec<usize>)> { 
@@ -103,6 +121,19 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     }
 }
 
+impl<R> From<&KhComplex<R>> for KhHomology<R>
+where R: EucRing, for<'x> &'x R: EucRingOps<R> {
+    fn from(c: &KhComplex<R>) -> Self {
+        KhHomology::new_impl(
+            c.inner().homology(true), 
+            c.ht().clone(), 
+            c.deg_shift(), 
+            c.is_reduced()
+        )
+    }
+}
+
+
 impl<R> GridTrait<isize> for KhHomology<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     type Itr = std::vec::IntoIter<isize>;
@@ -130,7 +161,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 pub struct KhHomologyBigraded<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology2<KhGen, R>
+    inner: XHomology2<KhGen, R>,
+    ht: (R, R),
+    deg_shift: (isize, isize),
+    reduced: bool,
 }
 
 impl<R> KhHomologyBigraded<R>
@@ -148,8 +182,20 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         KhComplexBigraded::new_v1(l, reduced).homology()
     }
 
-    pub(crate) fn new_impl(inner: XHomology2<KhGen, R>) -> Self { 
-        Self { inner }
+    pub(crate) fn new_impl(inner: XHomology2<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool) -> Self { 
+        Self { inner, ht, deg_shift, reduced }
+    }
+
+    pub fn ht(&self) -> &(R, R) { 
+        &self.ht
+    }
+
+    pub fn deg_shift(&self) -> (isize, isize) { 
+        self.deg_shift
+    }
+
+    pub fn is_reduced(&self) -> bool { 
+        self.reduced
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
@@ -162,6 +208,18 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     pub fn inner(&self) -> &XHomology2<KhGen, R> { 
         &self.inner
+    }
+}
+
+impl<R> From<&KhComplexBigraded<R>> for KhHomologyBigraded<R>
+where R: EucRing, for<'x> &'x R: EucRingOps<R> {
+    fn from(c: &KhComplexBigraded<R>) -> Self {
+        KhHomologyBigraded::new_impl(
+            c.inner().homology(true), 
+            c.ht().clone(), 
+            c.deg_shift(), 
+            c.is_reduced()
+        )
     }
 }
 
@@ -195,7 +253,7 @@ mod tests {
     use num_traits::Zero;
     use yui::poly::HPoly;
     use yui::FF2;
-    use yui_homology::{DisplayTable, RModStr};
+    use yui_homology::RModStr;
     use yui_link::Link;
     use super::*;
     
