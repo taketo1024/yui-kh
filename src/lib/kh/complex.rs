@@ -223,7 +223,7 @@ impl<R> KhComplex<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn homology(&self) -> KhHomology<R> {
         let h = self.inner.homology(true);
-        KhHomology::new_impl(h, self.h_range(), self.q_range())
+        KhHomology::new_impl(h)
     }
 }
 
