@@ -231,11 +231,11 @@ mod tests {
         let c = KhIComplex::new(&l, &h, false);
 
         assert_eq!(c.h_range(), 0..=4);
-        assert_eq!(c.rank(0), 2);
-        assert_eq!(c.rank(1), 2);
-        assert_eq!(c.rank(2), 2);
-        assert_eq!(c.rank(3), 4);
-        assert_eq!(c.rank(4), 2);
+        assert_eq!(c[0].rank(), 2);
+        assert_eq!(c[1].rank(), 2);
+        assert_eq!(c[2].rank(), 2);
+        assert_eq!(c[3].rank(), 4);
+        assert_eq!(c[4].rank(), 2);
 
         c.check_d_all();
     }
@@ -249,11 +249,11 @@ mod tests {
         let c = KhIComplex::new(&l, &h, false);
 
         assert_eq!(c.h_range(), 0..=4);
-        assert_eq!(c.rank(0), 2);
-        assert_eq!(c.rank(1), 2);
-        assert_eq!(c.rank(2), 0);
-        assert_eq!(c.rank(3), 0);
-        assert_eq!(c.rank(4), 0);
+        assert_eq!(c[0].rank(), 2);
+        assert_eq!(c[1].rank(), 2);
+        assert_eq!(c[2].rank(), 0);
+        assert_eq!(c[3].rank(), 0);
+        assert_eq!(c[4].rank(), 0);
         
         c.check_d_all();
     }
@@ -272,11 +272,11 @@ mod tests {
         c.print_d();
 
         assert_eq!(c.h_range(), 0..=4);
-        assert_eq!(c.rank(0), 2);
-        assert_eq!(c.rank(1), 2);
-        assert_eq!(c.rank(2), 2);
-        assert_eq!(c.rank(3), 4);
-        assert_eq!(c.rank(4), 2);
+        assert_eq!(c[0].rank(), 2);
+        assert_eq!(c[1].rank(), 2);
+        assert_eq!(c[2].rank(), 2);
+        assert_eq!(c[3].rank(), 4);
+        assert_eq!(c[4].rank(), 2);
         
         c.check_d_all();
     }
@@ -290,11 +290,11 @@ mod tests {
         let c = KhIComplex::new(&l, &h, true);
 
         assert_eq!(c.h_range(), 0..=4);
-        assert_eq!(c.rank(0), 1);
-        assert_eq!(c.rank(1), 1);
-        assert_eq!(c.rank(2), 1);
-        assert_eq!(c.rank(3), 2);
-        assert_eq!(c.rank(4), 1);
+        assert_eq!(c[0].rank(), 1);
+        assert_eq!(c[1].rank(), 1);
+        assert_eq!(c[2].rank(), 1);
+        assert_eq!(c[3].rank(), 2);
+        assert_eq!(c[4].rank(), 1);
         
         c.check_d_all();
     }
@@ -467,11 +467,11 @@ mod tests_old {
         let h = R::zero();
         let c = KhIComplex::new_v1(&l, &h, false);
 
-        assert_eq!(c.rank(0), 4);
-        assert_eq!(c.rank(1), 10);
-        assert_eq!(c.rank(2), 18);
-        assert_eq!(c.rank(3), 20);
-        assert_eq!(c.rank(4), 8);
+        assert_eq!(c[0].rank(), 4);
+        assert_eq!(c[1].rank(), 10);
+        assert_eq!(c[2].rank(), 18);
+        assert_eq!(c[3].rank(), 20);
+        assert_eq!(c[4].rank(), 8);
 
         c.check_d_all();
     }
@@ -488,11 +488,11 @@ mod tests_old {
         let h = R::one();
         let c = KhIComplex::new_v1(&l, &h, false);
 
-        assert_eq!(c.rank(0), 4);
-        assert_eq!(c.rank(1), 10);
-        assert_eq!(c.rank(2), 18);
-        assert_eq!(c.rank(3), 20);
-        assert_eq!(c.rank(4), 8);
+        assert_eq!(c[0].rank(), 4);
+        assert_eq!(c[1].rank(), 10);
+        assert_eq!(c[2].rank(), 18);
+        assert_eq!(c[3].rank(), 20);
+        assert_eq!(c[4].rank(), 8);
         
         c.check_d_all();
     }
@@ -511,11 +511,11 @@ mod tests_old {
 
         let c = KhIComplex::new_v1(&l, &h, false);
 
-        assert_eq!(c.rank(0), 4);
-        assert_eq!(c.rank(1), 10);
-        assert_eq!(c.rank(2), 18);
-        assert_eq!(c.rank(3), 20);
-        assert_eq!(c.rank(4), 8);
+        assert_eq!(c[0].rank(), 4);
+        assert_eq!(c[1].rank(), 10);
+        assert_eq!(c[2].rank(), 18);
+        assert_eq!(c[3].rank(), 20);
+        assert_eq!(c[4].rank(), 8);
         
         c.check_d_all();
     }
@@ -532,11 +532,11 @@ mod tests_old {
         let h = R::zero();
         let c = KhIComplex::new_v1(&l, &h, true);
 
-        assert_eq!(c.rank(0), 2);
-        assert_eq!(c.rank(1), 5);
-        assert_eq!(c.rank(2), 9);
-        assert_eq!(c.rank(3), 10);
-        assert_eq!(c.rank(4), 4);
+        assert_eq!(c[0].rank(), 2);
+        assert_eq!(c[1].rank(), 5);
+        assert_eq!(c[2].rank(), 9);
+        assert_eq!(c[3].rank(), 10);
+        assert_eq!(c[4].rank(), 4);
         
         c.check_d_all();
     }
