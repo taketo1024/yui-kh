@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use yui::{EucRing, EucRingOps};
 use yui_matrix::sparse::SpVec;
 
@@ -21,4 +23,23 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     }
 
     Some(k)
+}
+
+pub fn range_of<Idx, Itr>(itr: Itr) -> RangeInclusive<Idx>
+where Idx: Ord + Default + Copy, Itr: IntoIterator<Item = Idx> { 
+    let (min, max) = itr.into_iter().fold(None, |res, i| { 
+        if let Some((min, max)) = res { 
+            if i < min { 
+                Some((i, max))
+            } else if max < i { 
+                Some((min, i))
+            } else { 
+                Some((min, max))
+            }
+        } else {
+            Some((i, i))
+        }
+    }).unwrap_or((Idx::default(), Idx::default()));
+
+    min ..= max
 }
