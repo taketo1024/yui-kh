@@ -3,8 +3,8 @@ use std::ops::{RangeInclusive, Index};
 use delegate::delegate;
 use cartesian::cartesian;
 
-use yui_homology::{isize2, Grid2, GridTrait, RModStr, SimpleRModStr, XHomology, XHomology2, XHomologySummand};
-use yui::{EucRing, EucRingOps};
+use yui_homology::{isize2, Grid2, GridTrait, RModStr, XHomology, XHomology2, XHomologySummand, XModStr};
+use yui::{EucRing, EucRingOps, IndexList};
 use yui_link::Link;
 
 use crate::kh::{KhGen, KhChainExt};
@@ -49,8 +49,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         &self.inner
     }
 
-    pub fn gen_table(&self) -> Grid2<SimpleRModStr<R>> { 
+    // TODO take self instead of &self
+    pub fn into_bigraded(&self) -> KhHomologyBigraded<R> { 
         // TODO: check with_trans = true
+        // TODO: check (h, t)
 
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
@@ -81,12 +83,22 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             }
         }
 
-        Grid2::generate(support, move |idx| { 
+        let inner = Grid2::generate(support, move |idx| { 
             let Some(e) = table.remove(&idx) else { 
-                return SimpleRModStr::zero()
+                return XModStr::zero()
             };
-            SimpleRModStr::new(e.0, e.1, None)
-        })
+            
+            // TODO support trans
+
+            let (rank, tors) = e;
+            let gens = IndexList::from_iter(
+                vec![KhGen::init(); rank + tors.len()] // stub
+            ); 
+            let trans = None;
+            XModStr::new(gens, rank, tors, trans)
+        });
+
+        KhHomologyBigraded::new_impl(inner)
     }
 }
 
@@ -171,6 +183,9 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 #[cfg(test)]
 mod tests {
+    use num_traits::Zero;
+    use yui::poly::HPoly;
+    use yui::FF2;
     use yui_homology::RModStr;
     use yui_link::Link;
     use super::*;
@@ -373,7 +388,46 @@ mod tests {
         assert_eq!(h[( 2, 4)].rank(), 1);
         assert!(h[( 2, 4)].is_free());
    }
-}
+
+   #[test]
+   fn into_bigr() {
+       let l = Link::trefoil();
+       let (h, t) = (0, 0);
+       let kh = KhHomology::new_v2(&l, &h, &t, false, true);
+       let kh = kh.into_bigraded();
+
+       assert_eq!(kh[(-3,-9)].rank(), 1);
+       assert!(kh[(-3,-9)].is_free());
+       assert_eq!(kh[(-2,-7)].rank(), 0);
+       assert_eq!(kh[(-2,-7)].tors(), &vec![2]);
+       assert_eq!(kh[(-2,-5)].rank(), 1);
+       assert!(kh[(-2,-5)].is_free());
+       assert_eq!(kh[( 0,-3)].rank(), 1);
+       assert!(kh[( 0,-3)].is_free());
+       assert_eq!(kh[( 0,-1)].rank(), 1);
+       assert!(kh[( 0,-1)].is_free());
+    }
+
+    #[test]
+    fn into_bigr_bn() {
+        type R = FF2;
+        type P = HPoly<'H', R>;
+
+        let l = Link::trefoil();
+        let (h, t) = (P::variable(), P::zero());
+        let kh = KhHomology::new_v2(&l, &h, &t, false, true);
+        let kh = kh.into_bigraded();
+
+        assert_eq!(kh[(-2,-7)].rank(), 0);
+        assert_eq!(kh[(-2,-7)].tors(), &vec![h.clone()]);
+        assert_eq!(kh[(-2,-5)].rank(), 0);
+        assert_eq!(kh[(-2,-5)].tors(), &vec![h.clone()]);
+        assert_eq!(kh[( 0,-3)].rank(), 1);
+        assert!(kh[( 0,-3)].is_free());
+        assert_eq!(kh[( 0,-1)].rank(), 1);
+        assert!(kh[( 0,-1)].is_free());
+    }
+ }
 
 #[cfg(all(test, feature = "old"))]
 mod tests_old {

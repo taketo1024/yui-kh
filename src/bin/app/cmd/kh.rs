@@ -108,7 +108,7 @@ where
             let with_trans = true;
 
             let kh = ckh.homology(with_trans);
-            let gens = kh.gen_table();
+            let gens = kh.into_bigraded();
     
             self.out(&gens.display_table("i", "j"));
     
