@@ -52,8 +52,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let deg_shift = KhComplex::deg_shift_for(l.link(), reduced);
         let base_pt = if reduced { 
-            // TODO check on-axis
-            l.link().first_edge()
+            assert!(l.base_pt().is_some());
+            l.base_pt()
         } else { 
             None
         };
