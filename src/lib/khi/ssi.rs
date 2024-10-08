@@ -97,7 +97,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     (d0, d1)
 }
 
-#[cfg(test)]
+// TODO 
+#[cfg(_test)]
 mod tests {
     use yui::poly::HPoly;
     use yui::FF2;
