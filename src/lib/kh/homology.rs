@@ -4,7 +4,7 @@ use delegate::delegate;
 use cartesian::cartesian;
 
 use yui_homology::{isize2, Grid2, GridTrait, RModStr, XHomology, XHomology2, XHomologySummand, XModStr};
-use yui::{EucRing, EucRingOps, IndexList};
+use yui::{EucRing, EucRingOps};
 use yui_link::Link;
 
 use crate::kh::{KhGen, KhChainExt};
@@ -60,8 +60,28 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             isize2(i, j)
         );
 
-        let mut table: HashMap<isize2, (usize, Vec<R>)> = HashMap::new();
-        let e = (0, vec![]);
+        let table = self.collect_bigr_gens();
+
+        let inner = Grid2::generate(support, move |idx| { 
+            let i = idx.0;
+            let Some(e) = table.get(&idx) else { 
+                return XModStr::zero()
+            };
+            
+            let (rank, tors, indices) = e;
+            let gens = self[i].gens().clone(); 
+            let trans = self[i].trans().map(|t|
+                t.sub(indices)
+            );
+            XModStr::new(gens, *rank, tors.clone(), trans)
+        });
+
+        KhHomologyBigraded::new_impl(inner)
+    }
+
+    fn collect_bigr_gens(&self) -> HashMap<isize2, (usize, Vec<R>, Vec<usize>)> { 
+        let mut table = HashMap::new();
+        let init_entry = (0, vec![], vec![]);
 
         for i in self.support() { 
             let h = &self[i];
@@ -71,34 +91,21 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             for k in 0..r { 
                 let z = h.gen_chain(k);
                 let q = z.q_deg();
-                let e = table.entry(isize2(i, q)).or_insert_with(|| e.clone());
+                let e = table.entry(isize2(i, q)).or_insert_with(|| init_entry.clone());
                 e.0 += 1;
+                e.2.push(k);
             }
 
             for k in 0..t { 
                 let z = h.gen_chain(r + k);
                 let q = z.q_deg();
-                let e = table.entry(isize2(i, q)).or_insert_with(|| e.clone());
+                let e = table.entry(isize2(i, q)).or_insert_with(|| init_entry.clone());
                 e.1.push(h.tors()[k].clone());
+                e.2.push(r + k);
             }
         }
 
-        let inner = Grid2::generate(support, move |idx| { 
-            let Some(e) = table.remove(&idx) else { 
-                return XModStr::zero()
-            };
-            
-            // TODO support trans
-
-            let (rank, tors) = e;
-            let gens = IndexList::from_iter(
-                vec![KhGen::init(); rank + tors.len()] // stub
-            ); 
-            let trans = None;
-            XModStr::new(gens, rank, tors, trans)
-        });
-
-        KhHomologyBigraded::new_impl(inner)
+        table
     }
 }
 
