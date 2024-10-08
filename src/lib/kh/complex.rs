@@ -10,6 +10,7 @@ use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, RModStr, SimpleR
 use yui_matrix::sparse::SpMat;
 
 use crate::kh::{KhGen, KhHomology, KhHomologyBigraded};
+use crate::misc::range_of;
 
 pub type KhChain<R> = Lc<KhGen, R>;
 pub trait KhChainExt { 
@@ -89,18 +90,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
-        let h0 = self.deg_shift.0;
-        let h_min = self.support().min().unwrap_or(h0);
-        let h_max = self.support().max().unwrap_or(h0);
-        h_min ..= h_max
+        range_of(self.support())
     }
 
     pub fn q_range(&self) -> RangeInclusive<isize> {
-        let q0 = self.deg_shift.1; 
-        let q_itr = || self.support().flat_map(|i| self[i].gens().iter().map(|x| x.q_deg())); 
-        let q_min = q_itr().min().unwrap_or(q0);
-        let q_max = q_itr().max().unwrap_or(q0);
-        q_min ..= q_max
+        range_of(self.support().flat_map(|i| 
+            self[i].gens().iter().map(|x| x.q_deg())
+        ))
     }
 
     pub fn inner(&self) -> &XChainComplex<KhGen, R> {
@@ -142,6 +138,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
+        let deg_shift = self.deg_shift;
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
             isize2(i, j)
         );
@@ -163,7 +160,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             dx.into_iter().collect()
         });
 
-        KhComplexBigraded { inner, canon_cycles, reduced }
+        KhComplexBigraded { inner, canon_cycles, reduced, deg_shift }
     }
 
     pub fn deg_shift_for(l: &Link, reduced: bool) -> (isize, isize) {
@@ -235,23 +232,36 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     inner: XChainComplex2<KhGen, R>,
     canon_cycles: Vec<KhChain<R>>,
     reduced: bool,
+    deg_shift: (isize, isize)
 }
 
 impl<R> KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn new(l: Link, reduced: bool) -> Self { 
+    pub fn new(l: &Link, reduced: bool) -> Self { 
         Self::new_v2(l, reduced)
     }
 
-    pub fn new_v2(l: Link, reduced: bool) -> Self { 
+    pub fn new_v2(l: &Link, reduced: bool) -> Self { 
         let c = KhComplex::new_v2(&l, &R::zero(), &R::zero(), reduced);
         c.into_bigraded()
     }
 
     #[cfg(feature = "old")]
-    pub fn new_v1(l: Link, reduced: bool) -> Self { 
-        let c = KhComplex::new_v1(&l, &R::zero(), &R::zero(), reduced);
+    pub fn new_v1(l: &Link, reduced: bool) -> Self { 
+        let c = KhComplex::new_v1(l, &R::zero(), &R::zero(), reduced);
         c.into_bigraded()
+    }
+
+    pub fn h_range(&self) -> RangeInclusive<isize> { 
+        range_of(self.support().map(|idx| idx.0))
+    }
+
+    pub fn q_range(&self) -> RangeInclusive<isize> {
+        range_of(self.support().map(|idx| idx.1))
+    }
+
+    pub fn deg_shift(&self) -> (isize, isize) { 
+        self.deg_shift
     }
 
     pub fn is_reduced(&self) -> bool { 
@@ -320,12 +330,14 @@ mod tests {
     use yui_homology::{ChainComplexCommon, RModStr};
     use yui_link::Link;
 
+    use crate::kh::KhComplexBigraded;
+
     use super::KhComplex;
 
     #[test]
-    fn ckh_trefoil_v2() {
+    fn ckh_trefoil() {
         let l = Link::trefoil();
-        let c = KhComplex::new_v2(&l, &0, &0, false);
+        let c = KhComplex::new(&l, &0, &0, false);
 
         assert_eq!(c.h_range(), -3..=0);
 
@@ -338,9 +350,9 @@ mod tests {
     }
 
     #[test]
-    fn ckh_trefoil_red_v2() {
+    fn ckh_trefoil_red() {
         let l = Link::trefoil();
-        let c = KhComplex::new_v2(&l, &0, &0, true);
+        let c = KhComplex::new(&l, &0, &0, true);
 
         assert_eq!(c.h_range(), -3..=0);
 
@@ -348,6 +360,39 @@ mod tests {
         assert_eq!(c[-2].rank(), 1);
         assert_eq!(c[-1].rank(), 0);
         assert_eq!(c[ 0].rank(), 1);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_bigr_trefoil() {
+        let l = Link::trefoil();
+        let c = KhComplexBigraded::<i32>::new(&l, false);
+
+        assert_eq!(c.h_range(), -3..=0);
+        assert_eq!(c.q_range(), -9..=-1);
+
+        assert_eq!(c[(-3, -9)].rank(), 1);
+        assert_eq!(c[(-3, -7)].rank(), 1);
+        assert_eq!(c[(-2, -7)].rank(), 1);
+        assert_eq!(c[(-2, -5)].rank(), 1);
+        assert_eq!(c[(0, -3)].rank(), 1);
+        assert_eq!(c[(0, -1)].rank(), 1);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_bigr_red_trefoil() {
+        let l = Link::trefoil();
+        let c = KhComplexBigraded::<i32>::new(&l, true);
+
+        assert_eq!(c.h_range(), -3..=0);
+        assert_eq!(c.q_range(), -8..=-2);
+
+        assert_eq!(c[(-3, -8)].rank(), 1);
+        assert_eq!(c[(-2, -6)].rank(), 1);
+        assert_eq!(c[(0, -2)].rank(), 1);
 
         c.check_d_all();
     }
