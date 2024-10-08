@@ -4,10 +4,11 @@ use delegate::delegate;
 
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
-use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
+use yui_homology::{isize2, ChainComplexTrait, Grid1, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
 use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
+use crate::kh::{KhChain, KhComplex, KhGen};
 use crate::khi::KhIHomology;
 use crate::khi::KhIGen;
 
@@ -46,7 +47,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
     pub fn new_v2(l: &InvLink, h: &R, reduced: bool) -> Self {
         use crate::khi::internal::v2::builder::SymTngBuilder;
-        
+
         let t = R::zero(); // TODO
         SymTngBuilder::build_khi_complex(l, h, &t, reduced)
     }
@@ -75,6 +76,44 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         };
 
         Self::new_impl(inner, canon_cycles, deg_shift)
+    }
+
+    pub fn from_kh_complex<'a, F>(c: KhComplex<R>, map: F) -> Self
+    where F: Fn(&KhGen) -> KhGen + Send + Sync + 'static {
+        let deg_shift = c.deg_shift();
+        let h_range = c.h_range();
+        let h_range = *h_range.start() ..= (h_range.end() + 1);
+
+        let summands = Grid1::generate(h_range, |i| { 
+            let b_gens = c[i].gens().iter().map(|x| KhIGen::B(*x));
+            let q_gens = c[i - 1].gens().iter().map(|x| KhIGen::Q(*x));
+            XModStr::free(b_gens.chain(q_gens))
+        });
+
+        let d = move |i: isize, x: &KhIGen| -> KhIChain<R> { 
+            match x { 
+                KhIGen::B(x) => {
+                    let z = KhChain::from(*x);
+                    let dx = c.d(i, &z).map_gens(|y| KhIGen::B(*y));
+                    let qx = KhIChain::from(KhIGen::Q(*x));
+                    let qtx = {
+                        let tx = map(x);
+                        KhIChain::from(KhIGen::Q(tx))
+                    };
+                    dx + qx + qtx
+                },
+                KhIGen::Q(x) => {
+                    let z = KhChain::from(*x);
+                    c.d(i, &z).map_gens(|y| KhIGen::Q(*y))
+                }
+            }
+        };
+
+        let inner = XChainComplex::new(summands, 1, move |i, z| { 
+            z.apply(|x| d(i, x))
+        });
+
+        KhIComplex::new_impl(inner, vec![], deg_shift)
     }
 
     pub(crate) fn new_impl(inner: XChainComplex<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>, deg_shift: (isize, isize)) -> Self { 
