@@ -211,6 +211,238 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
+mod tests {
+    #![allow(unused)]
+
+    use itertools::Itertools;
+    use yui::poly::HPoly;
+    use yui::FF2;
+    use num_traits::{Zero, One};
+    use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
+    use yui_link::Link;
+    use super::*;
+
+    #[test]
+    fn complex_kh() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h, false);
+
+        assert_eq!(c.h_range(), 0..=4);
+        assert_eq!(c.rank(0), 2);
+        assert_eq!(c.rank(1), 2);
+        assert_eq!(c.rank(2), 2);
+        assert_eq!(c.rank(3), 4);
+        assert_eq!(c.rank(4), 2);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_fbn() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::one();
+        let c = KhIComplex::new(&l, &h, false);
+
+        assert_eq!(c.h_range(), 0..=4);
+        assert_eq!(c.rank(0), 2);
+        assert_eq!(c.rank(1), 2);
+        assert_eq!(c.rank(2), 0);
+        assert_eq!(c.rank(3), 0);
+        assert_eq!(c.rank(4), 0);
+        
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_bn() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        type P = HPoly<'H', R>;
+        let h = P::variable();
+
+        let c = KhIComplex::new(&l, &h, false);
+
+        c.print_seq("i");
+        c.print_d();
+
+        assert_eq!(c.h_range(), 0..=4);
+        assert_eq!(c.rank(0), 2);
+        assert_eq!(c.rank(1), 2);
+        assert_eq!(c.rank(2), 2);
+        assert_eq!(c.rank(3), 4);
+        assert_eq!(c.rank(4), 2);
+        
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_red() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h, true);
+
+        assert_eq!(c.h_range(), 0..=4);
+        assert_eq!(c.rank(0), 1);
+        assert_eq!(c.rank(1), 1);
+        assert_eq!(c.rank(2), 1);
+        assert_eq!(c.rank(3), 2);
+        assert_eq!(c.rank(4), 1);
+        
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_kh_bigr() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h, false).into_bigraded();
+
+        assert_eq!(c[(0, 1)].rank(), 1);
+        assert_eq!(c[(0, 3)].rank(), 1);
+        assert_eq!(c[(1, 1)].rank(), 1);
+        assert_eq!(c[(1, 3)].rank(), 1);
+        assert_eq!(c[(2, 5)].rank(), 1);
+        assert_eq!(c[(2, 7)].rank(), 1);
+        assert_eq!(c[(3, 5)].rank(), 1);
+        assert_eq!(c[(3, 7)].rank(), 2);
+        assert_eq!(c[(3, 9)].rank(), 1);
+        assert_eq!(c[(4, 7)].rank(), 1);
+        assert_eq!(c[(4, 9)].rank(), 1);
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn complex_kh_red_bigr() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::zero();
+        let c = KhIComplex::new(&l, &h, true).into_bigraded();
+
+        assert_eq!(c[(0, 2)].rank(), 1);
+        assert_eq!(c[(1, 2)].rank(), 1);
+        assert_eq!(c[(2, 6)].rank(), 1);
+        assert_eq!(c[(3, 6)].rank(), 1);
+        assert_eq!(c[(3, 8)].rank(), 1);
+        assert_eq!(c[(4, 8)].rank(), 1);
+
+        c.check_d_all();
+    }
+
+    // #[test]
+    // fn canon_fbn() { 
+    //     let l = InvLink::new(
+    //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+    //         [(1,5), (2,4)],
+    //         Some(3)
+    //     );
+
+    //     type R = FF2;
+    //     let h = R::one();
+    //     let c = KhIComplex::new(&l, &h, false);
+
+    //     let zs = c.canon_cycles.clone();
+
+    //     assert_eq!(zs.len(), 4);
+    //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+    //     assert!(zs[1].gens().all(|x| x.h_deg() == 0));
+    //     assert!(zs[2].gens().all(|x| x.h_deg() == 1));
+    //     assert!(zs[3].gens().all(|x| x.h_deg() == 1));
+
+    //     for (i, z) in zs.iter().enumerate() { 
+    //         let i = (i / 2) as isize;
+    //         assert!(c.d(i, z).is_zero());
+    //     }
+    // }
+
+    // #[test]
+    // fn canon_fbn_red() { 
+    //     let l = InvLink::new(
+    //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+    //         [(1,5), (2,4)],
+    //         Some(3)
+    //     );
+
+    //     type R = FF2;
+    //     let h = R::one();
+    //     let c = KhIComplex::new(&l, &h, true);
+
+    //     let zs = c.canon_cycles.clone();
+
+    //     assert_eq!(zs.len(), 2);
+    //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+    //     assert!(zs[1].gens().all(|x| x.h_deg() == 1));
+
+    //     for (i, z) in zs.iter().enumerate() { 
+    //         let i = i as isize;
+    //         assert!(c.d(i, z).is_zero());
+    //     }
+    // }
+
+    // #[test]
+    // fn canon_bn() { 
+    //     let l = InvLink::new(
+    //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+    //         [(1,5), (2,4)],
+    //         Some(3)
+    //     );
+
+    //     type R = FF2;
+    //     type P = HPoly<'H', R>;
+    //     let h = P::variable();
+    //     let c = KhIComplex::new(&l, &h, false);
+
+    //     let zs = c.canon_cycles.clone();
+
+    //     assert_eq!(zs.len(), 4);
+    //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+    //     assert!(zs[1].gens().all(|x| x.h_deg() == 0));
+    //     assert!(zs[2].gens().all(|x| x.h_deg() == 1));
+    //     assert!(zs[3].gens().all(|x| x.h_deg() == 1));
+
+    //     for (i, z) in zs.iter().enumerate() { 
+    //         let i = (i / 2) as isize;
+    //         assert!(c.d(i, z).is_zero());
+    //     }
+    // }
+
+    // #[test]
+    // fn canon_bn_red() { 
+    //     let l = InvLink::new(
+    //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+    //         [(1,5), (2,4)],
+    //         Some(3)
+    //     );
+
+    //     type R = FF2;
+    //     type P = HPoly<'H', R>;
+    //     let h = P::variable();
+    //     let c = KhIComplex::new(&l, &h, true);
+        
+    //     let zs = c.canon_cycles.clone();
+
+    //     assert_eq!(zs.len(), 2);
+    //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+    //     assert!(zs[1].gens().all(|x| x.h_deg() == 1));
+
+    //     for (i, z) in zs.iter().enumerate() { 
+    //         let i = i as isize;
+    //         assert!(c.d(i, z).is_zero());
+    //     }
+    // }
+}
+
 #[cfg(all(test, feature = "old"))]
 mod tests_old {
     #![allow(unused)]
