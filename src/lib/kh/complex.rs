@@ -45,7 +45,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
-        use super::v2::builder::TngComplexBuilder;
+        use crate::kh::internal::v2::builder::TngComplexBuilder;
 
         TngComplexBuilder::build_kh_complex(l, h, t, reduced)
     }

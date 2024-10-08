@@ -8,12 +8,12 @@ use yui::{Ring, RingOps};
 use yui_homology::{ChainComplexTrait, Grid1, XChainComplex, XModStr};
 use yui_link::{Crossing, Edge, InvLink};
 
-use crate::kh::builder::{count_loops, TngComplexBuilder};
-use crate::kh::cob::LcCobTrait;
-use crate::kh::tng::TngComp;
-use crate::kh::tng_complex::{TngComplex, TngKey};
 use crate::kh::{KhChain, KhComplex};
 use crate::khi::{KhIChain, KhIComplex, KhIGen};
+use crate::kh::internal::v2::builder::{count_loops, TngComplexBuilder};
+use crate::kh::internal::v2::cob::LcCobTrait;
+use crate::kh::internal::v2::tng::TngComp;
+use crate::kh::internal::v2::tng_complex::{TngComplex, TngKey};
 
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {

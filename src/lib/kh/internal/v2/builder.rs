@@ -8,12 +8,10 @@ use yui::{hashmap, Ring, RingOps};
 use yui_link::{Crossing, Edge, Link};
 
 use crate::ext::LinkExt;
-use crate::kh::v2::cob::LcCobTrait;
-use crate::kh::v2::tng::Tng;
 use crate::kh::{KhAlgGen, KhChain, KhComplex, KhGen};
 
-use super::cob::{Bottom, Dot, Cob, CobComp, LcCob};
-use super::tng::TngComp;
+use super::cob::{Bottom, Dot, Cob, CobComp, LcCobTrait, LcCob};
+use super::tng::{Tng, TngComp};
 use super::tng_complex::{TngComplex, TngKey};
 
 pub struct TngComplexBuilder<R>
