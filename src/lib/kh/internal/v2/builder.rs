@@ -470,7 +470,7 @@ mod tests {
 
         c.check_d_all();
 
-        let h = c.homology(false);
+        let h = c.inner().homology(false);
 
         for i in [1,6,7,8] {
             assert_eq!(h[i].rank(), 0);

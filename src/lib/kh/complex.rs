@@ -221,8 +221,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> KhComplex<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn homology(&self, with_trans: bool) -> KhHomology<R> {
-        let h = self.inner.homology(with_trans);
+    pub fn homology(&self) -> KhHomology<R> {
+        let h = self.inner.homology(true);
         KhHomology::new_impl(h, self.h_range(), self.q_range())
     }
 }
@@ -319,8 +319,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> KhComplexBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn homology(&self, with_trans: bool) -> KhHomologyBigraded<R> {
-        let h = self.inner.homology(with_trans);
+    pub fn homology(&self) -> KhHomologyBigraded<R> {
+        let h = self.inner.homology(true);
         KhHomologyBigraded::new_impl(h)
     }
 }

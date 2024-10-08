@@ -86,10 +86,8 @@ where
         let ckh = KhComplex::new(&l, &h, &t, self.args.reduced);
 
         if bigraded { 
-            let with_trans = self.args.show_gens || self.args.show_alpha;
-
             let ckh = ckh.into_bigraded();
-            let kh = ckh.homology(with_trans);
+            let kh = ckh.homology();
     
             self.out(&kh.display_table("i", "j"));
     
@@ -105,9 +103,7 @@ where
                 self.show_alpha(kh0, zs);
             }
         } else if poly { 
-            let with_trans = true;
-
-            let kh = ckh.homology(with_trans);
+            let kh = ckh.homology();
             let gens = kh.into_bigraded();
     
             self.out(&gens.display_table("i", "j"));
@@ -126,8 +122,7 @@ where
                 self.show_ss(&l, &h, &kh[0], zs);
             }
         } else { 
-            let with_trans = self.args.show_gens || self.args.show_alpha || self.args.show_ss;
-            let kh = ckh.homology(with_trans);
+            let kh = ckh.homology();
     
             self.out(&kh.display_seq("i"));
     
