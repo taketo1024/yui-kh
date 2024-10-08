@@ -17,7 +17,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn new(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
-        KhIComplex::new_v2(l, h, reduced).homology(with_trans)
+        Self::new_v2(l, h, reduced, with_trans)
     }
 
     pub fn new_v2(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
@@ -26,7 +26,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     #[cfg(feature = "old")]
     pub fn new_v1(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
-        KhIComplex::new_v1(l, h, reduced).homology(with_trans)
+        KhIHomology::new_v1(l, h, reduced).homology(with_trans)
     }
 
     pub(crate) fn new_impl(inner: XHomology<KhIGen, R>, h_range: RangeInclusive<isize>, q_range: RangeInclusive<isize>) -> Self {
@@ -109,4 +109,161 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             fn index(&self, index: isize) -> &Self::Output;
         }
     }
+}
+
+mod tests {
+    #![allow(unused)]
+
+    use itertools::Itertools;
+    use yui::poly::HPoly;
+    use yui::FF2;
+    use num_traits::{Zero, One};
+    use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
+    use yui_link::Link;
+    use super::*;
+
+    #[test]
+    fn khi() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::zero();
+        let khi = KhIHomology::new(&l, &h, false, false);
+
+        assert_eq!(khi.h_range(), 0..=4);
+        assert_eq!(khi[0].rank(), 2);
+        assert_eq!(khi[1].rank(), 2);
+        assert_eq!(khi[2].rank(), 2);
+        assert_eq!(khi[3].rank(), 4);
+        assert_eq!(khi[4].rank(), 2);
+    }
+
+    #[test]
+    fn khi_fbn() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::one();
+        let khi = KhIHomology::new(&l, &h, false, false);
+
+        assert_eq!(khi.h_range(), 0..=4);
+        assert_eq!(khi[0].rank(), 2);
+        assert_eq!(khi[1].rank(), 2);
+        assert_eq!(khi[2].rank(), 0);
+        assert_eq!(khi[3].rank(), 0);
+        assert_eq!(khi[4].rank(), 0);
+    }
+
+    #[test]
+    fn khi_bn() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        type P = HPoly<'H', R>;
+        let h = P::variable();
+
+        let khi = KhIHomology::new(&l, &h, false, false);
+
+        assert_eq!(khi.h_range(), 0..=4);
+        assert_eq!(khi[0].rank(), 2);
+        assert_eq!(khi[1].rank(), 2);
+        assert_eq!(khi[2].rank(), 0);
+        assert_eq!(khi[3].rank(), 0);
+        assert_eq!(khi[3].tors(), [P::variable(), P::variable()]);
+        assert_eq!(khi[4].rank(), 0);
+        assert_eq!(khi[4].tors(), [P::variable(), P::variable()]);
+    }
+
+    #[test]
+    fn khi_red() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::zero();
+        let khi = KhIHomology::new(&l, &h, true, false);
+
+        assert_eq!(khi.h_range(), 0..=4);
+        assert_eq!(khi[0].rank(), 1);
+        assert_eq!(khi[1].rank(), 1);
+        assert_eq!(khi[2].rank(), 1);
+        assert_eq!(khi[3].rank(), 2);
+        assert_eq!(khi[4].rank(), 1);
+    }
+
+    #[test]
+    fn khi_fbn_red() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        let h = R::one();
+        let khi = KhIHomology::new(&l, &h, true, false);
+
+        assert_eq!(khi.h_range(), 0..=4);
+        assert_eq!(khi[0].rank(), 1);
+        assert_eq!(khi[1].rank(), 1);
+        assert_eq!(khi[2].rank(), 0);
+        assert_eq!(khi[3].rank(), 0);
+        assert_eq!(khi[4].rank(), 0);
+    }
+
+    #[test]
+    fn khi_bn_red() { 
+        let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+        type R = FF2;
+        type P = HPoly<'H', R>;
+        let h = P::variable();
+
+        let khi = KhIHomology::new(&l, &h, true, false);
+
+        assert_eq!(khi.h_range(), 0..=4);
+        assert_eq!(khi[0].rank(), 1);
+        assert_eq!(khi[1].rank(), 1);
+        assert_eq!(khi[2].rank(), 0);
+        assert_eq!(khi[3].rank(), 0);
+        assert_eq!(khi[3].tors(), [P::variable()]);
+        assert_eq!(khi[4].rank(), 0);
+        assert_eq!(khi[4].tors(), [P::variable()]);
+    }
+
+    // #[test]
+    // fn khi_kh_bigr() { 
+    //     let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+    //     type R = FF2;
+    //     let h = R::zero();
+    //     let khi = KhIHomology::new(&l, &h, false, false).into_bigraded();
+
+    //     assert_eq!(c[(0, 1)].rank(), 1);
+    //     assert_eq!(c[(0, 3)].rank(), 1);
+    //     assert_eq!(c[(1, 1)].rank(), 1);
+    //     assert_eq!(c[(1, 3)].rank(), 1);
+    //     assert_eq!(c[(2, 5)].rank(), 1);
+    //     assert_eq!(c[(2, 7)].rank(), 1);
+    //     assert_eq!(c[(3, 5)].rank(), 1);
+    //     assert_eq!(c[(3, 7)].rank(), 2);
+    //     assert_eq!(c[(3, 9)].rank(), 1);
+    //     assert_eq!(c[(4, 7)].rank(), 1);
+    //     assert_eq!(c[(4, 9)].rank(), 1);
+
+    //     c.check_d_all();
+    // }
+
+    // #[test]
+    // fn khi_kh_red_bigr() { 
+    //     let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
+
+    //     type R = FF2;
+    //     let h = R::zero();
+    //     let khi = KhIHomology::new(&l, &h, true, false).into_bigraded();
+
+    //     assert_eq!(c[(0, 2)].rank(), 1);
+    //     assert_eq!(c[(1, 2)].rank(), 1);
+    //     assert_eq!(c[(2, 6)].rank(), 1);
+    //     assert_eq!(c[(3, 6)].rank(), 1);
+    //     assert_eq!(c[(3, 8)].rank(), 1);
+    //     assert_eq!(c[(4, 8)].rank(), 1);
+
+    //     c.check_d_all();
+    // }
 }
