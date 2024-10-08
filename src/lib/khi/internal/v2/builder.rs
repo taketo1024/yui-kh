@@ -99,6 +99,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn process_off_axis(&mut self) { 
+        info!("process off-axis: {:?}", self.off_axis);
+
         let (h, t) = self.complex.ht();
 
         let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
@@ -123,6 +125,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn process_on_axis(&mut self) { 
+        info!("process on-axis: {:?}", self.on_axis);
+        
         while let Some(x) = self.choose_next() { 
             self.append_x(&x);
 
@@ -224,8 +228,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         assert!(self.is_sym_key(k));
         assert!(!self.is_sym_comp(c));
-
-        // TODO support deloop on based loop
         assert!(!self.complex.contains_base_pt(c));
 
         //          ⚪︎1 | ⚪︎1
