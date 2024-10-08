@@ -10,7 +10,7 @@ use yui_link::Link;
 use crate::kh::{KhGen, KhChainExt};
 use crate::misc::range_of;
 
-use super::{KhComplex, KhComplexBigraded};
+use super::{KhChain, KhComplex, KhComplexBigraded};
 
 pub struct KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
@@ -18,6 +18,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     ht: (R, R),
     deg_shift: (isize, isize),
     reduced: bool,
+    canon_cycles: Vec<KhChain<R>>
 }
 
 impl<R> KhHomology<R> 
@@ -35,8 +36,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         KhComplex::new_v1(l, h, t, reduced).homology()
     }
 
-    pub(crate) fn new_impl(inner: XHomology<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool) -> Self { 
-        Self { inner, ht, deg_shift, reduced }
+    pub(crate) fn new_impl(inner: XHomology<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
+        Self { inner, ht, deg_shift, reduced, canon_cycles }
     }
 
     pub fn ht(&self) -> &(R, R) { 
@@ -55,6 +56,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         range_of(self.support())
     }
 
+    pub fn canon_cycles(&self) -> &Vec<KhChain<R>> { 
+        &self.canon_cycles
+    }
+
     pub fn inner(&self) -> &XHomology<KhGen, R> { 
         &self.inner
     }
@@ -66,8 +71,9 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         let ht = self.ht.clone();
         let deg_shift = self.deg_shift;
         let reduced = self.reduced;
-        let table = self.collect_bigr_gens();
+        let canon_cycles = self.canon_cycles.clone();
 
+        let table = self.collect_bigr_gens();
         let h_range = range_of(table.keys().map(|i| i.0));
         let q_range = range_of(table.keys().map(|i| i.1)).step_by(2);
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
@@ -88,7 +94,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             XModStr::new(gens, *rank, tors.clone(), trans)
         });
 
-        KhHomologyBigraded::new_impl(inner, ht, deg_shift, reduced)
+        KhHomologyBigraded::new_impl(inner, ht, deg_shift, reduced, canon_cycles)
     }
 
     fn collect_bigr_gens(&self) -> HashMap<isize2, (usize, Vec<R>, Vec<usize>)> { 
@@ -128,7 +134,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             c.inner().homology(true), 
             c.ht().clone(), 
             c.deg_shift(), 
-            c.is_reduced()
+            c.is_reduced(),
+            c.canon_cycles().clone()
         )
     }
 }
@@ -165,6 +172,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     ht: (R, R),
     deg_shift: (isize, isize),
     reduced: bool,
+    canon_cycles: Vec<KhChain<R>>
 }
 
 impl<R> KhHomologyBigraded<R>
@@ -182,8 +190,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         KhComplexBigraded::new_v1(l, reduced).homology()
     }
 
-    pub(crate) fn new_impl(inner: XHomology2<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool) -> Self { 
-        Self { inner, ht, deg_shift, reduced }
+    pub(crate) fn new_impl(inner: XHomology2<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
+        Self { inner, ht, deg_shift, reduced, canon_cycles }
     }
 
     pub fn ht(&self) -> &(R, R) { 
@@ -206,6 +214,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         range_of(self.support().map(|i| i.1))
     }
 
+    pub fn canon_cycles(&self) -> &Vec<KhChain<R>> { 
+        &self.canon_cycles
+    }
+
     pub fn inner(&self) -> &XHomology2<KhGen, R> { 
         &self.inner
     }
@@ -218,7 +230,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             c.inner().homology(true), 
             c.ht().clone(), 
             c.deg_shift(), 
-            c.is_reduced()
+            c.is_reduced(),
+            c.canon_cycles().clone()
         )
     }
 }
