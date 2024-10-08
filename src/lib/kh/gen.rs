@@ -126,6 +126,10 @@ impl KhGen {
         KhGen { state, label, deg_shift }
     }
 
+    pub fn init() -> Self { 
+        KhGen::new(State::empty(), KhLabel::empty(), (0, 0))
+    }
+
     pub fn h_deg(&self) -> isize { 
         let h0 = self.deg_shift.0;
         let s = self.state.weight() as isize;
