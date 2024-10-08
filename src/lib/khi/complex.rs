@@ -11,8 +11,6 @@ use yui_matrix::sparse::SpMat;
 use crate::khi::KhIHomology;
 use crate::khi::KhIGen;
 
-use super::v2::builder::SymTngBuilder;
-
 pub type KhIChain<R> = Lc<KhIGen, R>;
 
 pub trait KhIChainExt { 
@@ -47,6 +45,8 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     }
 
     pub fn new_v2(l: &InvLink, h: &R, reduced: bool) -> Self {
+        use crate::khi::internal::v2::builder::SymTngBuilder;
+        
         let t = R::zero(); // TODO
         SymTngBuilder::build_khi_complex(l, h, &t, reduced)
     }
