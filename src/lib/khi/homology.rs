@@ -17,10 +17,19 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn new(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
+        KhIComplex::new_v2(l, h, reduced).homology(with_trans)
+    }
+
+    pub fn new_v2(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
         KhIComplex::new(l, h, reduced).homology(with_trans)
     }
 
-    pub fn new_impl(inner: XHomology<KhIGen, R>, h_range: RangeInclusive<isize>, q_range: RangeInclusive<isize>) -> Self {
+    #[cfg(feature = "old")]
+    pub fn new_v1(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
+        KhIComplex::new_v1(l, h, reduced).homology(with_trans)
+    }
+
+    pub(crate) fn new_impl(inner: XHomology<KhIGen, R>, h_range: RangeInclusive<isize>, q_range: RangeInclusive<isize>) -> Self {
         Self { inner, h_range, q_range }
     }
 
