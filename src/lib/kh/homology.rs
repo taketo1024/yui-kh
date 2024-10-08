@@ -21,7 +21,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool, with_trans: bool) -> Self {
-        KhHomology::new_v2(l, h, t, reduced, with_trans)
+        Self::new_v2(l, h, t, reduced, with_trans)
     }
 
     pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool, with_trans: bool) -> Self {
