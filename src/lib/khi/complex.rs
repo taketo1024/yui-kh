@@ -8,9 +8,10 @@ use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, X
 use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
-use crate::kh::KhComplex;
 use crate::khi::KhIHomology;
 use crate::khi::KhIGen;
+
+use super::v2::builder::SymTngBuilder;
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
 
@@ -42,13 +43,18 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
     pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self { 
-        // TODO replace with new_v2
-        Self::new_v1(l, h, reduced)
+        Self::new_v2(l, h, reduced)
+    }
+
+    pub fn new_v2(l: &InvLink, h: &R, reduced: bool) -> Self {
+        let t = R::zero(); // TODO
+        SymTngBuilder::build_khi_complex(l, h, &t, reduced)
     }
 
     #[cfg(feature = "old")]
     pub fn new_v1(l: &InvLink, h: &R, reduced: bool) -> Self { 
         use crate::khi::v1::cube::KhICube;
+        use crate::kh::KhComplex;
 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
         assert!(!reduced || l.base_pt().is_some());
@@ -166,8 +172,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(all(test, feature = "old"))]
+mod tests_old {
     #![allow(unused)]
 
     use itertools::Itertools;
@@ -188,7 +194,7 @@ mod tests {
 
         type R = FF2;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, false);
+        let c = KhIComplex::new_v1(&l, &h, false);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -209,7 +215,7 @@ mod tests {
 
         type R = FF2;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h, false);
+        let c = KhIComplex::new_v1(&l, &h, false);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -232,7 +238,7 @@ mod tests {
         type P = HPoly<'H', R>;
         let h = P::variable();
 
-        let c = KhIComplex::new(&l, &h, false);
+        let c = KhIComplex::new_v1(&l, &h, false);
 
         assert_eq!(c.rank(0), 4);
         assert_eq!(c.rank(1), 10);
@@ -253,7 +259,7 @@ mod tests {
 
         type R = FF2;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, true);
+        let c = KhIComplex::new_v1(&l, &h, true);
 
         assert_eq!(c.rank(0), 2);
         assert_eq!(c.rank(1), 5);
@@ -274,7 +280,7 @@ mod tests {
 
         type R = FF2;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, false).into_bigraded();
+        let c = KhIComplex::new_v1(&l, &h, false).into_bigraded();
 
         c.check_d_all();
     }
@@ -289,7 +295,7 @@ mod tests {
 
         type R = FF2;
         let h = R::zero();
-        let c = KhIComplex::new(&l, &h, true).into_bigraded();
+        let c = KhIComplex::new_v1(&l, &h, true).into_bigraded();
 
         c.check_d_all();
     }
@@ -304,7 +310,7 @@ mod tests {
 
         type R = FF2;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h, false);
+        let c = KhIComplex::new_v1(&l, &h, false);
 
         let zs = c.canon_cycles.clone();
 
@@ -330,7 +336,7 @@ mod tests {
 
         type R = FF2;
         let h = R::one();
-        let c = KhIComplex::new(&l, &h, true);
+        let c = KhIComplex::new_v1(&l, &h, true);
 
         let zs = c.canon_cycles.clone();
 
@@ -355,7 +361,7 @@ mod tests {
         type R = FF2;
         type P = HPoly<'H', R>;
         let h = P::variable();
-        let c = KhIComplex::new(&l, &h, false);
+        let c = KhIComplex::new_v1(&l, &h, false);
 
         let zs = c.canon_cycles.clone();
 
@@ -382,7 +388,7 @@ mod tests {
         type R = FF2;
         type P = HPoly<'H', R>;
         let h = P::variable();
-        let c = KhIComplex::new(&l, &h, true);
+        let c = KhIComplex::new_v1(&l, &h, true);
         
         let zs = c.canon_cycles.clone();
 
