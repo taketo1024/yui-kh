@@ -42,7 +42,14 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     info!("compute ss, c = {c} ({}).", std::any::type_name::<R>());
 
     let d = match ver { 
-        Ver::V1 => div_v1(l, c, reduced),
+        Ver::V1 => {
+            cfg_if::cfg_if! { 
+            if #[cfg(feature = "old")] { 
+                div_v1(l, c, reduced)
+            } else { 
+                panic!("set feature = old to enable v1.")
+            }}
+        },
         Ver::V2 => div_v2(l, c, reduced)
     };
 
@@ -141,13 +148,6 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     
     d
 }
-
-#[cfg(not(feature = "old"))]
-fn div_v1<R>(l: &Link, c: &R, reduced: bool) -> i32
-where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    panic!("set feature = old to enable v1.")
-}
-
 
 #[cfg(test)]
 mod tests {
