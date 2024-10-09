@@ -131,7 +131,7 @@ impl<R> From<&KhComplex<R>> for KhHomology<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     fn from(c: &KhComplex<R>) -> Self {
         KhHomology::new_impl(
-            c.inner().homology(true), 
+            c.inner().reduced().homology(true), 
             c.ht().clone(), 
             c.deg_shift(), 
             c.is_reduced(),
@@ -227,7 +227,7 @@ impl<R> From<&KhComplexBigraded<R>> for KhHomologyBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     fn from(c: &KhComplexBigraded<R>) -> Self {
         KhHomologyBigraded::new_impl(
-            c.inner().homology(true), 
+            c.inner().reduced().homology(true), 
             c.ht().clone(), 
             c.deg_shift(), 
             c.is_reduced(),
