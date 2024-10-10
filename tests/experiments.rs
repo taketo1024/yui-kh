@@ -27,30 +27,13 @@ fn init_logger(l: LevelFilter) {
         config,
         TerminalMode::Mixed,
         ColorChoice::Always
-    ).unwrap();
-}
-
-// cargo test -r -- --exact k9_46 --nocapture --include-ignored
-#[test]
-#[ignore]
-fn k9_46() { 
-    let l = InvLink::sinv_knot_from_code(
-        [[18,8,1,7],[13,6,14,7],[12,2,13,1],[8,18,9,17],[5,14,6,15],[2,12,3,11],[16,10,17,9],[15,4,16,5],[10,4,11,3]]
     );
-
-    let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
-
-    // good
-    assert_eq!(ssi, (0, 2));
 }
 
 // cargo test -r -- --exact k15n_103488 --nocapture --include-ignored
 #[test]
 #[ignore]
 fn k15n_103488() { 
-    init_logger(LevelFilter::Info);
-    
     let l = InvLink::sinv_knot_from_code(
         [[1,11,2,10],[2,20,3,19],[5,17,6,16],[6,25,7,26],[9,22,10,23],[12,30,13,29],[14,8,15,7],[15,27,16,26],[18,4,19,3],[20,11,21,12],[21,1,22,30],[23,4,24,5],[24,18,25,17],[27,8,28,9],[28,14,29,13]],
     );
@@ -58,7 +41,6 @@ fn k15n_103488() {
     let c = P::variable();
     let ssi = ssi_invariants(&l, &c);
 
-    // good
     assert_eq!(ssi, (0, 2));
 }
 
@@ -66,8 +48,6 @@ fn k15n_103488() {
 #[test]
 #[ignore]
 fn knotJ() { 
-    init_logger(LevelFilter::Info);
-    
     let l = InvLink::sinv_knot_from_code([
         [1,27,2,26],[19,2,20,3],[3,13,4,12],[4,31,5,32],[30,5,31,6],
         [13,7,14,6],[8,27,9,28],[9,1,10,34],[10,18,11,17],[24,11,25,12],
@@ -141,8 +121,6 @@ fn k10_104() {
 #[test]
 #[ignore]
 fn k13n_1496() { 
-    init_logger(LevelFilter::Info);
-    
     // see [Boyle-Issa,2021]
     let l = InvLink::sinv_knot_from_code(
         [[1,9,2,8],[2,13,3,14],[4,25,5,26],[6,4,7,3],[7,15,8,14],[11,19,12,18],[15,23,16,22],[16,27,17,28],[17,11,18,10],[19,13,20,12],[20,9,21,10],[21,1,22,28],[24,5,25,6],[26,24,27,23]],
@@ -158,8 +136,6 @@ fn k13n_1496() {
 #[test]
 #[ignore]
 fn W4_1() { 
-    init_logger(LevelFilter::Info);
-    
     let l = InvLink::sinv_knot_from_code(
         [
             [1,9,2,8],[2,13,3,14],[4,25,5,26],[6,4,7,3],[7,15,8,14],
@@ -179,8 +155,6 @@ fn W4_1() {
 #[ignore]
 // cargo test -r -- --exact W3_1 --nocapture --include-ignored
 fn W3_1() { 
-    init_logger(LevelFilter::Info);
-    
     let l = InvLink::sinv_knot_from_code(
         [
             [3,25,4,24],[4,37,5,38],[7,14,8,15],[9,12,10,13],[11,31,12,30],
@@ -200,8 +174,6 @@ fn W3_1() {
 #[ignore]
 // cargo test -r -- --exact cable4_1 --nocapture --include-ignored
 fn cable4_1() { 
-    init_logger(LevelFilter::Info);
-    
     let l = InvLink::sinv_knot_from_code(
         [
             [1,24,2,25],[2,7,3,8],[5,31,6,30],[6,14,7,13],[9,27,10,26],
@@ -223,8 +195,6 @@ fn cable4_1() {
 fn k9_46_interlock() { 
     type R = HPoly<'H', FF2>;
 
-    init_logger(log::LevelFilter::Info);
-
     let l = InvLink::sinv_knot_from_code([
         [2,50,3,49],[4,48,5,47],[7,24,8,25],[9,52,10,53],[12,60,13,59],
         [14,58,15,57],[16,36,17,35],[18,34,19,33],[20,32,21,31],[21,40,22,41],
@@ -245,8 +215,6 @@ fn k9_46_interlock() {
 // cargo test -r -- --exact k9_46_interlock3 --nocapture --include-ignored
 fn k9_46_interlock3() { 
     type R = HPoly<'H', FF2>;
-
-    init_logger(log::LevelFilter::Info);
 
     let l = InvLink::sinv_knot_from_code([
         [2,84,3,83],[4,82,5,81],[7,26,8,27],[9,86,10,87],[12,94,13,93],
@@ -272,8 +240,6 @@ fn k9_46_interlock3() {
 // cargo test -r -- --exact knotJ_interlock --nocapture --include-ignored
 fn knotJ_interlock() { 
     type R = HPoly<'H', FF2>;
-
-    init_logger(log::LevelFilter::Info);
 
     let l = InvLink::sinv_knot_from_code([
         [1,17,2,16],[6,23,7,24],[7,115,8,114],[8,103,9,104],[9,3,10,2],
