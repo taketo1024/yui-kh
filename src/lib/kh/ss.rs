@@ -2,59 +2,26 @@
 // T. Sano, K. Sato
 // https://arxiv.org/abs/2211.02494
 
-use core::panic;
-
 use itertools::Itertools;
 use log::info;
-use yui_homology::{ChainComplexTrait, RModStr};
+use yui_homology::RModStr;
 use yui_link::Link;
-use yui_homology::utils::HomologyCalc;
 use yui::{EucRing, EucRingOps};
 
 use crate::misc::div_vec;
 use crate::kh::KhComplex;
 
-enum Ver { 
-    V1, V2
-}
-
 pub fn ss_invariant<R>(l: &Link, c: &R, reduced: bool) -> i32
-where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    ss_invariant_v2(l, c, reduced)
-}
-
-fn ss_invariant_v2<R>(l: &Link, c: &R, reduced: bool) -> i32
-where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    ss_invariant_ver(l, c, reduced, Ver::V2)
-}
-
-#[allow(unused)]
-fn ss_invariant_v1<R>(l: &Link, c: &R, reduced: bool) -> i32
-where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    ss_invariant_ver(l, c, reduced, Ver::V1)
-}
-
-fn ss_invariant_ver<R>(l: &Link, c: &R, reduced: bool, ver: Ver) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
     assert!(!c.is_zero());
     assert!(!c.is_unit());
+    assert!(l.is_knot());
 
     info!("compute ss, c = {c} ({}).", std::any::type_name::<R>());
 
-    let d = match ver { 
-        Ver::V1 => {
-            cfg_if::cfg_if! { 
-            if #[cfg(feature = "old")] { 
-                div_v1(l, c, reduced)
-            } else { 
-                panic!("set feature = old to enable v1.")
-            }}
-        },
-        Ver::V2 => div_v2(l, c, reduced)
-    };
-
     let w = l.writhe();
     let r = l.seifert_circles().len() as i32;
+    let d = compute_div(l, c, reduced);
     let ss = 2 * d + w - r + 1;
 
     info!("d = {d}, w = {w}, r = {r}.");
@@ -63,90 +30,29 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     ss
 }
 
-fn div_v2<R>(l: &Link, c: &R, reduced: bool) -> i32
+fn compute_div<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
     let r = if reduced { 1 } else { 2 };
 
-    let ckh = KhComplex::new_v2(l, c, &R::zero(), reduced);
-    let d0 = ckh.d_matrix(-1);
-    let d1 = ckh.d_matrix( 0);
+    let ckh = KhComplex::new(l, c, &R::zero(), reduced).truncated(-1 ..= 1);
+    let kh = ckh.homology();
     let zs = ckh.canon_cycles();
 
-    assert_eq!(zs.len(), r);
-    assert!(zs.iter().all(|z| z.gens().all(|x| x.h_deg() == 0)));
-
-    let kh = HomologyCalc::calculate(d0, d1, true);
-
-    info!("homology: {}", kh.math_symbol());    
-    assert_eq!(kh.rank(), r);
+    info!("Kh[0]: {}", kh[0].math_symbol());
     
-    let t = kh.trans().unwrap();
-    let vs = zs.into_iter().map(|z| {
-        let v = ckh[0].vectorize(&z);
-        let v = t.forward(&v).subvec(0..r);
-        info!("{z} -> {v}");
+    assert_eq!(kh[0].rank(), r);
+    
+    let ds = zs.into_iter().map(|z| {
+        let v = kh[0].vectorize(z);
+        info!("{z} -> \n{v}");
         v
-    }).collect_vec();
+    }).map(|v| 
+        div_vec(&v, c).expect("invalid divisibility for v = {:?}")
+    ).collect_vec();
 
-    let v = &vs[0];
-    let Some(d) = div_vec(v, c) else { 
-        panic!("invalid divisibility for v = {:?}, c = {}", v.to_dense(), c)
-    };
-    
-    d
-}
+    assert!(ds.iter().all_equal());
 
-#[cfg(feature = "old")]
-fn div_v1<R>(l: &Link, c: &R, reduced: bool) -> i32
-where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    use yui_homology::utils::ChainReducer;
-
-    let r = if reduced { 1 } else { 2 };
-
-    let ckh = KhComplex::new_v1(l, c, &R::zero(), reduced);
-    let zs = ckh.canon_cycles();
-
-    assert_eq!(zs.len(), r);
-    assert!(zs.iter().all(|z| z.gens().all(|x| x.h_deg() == 0)));
-
-    let vs = zs.iter().map(|z| {
-        ckh[0].vectorize(z)
-    }).collect_vec();
-
-    let range = -1 ..= 1;
-    let mut reducer = ChainReducer::new(range.clone(), 1);
-
-    for i in range { 
-        reducer.set_matrix(i, ckh.d_matrix(i), false);
-    }
-
-    for v in vs { 
-        reducer.add_vec(0, v);
-    }
-
-    reducer.reduce_all(false);
-    reducer.reduce_all(true);
-
-    let dm = reducer.matrix(-1).unwrap().clone();
-    let d0 = reducer.matrix( 0).unwrap().clone();
-    let vs = reducer.vecs(0).unwrap().clone();
-
-    let kh = HomologyCalc::calculate(dm, d0, true);
-
-    info!("homology: {}", kh.math_symbol());    
-    assert_eq!(kh.rank(), r);
-
-    let t = kh.trans().unwrap();
-    let vs = vs.iter().map(|v| {
-        t.forward(v).subvec(0..r)
-    }).collect_vec();
-
-    let v = &vs[0];
-    let Some(d) = div_vec(v, c) else { 
-        panic!("invalid divisibility for v = {:?}, c = {}", v.to_dense(), c)
-    };
-    
-    d
+    ds[0]
 }
 
 #[cfg(test)]
