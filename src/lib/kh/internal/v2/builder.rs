@@ -18,7 +18,7 @@ pub struct TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     crossings: Vec<Crossing>,
     complex: TngComplex<R>,
-    elements: Vec<Elem<R>>,
+    elements: Vec<BuildElem<R>>,
     pub auto_deloop: bool,
     pub auto_elim: bool
 }
@@ -182,7 +182,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.complex
     }
 
-    fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<Elem<R>> { 
+    pub(crate) fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<BuildElem<R>> { 
         assert_eq!(l.components().len(), 1);
 
         let p = base_pt.or(l.first_edge()).unwrap();
@@ -211,7 +211,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     cup
                 })
             );
-            Elem::new(cob, s.clone(), base_pt)
+            BuildElem::new(cob, s.clone(), base_pt)
         }).collect()
     }
 
@@ -246,8 +246,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     count
 }
-
-struct Elem<R>
+pub(crate) struct BuildElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     init_cob: Cob,                     // precomposed at the final step.
     retr_cob: HashMap<TngKey, LcCob<R>>, // src must partially match init_cob. 
@@ -255,7 +254,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     base_pt: Option<Edge>
 }
 
-impl<R> Elem<R> 
+impl<R> BuildElem<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new(init_cob: Cob, state: HashMap<Crossing, Bit>, base_pt: Option<Edge>) -> Self { 
         let f = LcCob::from(Cob::empty());
@@ -321,27 +320,37 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (k_new, f_new)
     }
 
+    //  Gaussian Elimination
+    //
+    //       a
+    //  v0 - - -> v1         .             .
+    //     \   / b
+    //       /         ==>  
+    //     /   \ c              d - ca⁻¹b
+    //  w0 -----> w1         w0 ---------> w1
+    //       d                
+    
     pub fn eliminate<'a, I>(&mut self, i: &TngKey, j: &TngKey, a: &LcCob<R>, i_out: I)
     where I: IntoIterator<Item = (&'a TngKey, &'a LcCob<R>)> {
         // mors into i can be simply dropped.
         self.retr_cob.remove(i);
 
         // mors into j must be redirected by -ca^{-1}
-        let Some(f) = self.retr_cob.remove(j) else { return };
+        let Some(b) = self.retr_cob.remove(j) else { return };
         let ainv = a.inv().unwrap();
 
         for (k, c) in i_out { 
             if k == j { continue }
 
-            let caf = c * &ainv * &f;
-            let d = if let Some(d) = self.retr_cob.remove(k) { 
-                d - caf
+            let cab = c * &ainv * &b;
+            let s = if let Some(d) = self.retr_cob.remove(k) { 
+                d - cab
             } else { 
-                -caf
+                -cab
             };
 
-            if !d.is_zero() { 
-                self.retr_cob.insert(*k, d);
+            if !s.is_zero() { 
+                self.retr_cob.insert(*k, s);
             }
         }
     }
@@ -369,7 +378,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-impl<R> Display for Elem<R>
+impl<R> Display for BuildElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mors = self.retr_cob.iter().map(|(k, f)| { 
