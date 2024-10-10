@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
 use yui_homology::{ChainComplexCommon, DisplayForGrid, DisplayTable, GridTrait, RModStr};
+use yui_kh::kh::KhChainExt;
 use yui_kh::kh::KhComplex;
 
 pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
@@ -26,17 +27,14 @@ pub struct Args {
     #[arg(short, long)]
     pub reduced: bool,
 
-    #[arg(long)]
-    pub no_simplify: bool,
-
     #[arg(short = 'g', long)]
     pub show_gens: bool,
 
-    #[arg(short = 'a', long)]
-    pub show_alpha: bool,
-
     #[arg(short = 'd', long)]
     pub show_diff: bool,
+
+    #[arg(short = 'a', long)]
+    pub show_alpha: bool,
 
     #[arg(long, default_value = "0")]
     pub log: u8,
@@ -73,52 +71,63 @@ where
         }
     
         let l = load_link(&self.args.link, self.args.mirror)?;
-        let bigraded = h.is_zero() && t.is_zero();
-
-        // TODO no_simplify
         let ckh = KhComplex::new(&l, &h, &t, self.args.reduced);
         
-        // CKh table
+        // CKh generators
         self.out(&ckh.gen_table().display_table("i", "j"));
 
         // Generators
         if self.args.show_gens { 
-            for i in ckh.support() {
-                let c = &ckh[i];
-                if c.is_zero() { continue }
-                
-                self.out(&format!("C[{i}]: {}", c.display_for_grid()));
-        
-                let r = c.rank() + c.tors().len();
-                for i in 0..r { 
-                    let z = c.gen_chain(i);
-                    self.out(&format!("  {i}: {z}"));
-                }
-                self.out("");
-            }
-        }
-
-        // Alpha
-        if self.args.show_alpha { 
-            for (i, z) in ckh.canon_cycles().iter().enumerate() { 
-                let v = ckh[0].vectorize(z);
-                self.out(&format!("a[{i}]: {}", vec2str(&v)));
-            }
-            self.out("");
+            self.show_gens(&ckh);
         }
 
         // Diff
         if self.args.show_diff { 
-            if bigraded { 
-                let ckh = ckh.into_bigraded();
-                self.out(&ckh.display_d());
-            } else { 
-                self.out(&ckh.display_d());
-            }
+            let bigraded = h.is_zero() && t.is_zero();
+            self.show_diff(&ckh, bigraded);
         }
     
+        // Alpha
+        if self.args.show_alpha { 
+            self.show_alpha(&ckh);
+        }
+
         let res = self.flush();
         Ok(res)
+    }
+
+    fn show_gens(&mut self, ckh: &KhComplex<R>) { 
+        for i in ckh.support() {
+            let c = &ckh[i];
+            if c.is_zero() { continue }
+            
+            self.out(&format!("C[{i}]: {}", c.display_for_grid()));
+    
+            let r = c.rank() + c.tors().len();
+            for i in 0..r { 
+                let z = c.gen_chain(i);
+                self.out(&format!("  {i}: {z}"));
+            }
+            self.out("");
+        }
+    }
+
+    fn show_diff(&mut self, ckh: &KhComplex<R>, bigraded: bool) { 
+        if bigraded { 
+            let ckh = ckh.clone().into_bigraded();
+            self.out(&ckh.display_d());
+        } else { 
+            self.out(&ckh.display_d());
+        }
+    }
+
+    fn show_alpha(&mut self, ckh: &KhComplex<R>) { 
+        for (i, z) in ckh.canon_cycles().iter().enumerate() { 
+            let h = z.h_deg();
+            let v = ckh[h].vectorize(z);
+            self.out(&format!("a[{i}] in CKh[{h}]: {}", vec2str(&v)));
+        }
+        self.out("");
     }
 
     fn out(&mut self, str: &str) { 
