@@ -24,24 +24,10 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        cfg_if::cfg_if! { 
-        if #[cfg(feature = "old")] { 
-            Self::new_v1(l, h, t, reduced)
-        } else { 
-            Self::new_v2(l, h, t, reduced)
-        }
-        }
-    }
-
-    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhComplex::new_v2(&l, h, t, reduced).homology()
+        let c = KhComplex::new(&l, h, t, reduced); 
+        Self::from(&c)
     }
     
-    #[cfg(feature = "old")]
-    pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhComplex::new_v1(l, h, t, reduced).homology()
-    }
-
     pub(crate) fn new_impl(inner: XHomology<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
         Self { inner, ht, deg_shift, reduced, canon_cycles }
     }
@@ -184,19 +170,11 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> KhHomologyBigraded<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhHomologyBigraded::new_v2(&l, h, t, reduced)
+        let h = KhHomology::new(l, h, t, reduced);
+        h.into_bigraded()
     }
 
-    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhComplexBigraded::new(l, h, t, reduced).homology()
-    }
-    
-    #[cfg(feature = "old")]
-    pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        KhComplexBigraded::new_v1(l, h, t, reduced).homology()
-    }
-
-    pub(crate) fn new_impl(inner: XHomology2<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
+    fn new_impl(inner: XHomology2<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
         Self { inner, ht, deg_shift, reduced, canon_cycles }
     }
 
