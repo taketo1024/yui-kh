@@ -203,8 +203,8 @@ fn k9_46_interlock() {
         [44,28,45,27],[46,6,47,5],[48,4,49,3],[50,2,51,1],[51,10,52,11],
         [53,8,54,9],[55,36,56,37],[56,16,57,15],[58,14,59,13],[60,12,1,11]
     ]);
-    let (h, _t) = (R::variable(), R::zero());
-    let c = KhIComplex::new_v2(&l, &h, false);
+    let (h, t) = (R::variable(), R::zero());
+    let c = KhIComplex::new(&l, &h, &t, false);
     let h = c.homology();
 
     h.gen_table().print_table("i", "j");
@@ -228,8 +228,8 @@ fn k9_46_interlock3() {
         [84,2,85,1],[85,10,86,11],[87,8,88,9],[89,68,90,69],[90,16,91,15],
         [92,14,93,13],[94,12,1,11]
     ]);
-    let (h, _t) = (R::variable(), R::zero());
-    let c = KhIComplex::new_v2(&l, &h, false);
+    let (h, t) = (R::variable(), R::zero());
+    let c = KhIComplex::new(&l, &h, &t, false);
     let h = c.homology();
 
     h.gen_table().print_table("i", "j");
@@ -255,8 +255,8 @@ fn knotJ_interlock() {
         [99,23,100,22],[104,17,105,18],[105,1,106,120],[108,73,109,74],[109,33,110,32],
         [110,28,111,27],[116,101,117,102],[117,5,118,4],[118,25,119,26],[119,113,120,112]
     ]);
-    let (h, _t) = (R::variable(), R::zero());
-    let c = KhIComplex::new_v2(&l, &h, false);
+    let (h, t) = (R::variable(), R::zero());
+    let c = KhIComplex::new(&l, &h, &t, false);
     let h = c.homology();
 
     h.gen_table().print_table("i", "j");

@@ -21,14 +21,13 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
 impl<R> KhICube<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    pub fn new(l: &InvLink, h: &R, reduced: bool, deg_shift: (isize, isize)) -> Self { 
+    pub fn new(l: &InvLink, h: &R, t: &R, reduced: bool, deg_shift: (isize, isize)) -> Self { 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
-        assert!(!reduced || l.base_pt().is_some());
+        assert!(!reduced || (l.base_pt().is_some() && t.is_zero()));
 
         let n = l.link().crossing_num();
-        let t = R::zero();
         let reduce_e = if reduced { l.base_pt() } else { None };
-        let cube = KhCube::new(l.link(), h, &t, reduce_e, deg_shift);
+        let cube = KhCube::new(l.link(), h, t, reduce_e, deg_shift);
 
         let state_map = State::generate(n).map(|s| { 
             let xs = s.iter().enumerate().filter_map(|(i, b)| 
@@ -183,8 +182,8 @@ mod tests {
         );
 
         type R = FF2;
-        let h = R::zero();
-        let c = KhICube::new(&l, &h, false, (0, 0));
+        let (h, t) = (R::zero(), R::zero());
+        let c = KhICube::new(&l, &h, &t, false, (0, 0));
 
         assert_eq!(
             c.t_state(State::from([0,0,0])), 
@@ -236,8 +235,8 @@ mod tests {
         );
 
         type R = FF2;
-        let h = R::zero();
-        let c = KhICube::new(&l, &h, false, (0, 0));
+        let (h, t) = (R::zero(), R::zero());
+        let c = KhICube::new(&l, &h, &t, false, (0, 0));
 
         assert_eq!(
             c.t_label(State::from([0,0,0]), KhLabel::from([I, X])), 
@@ -269,8 +268,8 @@ mod tests {
         );
 
         type R = FF2;
-        let h = R::zero();
-        let c = KhICube::new(&l, &h, false, (0, 0));
+        let (h, t) = (R::zero(), R::zero());
+        let c = KhICube::new(&l, &h, &t, false, (0, 0));
 
         assert_eq!(c.generators(0).len(), 4);
         assert_eq!(c.generators(1).len(), 10);
@@ -288,8 +287,8 @@ mod tests {
         );
 
         type R = FF2;
-        let h = R::zero();
-        let c = KhICube::new(&l, &h, false, (0, 0));
+        let (h, t) = (R::zero(), R::zero());
+        let c = KhICube::new(&l, &h, &t, false, (0, 0));
 
         let x = KhIGen::B(
             KhGen::new(
@@ -336,8 +335,8 @@ mod tests {
         );
 
         type R = FF2;
-        let h = R::zero();
-        let c = KhICube::new(&l, &h, false, (0, 0));
+        let (h, t) = (R::zero(), R::zero());
+        let c = KhICube::new(&l, &h, &t, false, (0, 0));
 
         let x = KhIGen::B(
             KhGen::new(
@@ -394,8 +393,8 @@ mod tests {
         );
 
         type R = FF2;
-        let h = R::zero();
-        let c = KhICube::new(&l, &h, false, (0, 0));
+        let (h, t) = (R::zero(), R::zero());
+        let c = KhICube::new(&l, &h, &t, false, (0, 0));
 
         let x = KhIGen::Q(
             KhGen::new(

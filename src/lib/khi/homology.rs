@@ -15,8 +15,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 impl<R> KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self {
-        let c = KhIComplex::new(l, h, reduced);
+    pub fn new(l: &InvLink, h: &R, t: &R, reduced: bool) -> Self {
+        let c = KhIComplex::new(l, h, t, reduced);
         Self::from(&c)
     }
 
@@ -133,8 +133,8 @@ mod tests {
         let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
 
         type R = FF2;
-        let h = R::zero();
-        let khi = KhIHomology::new(&l, &h, false);
+        let (h, t) = (R::zero(), R::zero());
+        let khi = KhIHomology::new(&l, &h, &t, false);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 2);
@@ -149,8 +149,8 @@ mod tests {
         let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
 
         type R = FF2;
-        let h = R::one();
-        let khi = KhIHomology::new(&l, &h, false);
+        let (h, t) = (R::one(), R::zero());
+        let khi = KhIHomology::new(&l, &h, &t, false);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 2);
@@ -166,9 +166,9 @@ mod tests {
 
         type R = FF2;
         type P = HPoly<'H', R>;
-        let h = P::variable();
+        let (h, t) = (P::variable(), P::zero());
 
-        let khi = KhIHomology::new(&l, &h, false);
+        let khi = KhIHomology::new(&l, &h, &t, false);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 2);
@@ -185,8 +185,8 @@ mod tests {
         let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
 
         type R = FF2;
-        let h = R::zero();
-        let khi = KhIHomology::new(&l, &h, true);
+        let (h, t) = (R::zero(), R::zero());
+        let khi = KhIHomology::new(&l, &h, &t, true);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 1);
@@ -201,8 +201,8 @@ mod tests {
         let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
 
         type R = FF2;
-        let h = R::one();
-        let khi = KhIHomology::new(&l, &h, true);
+        let (h, t) = (R::one(), R::zero());
+        let khi = KhIHomology::new(&l, &h, &t, true);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 1);
@@ -218,9 +218,9 @@ mod tests {
 
         type R = FF2;
         type P = HPoly<'H', R>;
-        let h = P::variable();
+        let (h, t) = (P::variable(), P::zero());
 
-        let khi = KhIHomology::new(&l, &h, true);
+        let khi = KhIHomology::new(&l, &h, &t, true);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 1);
@@ -237,7 +237,7 @@ mod tests {
     //     let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
 
     //     type R = FF2;
-    //     let h = R::zero();
+    //     let (h, t) = (R::zero(), R::zero());
     //     let khi = KhIHomology::new(&l, &h, false).into_bigraded();
 
     //     assert_eq!(c[(0, 1)].rank(), 1);
@@ -260,7 +260,7 @@ mod tests {
     //     let l = InvLink::sinv_knot_from_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]);
 
     //     type R = FF2;
-    //     let h = R::zero();
+    //     let (h, t) = (R::zero(), R::zero());
     //     let khi = KhIHomology::new(&l, &h, true, false).into_bigraded();
 
     //     assert_eq!(c[(0, 2)].rank(), 1);
