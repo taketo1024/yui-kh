@@ -8,7 +8,8 @@ use yui::{Ring, RingOps};
 use yui_homology::{Grid, XChainComplex, XModStr};
 use yui_link::{InvLink, State};
 
-use crate::kh::{KhGen, KhLabel, v1::cube::KhCube};
+use crate::kh::{KhGen, KhLabel};
+use crate::kh::internal::v1::cube::KhCube;
 use crate::khi::KhIGen;
 
 pub struct KhICube<R>

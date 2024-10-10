@@ -54,7 +54,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
     #[cfg(feature = "old")]
     pub fn new_v1(l: &InvLink, h: &R, reduced: bool) -> Self { 
-        use crate::khi::v1::cube::KhICube;
+        use crate::khi::internal::v1::cube::KhICube;
         use crate::kh::KhComplex;
 
         assert_eq!(R::one() + R::one(), R::zero(), "char(R) != 2");
