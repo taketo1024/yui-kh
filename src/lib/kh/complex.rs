@@ -55,6 +55,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         use crate::kh::internal::v2::builder::TngComplexBuilder;
 
+        assert!(!reduced || (!l.is_empty() && t.is_zero()));
+
         TngComplexBuilder::build_kh_complex(l, h, t, reduced)
     }
 
@@ -185,7 +187,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             dx.into_iter().collect()
         });
 
-        KhComplexBigraded { inner, ht, deg_shift, reduced, canon_cycles }
+        KhComplexBigraded::new_impl(inner, ht, deg_shift, reduced, canon_cycles)
     }
 
     pub fn deg_shift_for(l: &Link, reduced: bool) -> (isize, isize) {
@@ -262,19 +264,32 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn new(l: &Link, reduced: bool) -> Self { 
-        Self::new_v2(l, reduced)
+    pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        assert!(h.is_zero() && t.is_zero());
+        Self::new_v2(l, h, t, reduced)
     }
 
-    pub fn new_v2(l: &Link, reduced: bool) -> Self { 
-        let c = KhComplex::new_v2(&l, &R::zero(), &R::zero(), reduced);
+    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        assert!(h.is_zero() && t.is_zero());
+        let c = KhComplex::new_v2(&l, h, t, reduced);
         c.into_bigraded()
     }
 
     #[cfg(feature = "old")]
-    pub fn new_v1(l: &Link, reduced: bool) -> Self { 
-        let c = KhComplex::new_v1(l, &R::zero(), &R::zero(), reduced);
+    pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        assert!(h.is_zero() && t.is_zero());
+        let c = KhComplex::new_v1(l, h, t, reduced);
         c.into_bigraded()
+    }
+
+    fn new_impl(
+        inner: XChainComplex2<KhGen, R>,
+        ht: (R, R),
+        deg_shift: (isize, isize),
+        reduced: bool,
+        canon_cycles: Vec<KhChain<R>>
+    ) -> Self {
+        Self { inner, ht, deg_shift, reduced, canon_cycles }
     }
 
     pub fn ht(&self) -> &(R, R) { 
@@ -434,7 +449,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_bigr_trefoil() {
             let l = Link::trefoil();
-            let c = KhComplexBigraded::<i32>::new_v2(&l, false);
+            let c = KhComplexBigraded::new_v2(&l, &0, &0, false);
     
             assert_eq!(c.h_range(), -3..=0);
             assert_eq!(c.q_range(), -9..=-1);
@@ -452,7 +467,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_bigr_red_trefoil() {
             let l = Link::trefoil();
-            let c = KhComplexBigraded::<i32>::new_v2(&l, true);
+            let c = KhComplexBigraded::new_v2(&l, &0, &0, true);
     
             assert_eq!(c.h_range(), -3..=0);
             assert_eq!(c.q_range(), -8..=-2);
