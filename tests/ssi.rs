@@ -1,3 +1,5 @@
+#![cfg(feature = "old")]
+
 use yui::poly::HPoly;
 use yui::FF2;
 use yui_kh::khi::ssi_invariants;
