@@ -53,6 +53,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
+    #[cfg(not(feature = "old"))]
     fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         use crate::kh::internal::v2::builder::TngComplexBuilder;
 
@@ -269,7 +270,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         assert!(h.is_zero() && t.is_zero());
 
-        let c = KhComplex::new_v2(&l, h, t, reduced);
+        let c = KhComplex::new(&l, h, t, reduced);
         c.into_bigraded()
     }
 
