@@ -35,8 +35,9 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 }
 
 fn div<R>(l: &InvLink, c: &R) -> (i32, i32)
-where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-    let ckh = KhIComplex::new(l, c, true).truncated(-1..=2);
+where R: EucRing, for<'x> &'x R: EucRingOps<R> {
+    let t = R::zero(); 
+    let ckh = KhIComplex::new(l, c, &t, true).truncated(-1..=2);
     let zs = ckh.canon_cycles();
 
     assert_eq!(zs.len(), 2);
@@ -222,7 +223,7 @@ mod tests {
 
         let c = P::variable();
         let ssi = ssi_invariants(&l, &c);
-        
+
         assert_eq!(ssi, (0, 2));
     }   
 }

@@ -64,10 +64,19 @@ where
         let (h, t) = parse_pair::<R>(&self.args.c_value)?;
 
         ensure!(self.args.c_type == CType::F2, "Only `-t F2` is supported.");
-        ensure!(t.is_zero(), "");
+        if self.args.reduced { 
+            ensure!(t.is_zero(), "`t` must be zero for reduced.");
+        }
+        if self.args.show_alpha { 
+            ensure!(t.is_zero(), "`t` must be zero to have alpha.");
+        }
+        // if self.args.show_ss { 
+        //     ensure!(!h.is_zero() && !h.is_unit(), "`h` must be non-zero, non-invertible to compute ss.");
+        //     ensure!(t.is_zero(), "`t` must be zero to compute ss.");
+        // }
     
         let l = load_sinv_knot(&self.args.link, self.args.mirror)?;
-        let ckhi = KhIComplex::<R>::new(&l, &h, self.args.reduced);
+        let ckhi = KhIComplex::<R>::new(&l, &h, &t, self.args.reduced);
 
         let poly = ["H", "0,T"].contains(&self.args.c_value.as_str());
         let bigraded = h.is_zero() && t.is_zero();
