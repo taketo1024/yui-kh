@@ -12,6 +12,7 @@ use crate::misc::range_of;
 
 use super::{KhChain, KhComplex, KhComplexBigraded};
 
+#[derive(Clone)]
 pub struct KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     inner: XHomology<KhGen, R>,
@@ -158,6 +159,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     }
 }
 
+#[derive(Clone)]
 pub struct KhHomologyBigraded<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     inner: XHomology2<KhGen, R>,
