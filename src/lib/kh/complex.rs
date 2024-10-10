@@ -52,7 +52,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+    fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         use crate::kh::internal::v2::builder::TngComplexBuilder;
 
         assert!(!reduced || (!l.is_empty() && t.is_zero()));
@@ -61,7 +61,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     #[cfg(feature = "old")]
-    pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+    fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         use crate::kh::internal::v1::cube::KhCube;
 
         assert!(!reduced || (!l.is_empty() && t.is_zero()));
@@ -266,19 +266,8 @@ impl<R> KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
         assert!(h.is_zero() && t.is_zero());
-        Self::new_v2(l, h, t, reduced)
-    }
 
-    pub fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
-        assert!(h.is_zero() && t.is_zero());
         let c = KhComplex::new_v2(&l, h, t, reduced);
-        c.into_bigraded()
-    }
-
-    #[cfg(feature = "old")]
-    pub fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
-        assert!(h.is_zero() && t.is_zero());
-        let c = KhComplex::new_v1(l, h, t, reduced);
         c.into_bigraded()
     }
 
@@ -380,7 +369,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_trefoil() {
             let l = Link::trefoil();
-            let c = KhComplex::new_v1(&l, &0, &0, false);
+            let c = KhComplex::new(&l, &0, &0, false);
     
             assert_eq!(c.h_range(), -3..=0);
     
@@ -395,7 +384,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_trefoil_red() {
             let l = Link::trefoil();
-            let c = KhComplex::new_v1(&l, &0, &0, true);
+            let c = KhComplex::new(&l, &0, &0, true);
     
             assert_eq!(c.h_range(), -3..=0);
     
@@ -419,7 +408,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_trefoil() {
             let l = Link::trefoil();
-            let c = KhComplex::new_v2(&l, &0, &0, false);
+            let c = KhComplex::new(&l, &0, &0, false);
     
             assert_eq!(c.h_range(), -3..=0);
     
@@ -434,7 +423,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_trefoil_red() {
             let l = Link::trefoil();
-            let c = KhComplex::new_v2(&l, &0, &0, true);
+            let c = KhComplex::new(&l, &0, &0, true);
     
             assert_eq!(c.h_range(), -3..=0);
     
@@ -449,7 +438,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_bigr_trefoil() {
             let l = Link::trefoil();
-            let c = KhComplexBigraded::new_v2(&l, &0, &0, false);
+            let c = KhComplexBigraded::new(&l, &0, &0, false);
     
             assert_eq!(c.h_range(), -3..=0);
             assert_eq!(c.q_range(), -9..=-1);
@@ -467,7 +456,7 @@ if #[cfg(feature = "old")] {
         #[test]
         fn ckh_bigr_red_trefoil() {
             let l = Link::trefoil();
-            let c = KhComplexBigraded::new_v2(&l, &0, &0, true);
+            let c = KhComplexBigraded::new(&l, &0, &0, true);
     
             assert_eq!(c.h_range(), -3..=0);
             assert_eq!(c.q_range(), -8..=-2);
