@@ -99,20 +99,16 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
             let r = h.rank();
             let t = h.tors().len();
 
-            for k in 0..r { 
+            for k in 0..r + t { 
                 let z = h.gen_chain(k);
                 let q = z.q_deg();
                 let e = table.entry(isize2(i, q)).or_insert_with(|| init_entry.clone());
-                e.0 += 1;
+                if k < r { 
+                    e.0 += 1;
+                } else { 
+                    e.1.push(h.tors()[k - r].clone());
+                }
                 e.2.push(k);
-            }
-
-            for k in 0..t { 
-                let z = h.gen_chain(r + k);
-                let q = z.q_deg();
-                let e = table.entry(isize2(i, q)).or_insert_with(|| init_entry.clone());
-                e.1.push(h.tors()[k].clone());
-                e.2.push(r + k);
             }
         }
 
@@ -132,7 +128,6 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         )
     }
 }
-
 
 impl<R> GridTrait<isize> for KhHomology<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {

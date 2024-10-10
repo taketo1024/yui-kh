@@ -84,9 +84,7 @@ where
                 self.show_gens(&khi);
             }
         } else if poly { 
-            let with_trans = true;
-
-            let khi = ckhi.homology(with_trans);
+            let khi = ckhi.homology();
             let gens = khi.gen_table();
     
             self.out(&gens.display_table("i", "j"));
@@ -105,9 +103,7 @@ where
                 self.show_ssi(&l, &h, &khi, zs);
             }
         } else { 
-            let with_trans = self.args.show_gens || self.args.show_alpha;
-
-            let khi = ckhi.homology(with_trans);
+            let khi = ckhi.homology();
             self.out(&khi.display_seq("i"));
 
             if self.args.show_gens { 

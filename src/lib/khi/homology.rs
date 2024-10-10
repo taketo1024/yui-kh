@@ -3,86 +3,92 @@ use std::ops::{Index, RangeInclusive};
 use cartesian::cartesian;
 use delegate::delegate;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{isize2, Grid2, GridTrait, RModStr, SimpleRModStr, XHomology, XHomologySummand};
+use yui_homology::{isize2, Grid2, GridTrait, RModStr, XHomology, XHomologySummand, XModStr};
 use yui_link::InvLink;
 use crate::khi::{KhIChainExt, KhIComplex, KhIGen};
+use crate::misc::range_of;
 
 pub struct KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology<KhIGen, R>,
-    h_range: RangeInclusive<isize>,
-    q_range: RangeInclusive<isize>
+    inner: XHomology<KhIGen, R>
 }
 
 impl<R> KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    pub fn new(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
-        Self::new_v2(l, h, reduced, with_trans)
+    pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self {
+        let c = KhIComplex::new(l, h, reduced);
+        Self::from(&c)
     }
 
-    pub fn new_v2(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
-        KhIComplex::new_v2(l, h, reduced).homology(with_trans)
-    }
-
-    #[cfg(feature = "old")]
-    pub fn new_v1(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
-        KhIComplex::new_v1(l, h, reduced).homology(with_trans)
-    }
-
-    pub(crate) fn new_impl(inner: XHomology<KhIGen, R>, h_range: RangeInclusive<isize>, q_range: RangeInclusive<isize>) -> Self {
-        Self { inner, h_range, q_range }
+    pub(crate) fn new_impl(inner: XHomology<KhIGen, R>) -> Self {
+        Self { inner }
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
-        self.h_range.clone()
-    }
-
-    pub fn q_range(&self) -> RangeInclusive<isize> { 
-        self.q_range.clone()
+        range_of(self.support())
     }
 
     pub fn inner(&self) -> &XHomology<KhIGen, R> { 
         &self.inner
     }
 
-    pub fn gen_table(&self) -> Grid2<SimpleRModStr<R>> { 
+    pub fn gen_table(&self) -> Grid2<XModStr<KhIGen, R>> { 
         // TODO: check with_trans = true
 
-        let h_range = self.h_range();
-        let q_range = self.q_range().step_by(2);
+        let table = self.collect_bigr_gens();
+        let h_range = range_of(table.keys().map(|i| i.0));
+        let q_range = range_of(table.keys().map(|i| i.1)).step_by(2);
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
             isize2(i, j)
         );
 
-        let mut table: HashMap<isize2, (usize, Vec<R>)> = HashMap::new();
-        let e = (0, vec![]);
+        Grid2::generate(support, move |idx| { 
+            let i = idx.0;
+            let Some(e) = table.get(&idx) else { 
+                return XModStr::zero()
+            };
+            
+            let (rank, tors, indices) = e;
+            let gens = self[i].gens().clone(); 
+            let trans = self[i].trans().map(|t|
+                t.sub(indices)
+            );
+            XModStr::new(gens, *rank, tors.clone(), trans)
+        })
+    }
+
+    fn collect_bigr_gens(&self) -> HashMap<isize2, (usize, Vec<R>, Vec<usize>)> {
+        let mut table: HashMap<isize2, (usize, Vec<R>, Vec<usize>)> = HashMap::new();
+        let init_entry = (0, vec![], vec![]);
 
         for i in self.support() { 
             let h = &self[i];
             let r = h.rank();
             let t = h.tors().len();
 
-            for k in 0..r { 
+            for k in 0..r + t { 
                 let z = h.gen_chain(k);
                 let q = z.q_deg();
-                let e = table.entry(isize2(i, q)).or_insert_with(|| e.clone());
-                e.0 += 1;
-            }
-
-            for k in 0..t { 
-                let z = h.gen_chain(r + k);
-                let q = z.q_deg();
-                let e = table.entry(isize2(i, q)).or_insert_with(|| e.clone());
-                e.1.push(h.tors()[k].clone());
+                let e = table.entry(isize2(i, q)).or_insert_with(|| init_entry.clone());
+                if k < r { 
+                    e.0 += 1;
+                } else { 
+                    e.1.push(h.tors()[k - r].clone());
+                }
+                e.2.push(k);
             }
         }
 
-        Grid2::generate(support, move |idx| { 
-            let Some(e) = table.remove(&idx) else { 
-                return SimpleRModStr::zero()
-            };
-            SimpleRModStr::new(e.0, e.1, None)
-        })
+        table
+    }
+}
+
+impl<R> From<&KhIComplex<R>> for KhIHomology<R>
+where R: EucRing, for<'x> &'x R: EucRingOps<R> {
+    fn from(c: &KhIComplex<R>) -> Self {
+        KhIHomology::new_impl(
+            c.inner().reduced().homology(true), 
+        )
     }
 }
 
@@ -128,7 +134,7 @@ mod tests {
 
         type R = FF2;
         let h = R::zero();
-        let khi = KhIHomology::new(&l, &h, false, false);
+        let khi = KhIHomology::new(&l, &h, false);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 2);
@@ -144,7 +150,7 @@ mod tests {
 
         type R = FF2;
         let h = R::one();
-        let khi = KhIHomology::new(&l, &h, false, false);
+        let khi = KhIHomology::new(&l, &h, false);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 2);
@@ -162,7 +168,7 @@ mod tests {
         type P = HPoly<'H', R>;
         let h = P::variable();
 
-        let khi = KhIHomology::new(&l, &h, false, false);
+        let khi = KhIHomology::new(&l, &h, false);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 2);
@@ -180,7 +186,7 @@ mod tests {
 
         type R = FF2;
         let h = R::zero();
-        let khi = KhIHomology::new(&l, &h, true, false);
+        let khi = KhIHomology::new(&l, &h, true);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 1);
@@ -196,7 +202,7 @@ mod tests {
 
         type R = FF2;
         let h = R::one();
-        let khi = KhIHomology::new(&l, &h, true, false);
+        let khi = KhIHomology::new(&l, &h, true);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 1);
@@ -214,7 +220,7 @@ mod tests {
         type P = HPoly<'H', R>;
         let h = P::variable();
 
-        let khi = KhIHomology::new(&l, &h, true, false);
+        let khi = KhIHomology::new(&l, &h, true);
 
         assert_eq!(khi.h_range(), 0..=4);
         assert_eq!(khi[0].rank(), 1);
@@ -232,7 +238,7 @@ mod tests {
 
     //     type R = FF2;
     //     let h = R::zero();
-    //     let khi = KhIHomology::new(&l, &h, false, false).into_bigraded();
+    //     let khi = KhIHomology::new(&l, &h, false).into_bigraded();
 
     //     assert_eq!(c[(0, 1)].rank(), 1);
     //     assert_eq!(c[(0, 3)].rank(), 1);

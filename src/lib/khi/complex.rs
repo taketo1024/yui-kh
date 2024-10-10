@@ -11,6 +11,7 @@ use yui_matrix::sparse::SpMat;
 use crate::kh::{KhChain, KhComplex, KhGen};
 use crate::khi::KhIHomology;
 use crate::khi::KhIGen;
+use crate::misc::range_of;
 
 pub type KhIChain<R> = Lc<KhIGen, R>;
 
@@ -125,23 +126,30 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         Self { inner, canon_cycles, deg_shift }
     }
 
+    pub fn inner(&self) -> &XChainComplex<KhIGen, R> {
+        &self.inner
+    }
+
     pub fn h_range(&self) -> RangeInclusive<isize> { 
-        let h0 = self.deg_shift.0;
-        let h_min = self.support().min().unwrap_or(h0);
-        let h_max = self.support().max().unwrap_or(h0);
-        h_min ..= h_max
+        range_of(self.support())
     }
 
     pub fn q_range(&self) -> RangeInclusive<isize> {
-        let q0 = self.deg_shift.1; 
-        let q_itr = || self.support().flat_map(|i| self[i].gens().iter().map(|x| x.q_deg())); 
-        let q_min = q_itr().min().unwrap_or(q0);
-        let q_max = q_itr().max().unwrap_or(q0);
-        q_min ..= q_max
+        range_of(self.support().flat_map(|i| 
+            self[i].gens().iter().map(|x| x.q_deg())
+        ))
     }
 
     pub fn canon_cycles(&self) -> &[KhIChain<R>] { 
         &self.canon_cycles
+    }
+
+    pub fn truncated(&self, range: RangeInclusive<isize>) -> Self {
+        Self::new_impl(
+            self.inner.truncated(range), 
+            self.canon_cycles.clone(),
+            self.deg_shift, 
+        )
     }
 
     pub fn into_bigraded(self) -> XChainComplex2<KhIGen, R> {
@@ -169,10 +177,9 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         })
     }
 
-    pub fn homology(&self, with_trans: bool) -> KhIHomology<R>
+    pub fn homology(&self) -> KhIHomology<R>
     where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
-        let h = self.inner.reduced().homology(with_trans);
-        KhIHomology::new_impl(h, self.h_range(), self.q_range())
+        KhIHomology::from(self)
     }
 }
 

@@ -500,7 +500,7 @@ mod tests {
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
         let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false);
-        let h = c.homology(false);
+        let h = c.homology();
 
         assert_eq!(h[0].rank(), 2);
         assert_eq!(h[1].rank(), 2);
