@@ -517,7 +517,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let summands = Grid1::generate(i0..=i1, |i| { 
             let w = (i - i0) as usize;
-            let gens = self.keys_of_weight(w).map(|k| k.as_gen(self.deg_shift));
+            let gens = self.keys_of_weight(w).map(|k|
+                k.as_gen(self.deg_shift)
+            ).sorted_by_key(|x|
+                x.q_deg()
+            );
             XModStr::free(gens)
         });
 
