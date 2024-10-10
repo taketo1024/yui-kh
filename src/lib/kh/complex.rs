@@ -108,6 +108,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.inner
     }
 
+    pub fn truncated(&self, range: RangeInclusive<isize>) -> Self {
+        Self::new_impl(
+            self.inner.truncated(range), 
+            self.ht.clone(), 
+            self.deg_shift, 
+            self.reduced, 
+            self.canon_cycles.clone()
+        )
+    }
+
     pub fn gen_table(&self) -> Grid2<SimpleRModStr<R>> { 
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
