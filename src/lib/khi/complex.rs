@@ -42,7 +42,12 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
     pub fn new(l: &InvLink, h: &R, reduced: bool) -> Self { 
-        Self::new_v2(l, h, reduced)
+        cfg_if::cfg_if! { 
+        if #[cfg(feature = "old")] { 
+            Self::new_v1(l, h, reduced)
+        } else { 
+            Self::new_v2(l, h, reduced)
+        }}
     }
 
     pub fn new_v2(l: &InvLink, h: &R, reduced: bool) -> Self {
