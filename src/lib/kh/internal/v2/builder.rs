@@ -303,21 +303,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let Some(f) = self.retr_cob.remove(k) else { return };
         let marked = self.base_pt.map(|e| c.contains(e)).unwrap_or(false);
 
-        let (k0, f0) = self.deloop_for(k, &f, c, KhAlgGen::X, Dot::None);
+        let k0 = k.push_label(KhAlgGen::X);
+        let f0 = f.clone().cap_off(Bottom::Tgt, c, Dot::None);
         self.retr_cob.insert(k0, f0);
 
         if !marked { 
-            let (k1, f1) = self.deloop_for(k, &f, c, KhAlgGen::I, Dot::Y);
+            let k1 = k.push_label(KhAlgGen::I);
+            let f1 = f.cap_off(Bottom::Tgt, c, Dot::Y);
             self.retr_cob.insert(k1, f1);    
         }
-    }
-
-    fn deloop_for(&self, k: &TngKey, f: &LcCob<R>, c: &TngComp, label: KhAlgGen, dot: Dot) -> (TngKey, LcCob<R>) { 
-        let mut k_new = *k;
-        k_new.label.push(label);
-
-        let f_new = f.clone().cap_off(Bottom::Tgt, c, dot);
-        (k_new, f_new)
     }
 
     //  Gaussian Elimination
