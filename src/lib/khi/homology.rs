@@ -21,12 +21,12 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     }
 
     pub fn new_v2(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
-        KhIComplex::new(l, h, reduced).homology(with_trans)
+        KhIComplex::new_v2(l, h, reduced).homology(with_trans)
     }
 
     #[cfg(feature = "old")]
     pub fn new_v1(l: &InvLink, h: &R, reduced: bool, with_trans: bool) -> Self {
-        KhIHomology::new_v1(l, h, reduced).homology(with_trans)
+        KhIComplex::new_v1(l, h, reduced).homology(with_trans)
     }
 
     pub(crate) fn new_impl(inner: XHomology<KhIGen, R>, h_range: RangeInclusive<isize>, q_range: RangeInclusive<isize>) -> Self {
