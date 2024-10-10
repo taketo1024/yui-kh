@@ -31,7 +31,7 @@ impl TngKey {
         self.label.append(other.label);
     }
 
-    fn push_label(&self, l: KhAlgGen) -> TngKey {
+    pub(crate) fn push_label(&self, l: KhAlgGen) -> TngKey {
         let mut res = self.clone();
         res.label.push(l);
         res
