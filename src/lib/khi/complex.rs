@@ -2,6 +2,7 @@ use std::ops::{Index, RangeInclusive};
 use cartesian::cartesian;
 use delegate::delegate;
 
+use itertools::Itertools;
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
 use yui_homology::{isize2, ChainComplexTrait, Grid1, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
@@ -90,6 +91,12 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         let h_range = c.h_range();
         let h_range = *h_range.start() ..= (h_range.end() + 1);
 
+        let canon_cycles = c.canon_cycles().iter().flat_map(|z| { 
+            let bz = z.map_gens(|x| KhIGen::B(*x));
+            let qz = z.map_gens(|x| KhIGen::Q(*x));
+            [bz, qz]
+        }).sorted_by_key(|z| z.h_deg()).collect_vec();
+
         let summands = Grid1::generate(h_range, |i| { 
             let b_gens = c[i].gens().iter().map(|x| KhIGen::B(*x));
             let q_gens = c[i - 1].gens().iter().map(|x| KhIGen::Q(*x));
@@ -119,7 +126,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             z.apply(|x| d(i, x))
         });
 
-        KhIComplex::new_impl(inner, vec![], deg_shift)
+        KhIComplex::new_impl(inner, canon_cycles, deg_shift)
     }
 
     pub(crate) fn new_impl(inner: XChainComplex<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>, deg_shift: (isize, isize)) -> Self { 
@@ -585,106 +592,108 @@ if #[cfg(feature = "old")] {
             c.check_d_all();
         }
     
-        // #[test]
-        // fn canon_fbn() { 
-        //     let l = InvLink::new(
-        //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-        //         [(1,5), (2,4)],
-        //         Some(3)
-        //     );
+        #[test]
+        fn canon_fbn() { 
+            let l = InvLink::new(
+                Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+                [(1,5), (2,4)],
+                Some(3)
+            );
     
-        //     type R = FF2;
-        //     let h = R::one();
-        //     let c = KhIComplex::new(&l, &h, &t, false);
+            type R = FF2;
+            let (h, t) = (R::one(), R::zero());
+            let c = KhIComplex::new(&l, &h, &t, false);
     
-        //     let zs = c.canon_cycles.clone();
+            let zs = c.canon_cycles();
+
+            println!("{:?}", zs);
     
-        //     assert_eq!(zs.len(), 4);
-        //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
-        //     assert!(zs[1].gens().all(|x| x.h_deg() == 0));
-        //     assert!(zs[2].gens().all(|x| x.h_deg() == 1));
-        //     assert!(zs[3].gens().all(|x| x.h_deg() == 1));
+            assert_eq!(zs.len(), 4);
+            assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+            assert!(zs[1].gens().all(|x| x.h_deg() == 0));
+            assert!(zs[2].gens().all(|x| x.h_deg() == 1));
+            assert!(zs[3].gens().all(|x| x.h_deg() == 1));
     
-        //     for (i, z) in zs.iter().enumerate() { 
-        //         let i = (i / 2) as isize;
-        //         assert!(c.d(i, z).is_zero());
-        //     }
-        // }
+            for (i, z) in zs.iter().enumerate() { 
+                let i = (i / 2) as isize;
+                assert!(c.d(i, z).is_zero());
+            }
+        }
     
-        // #[test]
-        // fn canon_fbn_red() { 
-        //     let l = InvLink::new(
-        //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-        //         [(1,5), (2,4)],
-        //         Some(3)
-        //     );
+        #[test]
+        fn canon_fbn_red() { 
+            let l = InvLink::new(
+                Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+                [(1,5), (2,4)],
+                Some(3)
+            );
     
-        //     type R = FF2;
-        //     let h = R::one();
-        //     let c = KhIComplex::new(&l, &h, &t, true);
+            type R = FF2;
+            let (h, t) = (R::one(), R::zero());
+            let c = KhIComplex::new(&l, &h, &t, true);
     
-        //     let zs = c.canon_cycles.clone();
+            let zs = c.canon_cycles.clone();
     
-        //     assert_eq!(zs.len(), 2);
-        //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
-        //     assert!(zs[1].gens().all(|x| x.h_deg() == 1));
+            assert_eq!(zs.len(), 2);
+            assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+            assert!(zs[1].gens().all(|x| x.h_deg() == 1));
     
-        //     for (i, z) in zs.iter().enumerate() { 
-        //         let i = i as isize;
-        //         assert!(c.d(i, z).is_zero());
-        //     }
-        // }
+            for (i, z) in zs.iter().enumerate() { 
+                let i = i as isize;
+                assert!(c.d(i, z).is_zero());
+            }
+        }
     
-        // #[test]
-        // fn canon_bn() { 
-        //     let l = InvLink::new(
-        //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-        //         [(1,5), (2,4)],
-        //         Some(3)
-        //     );
+        #[test]
+        fn canon_bn() { 
+            let l = InvLink::new(
+                Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+                [(1,5), (2,4)],
+                Some(3)
+            );
     
-        //     type R = FF2;
-        //     type P = HPoly<'H', R>;
-        //     let h = P::variable();
-        //     let c = KhIComplex::new(&l, &h, &t, false);
+            type R = FF2;
+            type P = HPoly<'H', R>;
+            let (h, t) = (P::variable(), P::zero());
+            let c = KhIComplex::new(&l, &h, &t, false);
     
-        //     let zs = c.canon_cycles.clone();
+            let zs = c.canon_cycles.clone();
     
-        //     assert_eq!(zs.len(), 4);
-        //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
-        //     assert!(zs[1].gens().all(|x| x.h_deg() == 0));
-        //     assert!(zs[2].gens().all(|x| x.h_deg() == 1));
-        //     assert!(zs[3].gens().all(|x| x.h_deg() == 1));
+            assert_eq!(zs.len(), 4);
+            assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+            assert!(zs[1].gens().all(|x| x.h_deg() == 0));
+            assert!(zs[2].gens().all(|x| x.h_deg() == 1));
+            assert!(zs[3].gens().all(|x| x.h_deg() == 1));
     
-        //     for (i, z) in zs.iter().enumerate() { 
-        //         let i = (i / 2) as isize;
-        //         assert!(c.d(i, z).is_zero());
-        //     }
-        // }
+            for (i, z) in zs.iter().enumerate() { 
+                let i = (i / 2) as isize;
+                assert!(c.d(i, z).is_zero());
+            }
+        }
     
-        // #[test]
-        // fn canon_bn_red() { 
-        //     let l = InvLink::new(
-        //         Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-        //         [(1,5), (2,4)],
-        //         Some(3)
-        //     );
+        #[test]
+        fn canon_bn_red() { 
+            let l = InvLink::new(
+                Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+                [(1,5), (2,4)],
+                Some(3)
+            );
     
-        //     type R = FF2;
-        //     type P = HPoly<'H', R>;
-        //     let h = P::variable();
-        //     let c = KhIComplex::new(&l, &h, &t, true);
+            type R = FF2;
+            type P = HPoly<'H', R>;
+            let (h, t) = (P::variable(), P::zero());
+            let c = KhIComplex::new(&l, &h, &t, true);
             
-        //     let zs = c.canon_cycles.clone();
+            let zs = c.canon_cycles.clone();
     
-        //     assert_eq!(zs.len(), 2);
-        //     assert!(zs[0].gens().all(|x| x.h_deg() == 0));
-        //     assert!(zs[1].gens().all(|x| x.h_deg() == 1));
+            assert_eq!(zs.len(), 2);
+            assert!(zs[0].gens().all(|x| x.h_deg() == 0));
+            assert!(zs[1].gens().all(|x| x.h_deg() == 1));
     
-        //     for (i, z) in zs.iter().enumerate() { 
-        //         let i = i as isize;
-        //         assert!(c.d(i, z).is_zero());
-        //     }
-        // }
+            for (i, z) in zs.iter().enumerate() { 
+                let i = i as isize;
+                assert!(c.d(i, z).is_zero());
+            }
+        }
     }
 }}
