@@ -9,7 +9,7 @@ use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::{KhComplex, KhGen};
 use crate::khi::KhIComplex;
-use crate::kh::internal::v2::builder::{count_loops, TngComplexBuilder};
+use crate::kh::internal::v2::builder::{count_loops, BuildElem, TngComplexBuilder};
 use crate::kh::internal::v2::cob::LcCobTrait;
 use crate::kh::internal::v2::tng::TngComp;
 use crate::kh::internal::v2::tng_complex::{TngComplex, TngKey};
@@ -21,6 +21,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     on_axis: HashSet<Crossing>,
     off_axis: HashSet<Crossing>,
     complex: TngComplex<R>,
+    elements: Vec<BuildElem<R>>,
     auto_validate: bool
 }
 
@@ -62,9 +63,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
         let key_map = HashMap::new();
         let (on_axis, off_axis) = Self::separate_crossings(l);
+
+        let elements = if t.is_zero() && l.link().is_knot() {
+            TngComplexBuilder::make_canon_cycles(l.link(), l.base_pt(), reduced)
+        } else { 
+            vec![]
+        };
+        
         let auto_validate = false;
 
-        SymTngBuilder { e_map, key_map, on_axis, off_axis, complex, auto_validate }
+        SymTngBuilder { e_map, key_map, on_axis, off_axis, complex, elements, auto_validate }
     }
 
     fn separate_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
@@ -102,10 +110,24 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         info!("process off-axis: {:?}", self.off_axis);
 
         let (h, t) = self.complex.ht();
+        let elements = std::mem::take(&mut self.elements);
 
         let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
         b.set_crossings(self.off_axis.clone());
+        b.set_elements(elements);
         b.process_all();
+
+        let mut elements = b.take_elements();
+        elements.iter_mut().for_each(|e|
+            e.modify(|k, cob| (
+                k + k, 
+                cob.map_cob(|c| {
+                    let tc = c.convert_edges(|e| self.inv_e(e));
+                    c.connect(tc)
+                })
+            ))
+        );
+        self.elements = elements;
 
         let c1 = b.into_tng_complex();
         let c2 = c1.convert_edges(|e| self.inv_e(e));
@@ -130,6 +152,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         while let Some(x) = self.choose_next() { 
             self.append_x(&x);
 
+            for e in self.elements.iter_mut() { 
+                e.append(&x);
+            }
+    
             while let Some((k, r)) = self.find_loop(false) { 
                 let updated = self.deloop_equiv(&k, r);
                 for k in updated { 
@@ -211,6 +237,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("deloop sym: {c} in {}", self.complex.vertex(&k));
 
+        self.elements.iter_mut().for_each(|e|
+            e.deloop(k, c)
+        );
+
         let updated = self.complex.deloop(k, r);
 
         self.remove_key_pair(k);
@@ -237,6 +267,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let tc = c.convert_edges(|e| self.inv_e(e));
 
         info!("deloop asym: {c} <--> {tc} in {}", self.complex.vertex(&k));
+
+        self.elements.iter_mut().for_each(|e| {
+            e.deloop(k, c);
+            e.deloop(k, &tc)
+        });
 
         let ks = self.complex.deloop(k, r);
 
@@ -277,6 +312,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         info!("deloop parallel:");
         info!("  {c} in {}", self.complex.vertex(&k));
         info!("  {tc} in {}", self.complex.vertex(&tk));
+
+        self.elements.iter_mut().for_each(|e| {
+            e.deloop(k, c);
+            e.deloop(&tk, &tc)
+        });
         
         let ks = self.complex.deloop(k, r);
         let tks = self.complex.deloop(&tk, tr);
@@ -338,24 +378,27 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn eliminate_equiv(&mut self, i: &TngKey, j: &TngKey) {
         assert_eq!(self.is_sym_key(i), self.is_sym_key(j));
+        assert!(self.complex.has_edge(&i, &j));
 
         if self.is_sym_key(i) { 
             info!("eliminate sym: {i} -> {j}: {}", self.complex.edge(i, j));
+
+            self.eliminate_elements(i, j);
             self.complex.eliminate(i, j);
         } else { 
             let ti = *self.inv_key(i);
             let tj = *self.inv_key(j);
 
+            assert!(self.complex.has_edge(&ti, &tj));
+
             info!("eliminate parallel:");
             info!("  {i} -> {j}: {}", self.complex.edge(i, j));
             info!("  {ti} -> {tj}: {}", self.complex.edge(&ti, &tj));
 
-            assert!(self.complex.has_edge(&i, &j));
-            assert!(self.complex.has_edge(&ti, &tj));
-
+            self.eliminate_elements(i, j);
             self.complex.eliminate(i, j);
 
-            assert!(self.complex.has_edge(&ti, &tj));
+            self.eliminate_elements(&ti, &tj);
             self.complex.eliminate(&ti, &tj);
         }
 
@@ -367,6 +410,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
+    fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
+        let a = self.complex.edge(i, j);
+        for e in self.elements.iter_mut() { 
+            let i_out = self.complex.keys_out_from(i).map(|k| 
+                (k, self.complex.edge(i, k))
+            );
+            e.eliminate(i, j, a, i_out);
+        }
+    }
+
     fn finalize(&mut self) {
         info!("finalize");
 
@@ -374,7 +427,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             while let Some((k, r)) = self.find_loop(b) { 
                 self.deloop_equiv(&k, r);
             }
-        }    
+        }
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
@@ -382,7 +435,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn into_kh_complex(self) -> KhComplex<R> {
-        let canon_cycles = vec![]; // TODO
+        let (h, t) = self.complex.ht();
+        let deg_shift = self.complex.deg_shift();
+        let canon_cycles = self.elements.iter().map(|e| e.eval(h, t, deg_shift)).collect_vec();
         self.into_tng_complex().into_kh_complex(canon_cycles)
     }
 
