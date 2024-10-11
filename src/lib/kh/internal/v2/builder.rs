@@ -33,20 +33,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
+        assert!(!reduced || l.components().len() > 0);
+
         let deg_shift = KhComplex::deg_shift_for(l, reduced);
-        let base_pt = if reduced { 
-            l.first_edge()
-        } else { 
-            None
-        };
+        let base_pt = reduced.then(|| l.first_edge().unwrap());
 
         let mut b = Self::new(h, t, deg_shift, base_pt);
+        b.set_crossings(l.data().clone());
 
         if t.is_zero() && l.is_knot() {
-            b.elements = Self::make_canon_cycles(l, base_pt);
+            let canon = Self::make_canon_cycles(l, base_pt, reduced);
+            b.set_elements(canon);
         }
-        
-        b.set_crossings(l.data().clone());
+
         b.process_all();
 
         let canon_cycles = b.eval_elements();
@@ -73,6 +72,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn set_crossings<I>(&mut self, crossings: I)
     where I: IntoIterator<Item = Crossing> {
         self.crossings = crossings.into_iter().collect_vec();
+    }
+
+    pub(crate) fn set_elements<I>(&mut self, elements: I)
+    where I: IntoIterator<Item = BuildElem<R>> { 
+        self.elements = elements.into_iter().collect_vec();
     }
 
     pub fn choose_next(&mut self) -> Option<Crossing> { 
@@ -156,15 +160,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
-        let mut elements = std::mem::take(&mut self.elements);
         let a = self.complex.edge(i, j);
-        for e in elements.iter_mut() { 
+        for e in self.elements.iter_mut() { 
             let i_out = self.complex.keys_out_from(i).map(|k| 
                 (k, self.complex.edge(i, k))
             );
             e.eliminate(i, j, a, i_out);
         }
-        self.elements = elements;
     }
 
     pub fn finalize(&mut self) { 
@@ -173,24 +175,26 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 self.deloop(&k, r);
             }
         }    
-        for e in self.elements.iter_mut() { 
-            e.finalize();
-        }
+    }
+
+    pub(crate) fn take_elements(&mut self) -> Vec<BuildElem<R>> {
+        std::mem::take(&mut self.elements)
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.complex
     }
 
-    pub(crate) fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<BuildElem<R>> { 
-        assert_eq!(l.components().len(), 1);
+    pub(crate) fn make_canon_cycles(l: &Link, base_pt: Option<Edge>, reduced: bool) -> Vec<BuildElem<R>> { 
+        assert!(l.is_knot());
+        assert!(!reduced || base_pt.is_some());
 
         let p = base_pt.or(l.first_edge()).unwrap();
         let s = l.ori_pres_state().iter().enumerate().map(|(i, b)|
             (l.crossing_at(i).clone(), b)
         ).collect::<HashMap<_, _>>();
 
-        let ori = if base_pt.is_some() { 
+        let ori = if reduced { 
             vec![true]
         } else { 
             vec![true, false]
@@ -248,8 +252,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 }
 pub(crate) struct BuildElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    init_cob: Cob,                     // precomposed at the final step.
-    retr_cob: HashMap<TngKey, LcCob<R>>, // src must partially match init_cob. 
+    init_cob: Cob,                       // initial cob, precomposed at the final step.
+    retr_cob: HashMap<TngKey, LcCob<R>>, // building cob, src must always match init_cob. 
     state: HashMap<Crossing, Bit>,
     base_pt: Option<Edge>
 }
@@ -349,26 +353,28 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn finalize(&mut self) { 
-        let val = std::mem::take(&mut self.init_cob);
-        let mut mors = std::mem::take(&mut self.retr_cob);
-
-        mors = mors.into_iter().map(|(k, f)|
-            (k, f.map_cob(|c| *c = &*c * &val))
-        ).collect();
-        mors.retain(|_, f| !f.is_zero());
-
-        self.retr_cob = mors;
-    }
-
     pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
-        assert!(self.init_cob.is_empty());
-        assert!(self.retr_cob.values().all(|f| f.is_closed()));
+        let init = LcCob::from(self.init_cob.clone());
 
-        KhChain::from_iter(self.retr_cob.iter().map(|(k, f)| {
+        assert!(self.retr_cob.values().all(|retr| init.is_stackable(retr)));
+
+        let eval = self.retr_cob.iter().filter_map(|(k, retr)| {
+            let f = retr * &init;
+            (!f.is_zero()).then(|| (*k, f))
+        }).map(|(k, f)| { 
             let x = KhGen::new(k.state, k.label, deg_shift);
             (x, f.eval(h, t))
-        }))
+        });
+
+        KhChain::from_iter(eval)
+    }
+
+    pub fn modify<F>(&mut self, f: F)
+    where F: Fn(TngKey, LcCob<R>) -> (TngKey, LcCob<R>) { 
+        let retr_cob = std::mem::take(&mut self.retr_cob);
+        self.retr_cob = retr_cob.into_iter().map(|(k, cob)|
+            f(k, cob)
+        ).collect();
     }
 }
 
