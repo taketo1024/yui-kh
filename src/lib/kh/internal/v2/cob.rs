@@ -408,7 +408,7 @@ impl CobComp {
 
     pub fn eval<R>(&self, h: &R, t: &R) -> R
     where R: Ring, for<'x> &'x R: RingOps<R> {
-        assert!(self.is_closed());
+        assert!(self.is_closed(), "cannot eval: {}", self);
 
         R::sum(self.part_eval(h, t).into_iter().map(|(c, r)| {
             assert!(c.is_dot_sph());

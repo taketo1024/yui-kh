@@ -237,11 +237,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("deloop sym: {c} in {}", self.complex.vertex(&k));
 
-        self.elements.iter_mut().for_each(|e|
-            e.deloop(k, c)
-        );
-
-        let updated = self.complex.deloop(k, r);
+        let updated = self.deloop_at(k, r);
 
         self.remove_key_pair(k);
 
@@ -268,22 +264,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("deloop asym: {c} <--> {tc} in {}", self.complex.vertex(&k));
 
-        self.elements.iter_mut().for_each(|e| {
-            e.deloop(k, c);
-            e.deloop(k, &tc)
-        });
-
-        let ks = self.complex.deloop(k, r);
+        let ks = self.deloop_at(k, r);
 
         let (k_X, k_1) = (ks[0], ks[1]);
         let (k_XX, k_X1) = { 
             let tr = self.complex.vertex(&k_X).tng().index_of(&tc).unwrap();
-            let tks = self.complex.deloop(&k_X, tr);
+            let tks = self.deloop_at(&k_X, tr);
             (tks[0], tks[1])
         };
         let (k_1X, k_11) = { 
             let tr = self.complex.vertex(&k_1).tng().index_of(&tc).unwrap();
-            let tks = self.complex.deloop(&k_1, tr);
+            let tks = self.deloop_at(&k_1, tr);
             (tks[0], tks[1])
         };
 
@@ -313,13 +304,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         info!("  {c} in {}", self.complex.vertex(&k));
         info!("  {tc} in {}", self.complex.vertex(&tk));
 
-        self.elements.iter_mut().for_each(|e| {
-            e.deloop(k, c);
-            e.deloop(&tk, &tc)
-        });
-        
-        let ks = self.complex.deloop(k, r);
-        let tks = self.complex.deloop(&tk, tr);
+        let ks = self.deloop_at(k, r);
+        let tks = self.deloop_at(&tk, tr);
 
         self.remove_key_pair(k);
 
@@ -328,6 +314,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         ks
+    }
+
+    fn deloop_at(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
+        let c = self.complex.vertex(k).tng().comp(r);
+
+        self.elements.iter_mut().for_each(|e| {
+            e.deloop(k, c);
+        });
+
+        self.complex.deloop(k, r)
     }
 
     pub fn find_equiv_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
@@ -382,9 +378,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         if self.is_sym_key(i) { 
             info!("eliminate sym: {i} -> {j}: {}", self.complex.edge(i, j));
-
-            self.eliminate_elements(i, j);
-            self.complex.eliminate(i, j);
+            self.eliminate(i, j);
         } else { 
             let ti = *self.inv_key(i);
             let tj = *self.inv_key(j);
@@ -395,11 +389,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             info!("  {i} -> {j}: {}", self.complex.edge(i, j));
             info!("  {ti} -> {tj}: {}", self.complex.edge(&ti, &tj));
 
-            self.eliminate_elements(i, j);
-            self.complex.eliminate(i, j);
-
-            self.eliminate_elements(&ti, &tj);
-            self.complex.eliminate(&ti, &tj);
+            self.eliminate(i, j);
+            self.eliminate(&ti, &tj);
         }
 
         self.remove_key_pair(i);
@@ -408,6 +399,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         if self.auto_validate { 
             self.validate_equiv();
         }
+    }
+
+    fn eliminate(&mut self, i: &TngKey, j: &TngKey) { 
+        self.eliminate_elements(i, j);
+        self.complex.eliminate(i, j);
     }
 
     fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
