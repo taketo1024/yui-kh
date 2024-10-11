@@ -1,7 +1,7 @@
 use yui::{Ring, RingOps};
 use yui_link::{Edge, Link, State};
 
-use crate::ext::{Color, LinkExt};
+use crate::ext::LinkExt;
 use crate::kh::{KhAlgGen, KhChain, KhComplex, KhGen, KhLabel};
 
 impl<R> KhComplex<R>
@@ -21,26 +21,25 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn make_canon_cycle(l: &Link, base: Edge, a: &R, b: &R, deg_shift: (isize, isize)) -> KhChain<R> {
         let s = l.ori_pres_state();
-        let colors = l.colored_seifert_circles(base);
-
         let x_a = Self::color_factor(a); // X - a
         let x_b = Self::color_factor(b); // X - b
 
-        let x = |c: Color| if c.is_a() {
+        let colors = l.colored_seifert_circles(base);
+        let xs = colors.into_iter().map(|(_, c)| if c.is_a() {
             &x_a
         } else { 
             &x_b
-        };
-    
-        let mut z = KhChain::from(
+        });
+
+        let init = KhChain::from(
             KhGen::new(s, KhLabel::empty(), deg_shift)
         );
 
-        for (_, c) in colors {
-            z *= x(c)
-        }
-    
-        z
+        xs.fold(init, |res, next| { 
+            res.combine(next, |a, b| 
+                KhGen::new(s, a.label + b.label, deg_shift)
+            )
+        })
     }
 
     fn color_factor(a: &R) -> KhChain<R> // a -> X - a
