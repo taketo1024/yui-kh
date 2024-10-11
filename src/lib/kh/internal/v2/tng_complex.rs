@@ -32,12 +32,6 @@ impl TngKey {
         self.label.append(other.label);
     }
 
-    pub(crate) fn push_label(&self, l: KhAlgGen) -> TngKey {
-        let mut res = self.clone();
-        res.label.push(l);
-        res
-    }
-
     pub fn as_gen(&self, deg_shift: (isize, isize)) -> KhGen { 
         KhGen::new(self.state, self.label, deg_shift)
     }
@@ -49,6 +43,16 @@ impl<'a> Add for &'a TngKey {
     fn add(self, rhs: Self) -> Self::Output {
         let mut res = *self;
         res.append(*rhs);
+        res
+    }
+}
+
+#[auto_ops]
+impl<'a> Add<KhAlgGen> for &'a TngKey {
+    type Output = TngKey;
+    fn add(self, rhs: KhAlgGen) -> Self::Output {
+        let mut res = *self;
+        res.label.push(rhs);
         res
     }
 }
@@ -405,15 +409,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         #[allow(non_snake_case)]
         let updated_keys = if based { 
-            let k_X = k.push_label(KhAlgGen::X);
+            let k_X = k + KhAlgGen::X;
 
             self.rename_vertex_key(k, k_X);
             self.deloop_with(&k_X, r, Dot::X, Dot::None);
 
             vec![k_X]
         } else { 
-            let k_X = k.push_label(KhAlgGen::X);
-            let k_1 = k.push_label(KhAlgGen::I);
+            let k_X = k + KhAlgGen::X;
+            let k_1 = k + KhAlgGen::I;
 
             self.rename_vertex_key(k, k_X);
             self.duplicate_vertex(&k_X, k_1);
