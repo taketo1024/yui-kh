@@ -828,6 +828,7 @@ pub trait LcCobTrait: Sized {
     fn tgt(&self) -> Tng;
     fn is_closed(&self) -> bool;
     fn is_invertible(&self) -> bool;
+    fn is_stackable(&self, other: &Self) -> bool;
     fn inv(&self) -> Option<Self>;
     fn map_cob<F>(self, f: F) -> Self where F: Fn(&mut Cob);
     fn convert_edges<F>(&self, f: F) -> Self where F: Fn(Edge) -> Edge;
@@ -867,6 +868,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.iter().next().map(|(c, a)| 
             c.is_invertible() && a.is_unit()
         ).unwrap_or(false)
+    }
+
+    fn is_stackable(&self, other: &Self) -> bool { 
+        cartesian!(self.gens(), other.gens()).all(|(a, b)| 
+            a.is_stackable(b)
+        )
     }
 
     fn inv(&self) -> Option<Self> { 
