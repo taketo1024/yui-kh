@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
+use auto_impl_ops::auto_ops;
 use log::info; 
 use itertools::Itertools;
 use num_traits::Zero;
@@ -42,6 +43,7 @@ impl TngKey {
     }
 }
 
+#[auto_ops]
 impl<'a> Add for &'a TngKey {
     type Output = TngKey;
     fn add(self, rhs: Self) -> Self::Output {
