@@ -12,7 +12,6 @@ use yui_link::InvLink;
 use crate::misc::div_vec;
 use crate::khi::KhIComplex;
 
-#[allow(unused)]
 pub fn ssi_invariants<R>(l: &InvLink, c: &R) -> (i32, i32)
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
     assert!(!c.is_zero());
