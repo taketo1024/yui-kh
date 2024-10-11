@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::ops::{Mul, MulAssign, Index};
+use std::ops::{Add, AddAssign, Index};
 use itertools::{join, Itertools};
 use auto_impl_ops::auto_ops;
 use yui::util::format::subscript;
@@ -114,6 +114,20 @@ impl Display for KhLabel {
     }
 }
 
+#[auto_ops]
+impl AddAssign<KhLabel> for KhLabel {
+    fn add_assign(&mut self, rhs: Self) {
+        self.append(rhs);
+    }
+}
+
+#[auto_ops]
+impl AddAssign<KhAlgGen> for KhLabel {
+    fn add_assign(&mut self, x: KhAlgGen) {
+        self.push(x);
+    }
+}
+
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct KhGen { 
     pub state: State,
@@ -142,14 +156,6 @@ impl KhGen {
         let r = self.label.len() as isize;
         let s = self.state.weight() as isize;
         q0 + d + r + s
-    }
-}
-
-#[auto_ops]
-impl MulAssign<&KhGen> for KhGen {
-    fn mul_assign(&mut self, rhs: &KhGen) {
-        self.state.append(rhs.state);
-        self.label.append(rhs.label);
     }
 }
 
