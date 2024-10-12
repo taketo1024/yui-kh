@@ -207,7 +207,7 @@ fn k9_46_interlock() {
     let c = KhIComplex::new(&l, &h, &t, false);
     let h = c.homology();
 
-    h.gen_table().print_table("i", "j");
+    h.into_bigraded().print_table("i", "j");
 }
 
 #[test]
@@ -232,7 +232,7 @@ fn k9_46_interlock3() {
     let c = KhIComplex::new(&l, &h, &t, false);
     let h = c.homology();
 
-    h.gen_table().print_table("i", "j");
+    h.into_bigraded().print_table("i", "j");
 }
 
 #[test]
@@ -259,5 +259,5 @@ fn knotJ_interlock() {
     let c = KhIComplex::new(&l, &h, &t, false);
     let h = c.homology();
 
-    h.gen_table().print_table("i", "j");
+    h.into_bigraded().print_table("i", "j");
 }

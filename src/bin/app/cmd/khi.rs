@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridDeg, GridTrait, RModStr, XHomologyBase};
-use yui_kh::khi::{KhIChain, KhIChainExt, KhIComplex, KhIGen, KhIHomology};
+use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridTrait, RModStr};
+use yui_kh::khi::{KhIChain, KhIChainExt, KhIComplex, KhIHomology};
 use yui_link::InvLink;
 use crate::app::utils::*;
 use crate::app::err::*;
@@ -64,75 +64,52 @@ where
         let (h, t) = parse_pair::<R>(&self.args.c_value)?;
 
         ensure!(self.args.c_type == CType::F2, "Only `-t F2` is supported.");
+
         if self.args.reduced { 
             ensure!(t.is_zero(), "`t` must be zero for reduced.");
         }
         if self.args.show_alpha { 
             ensure!(t.is_zero(), "`t` must be zero to have alpha.");
         }
-        // if self.args.show_ss { 
-        //     ensure!(!h.is_zero() && !h.is_unit(), "`h` must be non-zero, non-invertible to compute ss.");
-        //     ensure!(t.is_zero(), "`t` must be zero to compute ss.");
-        // }
+        if self.args.show_ssi { 
+            ensure!(!h.is_zero() && !h.is_unit(), "`h` must be non-zero, non-invertible to compute ssi.");
+            ensure!(t.is_zero(), "`t` must be zero to compute ss.");
+        }
     
         let l = load_sinv_knot(&self.args.link, self.args.mirror)?;
         let ckhi = KhIComplex::<R>::new(&l, &h, &t, self.args.reduced);
+        let khi = ckhi.homology();
 
-        let poly = ["H", "0,T"].contains(&self.args.c_value.as_str());
-        let bigraded = h.is_zero() && t.is_zero();
+        let bigraded = h.is_zero() && t.is_zero() || 
+            ["H", "0,T"].contains(&self.args.c_value.as_str());
 
         if bigraded { 
-            let with_trans = self.args.show_gens || self.args.show_alpha;
-
-            let ckhi = ckhi.into_bigraded();
-            let khi = ckhi.homology(with_trans);
-    
+            let khi = khi.clone().into_bigraded();
             self.out(&khi.display_table("i", "j"));
-
-            if self.args.show_gens { 
-                self.show_gens(&khi);
-            }
-        } else if poly { 
-            let khi = ckhi.homology();
-            let gens = khi.gen_table();
-    
-            self.out(&gens.display_table("i", "j"));
-    
-            if self.args.show_gens { 
-                self.show_gens(khi.inner());
-            }
-
-            let zs = ckhi.canon_cycles();
-
-            if self.args.show_alpha { 
-                self.show_alpha(&khi, zs);
-            }
-
-            if self.args.show_ssi { 
-                self.show_ssi(&l, &h, &khi, zs);
-            }
         } else { 
-            let khi = ckhi.homology();
             self.out(&khi.display_seq("i"));
+        }
 
-            if self.args.show_gens { 
-                self.show_gens(khi.inner());
-            }
+        if self.args.show_gens { 
+            self.show_gens(&khi);
+        }
 
+        if self.args.show_alpha { 
             let zs = ckhi.canon_cycles();
+            self.show_alpha(&khi, zs);
+        }
 
-            if self.args.show_alpha { 
-                self.show_alpha(&khi, zs);
-            }
+        if self.args.show_ssi { 
+            let zs = ckhi.canon_cycles();
+            self.show_ssi(&l, &h, &khi, zs);
         }
 
         Ok(self.flush())
     }
 
-    fn show_gens<I>(&mut self, kh: &XHomologyBase<I, KhIGen, R>)
-    where I: GridDeg { 
-        for i in kh.support() {
-            let h = &kh[i];
+    fn show_gens(&mut self, khi: &KhIHomology<R>) { 
+        for i in khi.support() {
+            let h = &khi[i];
             if h.is_zero() { continue }
 
             self.out(&format!("KhI[{i}]: {}", h.display_for_grid()));
@@ -162,6 +139,7 @@ where
         let l = l.link();
         let w = l.writhe();
         let r = l.seifert_circles().len() as i32;
+
         for (i, z) in zs.iter().enumerate() { 
             let h = &khi[z.h_deg()];
             let v = h.vectorize(z).subvec(0..h.rank());

@@ -34,6 +34,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 pub type KhIComplexSummand<R> = XChainComplexSummand<KhIGen, R>;
 
+#[derive(Clone)]
 pub struct KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
     inner: XChainComplex<KhIGen, R>,
