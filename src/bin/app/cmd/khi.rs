@@ -101,7 +101,7 @@ where
 
         if self.args.show_ssi { 
             let zs = ckhi.canon_cycles();
-            self.show_ssi(&l, &h, &khi, zs);
+            self.show_ssi(&l, &h, &khi, zs)?;
         }
 
         Ok(self.flush())
@@ -131,7 +131,7 @@ where
         }
     }
 
-    fn show_ssi(&mut self, l: &InvLink, c: &R, khi: &KhIHomology<R>, zs: &[KhIChain<R>]) { 
+    fn show_ssi(&mut self, l: &InvLink, c: &R, khi: &KhIHomology<R>, zs: &[KhIChain<R>]) -> Result<(), Box<dyn std::error::Error>> { 
         assert!(!c.is_unit() && !c.is_unit());
 
         use yui_kh::misc::div_vec;
@@ -143,11 +143,17 @@ where
         for (i, z) in zs.iter().enumerate() { 
             let h = &khi[z.h_deg()];
             let v = h.vectorize(z).subvec(0..h.rank());
-            let d = div_vec(&v, c).unwrap();
+            let d = div_vec(&v, c);
+
+            ensure!(d.is_some(), "invalid div for a = {z}.");
+
+            let d = d.unwrap();
             let s = 2 * d + w - r + 1;
 
             self.out(&format!("ss[{i}] = {s} (d = {d}, w = {w}, r = {r})"));
         }
+
+        Ok(())
     }
 
     fn out(&mut self, str: &str) { 

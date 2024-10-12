@@ -97,7 +97,7 @@ where
         }
 
         if self.args.show_ss { 
-            self.show_ss(&l, &h, &kh);
+            self.show_ss(&l, &h, &kh)?;
         }
     
         Ok(self.flush())
@@ -129,21 +129,29 @@ where
         }
     }
 
-    fn show_ss(&mut self, l: &Link, c: &R, kh: &KhHomology<R>) { 
+    fn show_ss(&mut self, l: &Link, c: &R, kh: &KhHomology<R>) -> Result<(), Box<dyn std::error::Error>> { 
         assert!(!c.is_unit() && !c.is_unit());
 
         use yui_kh::misc::div_vec;
 
-        let zs = kh.canon_cycles();
-        let Some(a) = zs.iter().find(|v| v.h_deg() == 0) else { return };
-
         let w = l.writhe();
         let r = l.seifert_circles().len() as i32;
-        let v = kh[0].vectorize(a).subvec(0..kh[0].rank());
-        let d = div_vec(&v, c).unwrap();
-        let s = 2 * d + w - r + 1;
+        let zs = kh.canon_cycles();
 
-        self.out(&format!("ss = {s} (d = {d}, w = {w}, r = {r})"));
+        for (i, z) in zs.iter().enumerate() { 
+            let h = &kh[z.h_deg()];
+            let v = h.vectorize(z).subvec(0..h.rank());
+            let d = div_vec(&v, c);
+
+            ensure!(d.is_some(), "invalid div for a = {z}.");
+
+            let d = d.unwrap();
+            let s = 2 * d + w - r + 1;
+
+            self.out(&format!("ss[{i}] = {s} (d = {d}, w = {w}, r = {r})"));
+        }
+
+        Ok(())
     }
 
     fn out(&mut self, str: &str) { 
