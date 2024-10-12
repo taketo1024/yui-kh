@@ -8,6 +8,7 @@ use yui_link::InvLink;
 use crate::khi::{KhIChainExt, KhIComplex, KhIGen};
 use crate::misc::range_of;
 
+#[derive(Clone)]
 pub struct KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     inner: XHomology<KhIGen, R>
@@ -32,9 +33,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         &self.inner
     }
 
-    pub fn gen_table(&self) -> Grid2<XModStr<KhIGen, R>> { 
-        // TODO: check with_trans = true
-
+    pub fn into_bigraded(self) -> Grid2<XModStr<KhIGen, R>> { 
         let table = self.collect_bigr_gens();
         let h_range = range_of(table.keys().map(|i| i.0));
         let q_range = range_of(table.keys().map(|i| i.1)).step_by(2);
