@@ -1,7 +1,7 @@
 use log::info;
 use clap::{Parser, Subcommand};
 
-use super::cmd::{ckh, kh, khi};
+use super::cmd::{ckh, ckhi, kh, khi};
 use super::utils::*;
 
 #[derive(Parser, Debug)]
@@ -15,8 +15,9 @@ pub struct CliArgs {
 #[derive(Subcommand, Debug)]
 #[clap(rename_all="lower")]
 pub enum Cmd {
+    CKh(ckh::Args),
     Kh(kh::Args),
-    Ckh(ckh::Args),
+    CKhI(ckhi::Args),    
     KhI(khi::Args),    
 }
 
@@ -24,9 +25,10 @@ impl CliArgs {
     fn log_level(&self) -> log::LevelFilter { 
         use log::LevelFilter::*;
         let level = match &self.command { 
-            Cmd::Kh(args)  => args.log,
-            Cmd::Ckh(args) => args.log,
-            Cmd::KhI(args) => args.log,
+            Cmd::CKh(args)  => args.log,
+            Cmd::Kh(args)   => args.log,
+            Cmd::CKhI(args) => args.log,
+            Cmd::KhI(args)  => args.log,
         };
         match level {
             1 => Info,
@@ -75,9 +77,10 @@ impl App {
     fn dispatch(&self) -> Result<String, Box<dyn std::error::Error>> { 
         guard_panic(||
             match &self.args.command { 
-                Cmd::Kh(args)  => kh::dispatch(args),
-                Cmd::Ckh(args) => ckh::dispatch(args),
-                Cmd::KhI(args) => khi::dispatch(args),
+                Cmd::CKh(args)  => ckh::dispatch(args),
+                Cmd::Kh(args)   => kh::dispatch(args),
+                Cmd::CKhI(args) => ckhi::dispatch(args),
+                Cmd::KhI(args)  => khi::dispatch(args),
             }
         )
     }
