@@ -126,8 +126,8 @@ where
             let h = z.h_deg();
             let v = ckh[h].vectorize(z);
             self.out(&format!("a[{i}] in CKh[{h}]: {}", vec2str(&v)));
+            self.out(&format!("  {z}\n"));
         }
-        self.out("");
     }
 
     fn out(&mut self, str: &str) { 
