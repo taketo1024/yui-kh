@@ -77,7 +77,7 @@ where
         }
     
         let l = load_sinv_knot(&self.args.link, self.args.mirror)?;
-        let ckhi = KhIComplex::<R>::new(&l, &h, &t, self.args.reduced);
+        let ckhi = KhIComplex::new(&l, &h, &t, self.args.reduced);
         let khi = ckhi.homology();
 
         let bigraded = h.is_zero() && t.is_zero() || 
@@ -127,8 +127,8 @@ where
         for (i, z) in zs.iter().enumerate() { 
             let v = khi[z.h_deg()].vectorize_euc(z);
             self.out(&format!("a[{i}] in KhI[{}]: {}", z.h_deg(), vec2str(&v)));
+            self.out(&format!("  {z}\n"));
         }
-        self.out("");
     }
 
     fn show_ssi(&mut self, l: &InvLink, c: &R, khi: &KhIHomology<R>, zs: &[KhIChain<R>]) { 
