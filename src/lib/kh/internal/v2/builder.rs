@@ -21,7 +21,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     crossings: Vec<Crossing>,
     complex: TngComplex<R>,
     elements: Vec<BuildElem<R>>,
-    pub h_range: Option<RangeInclusive<isize>>,
+    h_range: Option<RangeInclusive<isize>>,
     pub auto_deloop: bool,
     pub auto_elim: bool
 }
@@ -71,9 +71,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.crossings = crossings.into_iter().collect_vec();
     }
 
-    pub(crate) fn set_elements<I>(&mut self, elements: I)
+    pub fn elements(&self) -> impl Iterator<Item = &BuildElem<R>> { 
+        self.elements.iter()
+    }
+
+    pub fn set_elements<I>(&mut self, elements: I)
     where I: IntoIterator<Item = BuildElem<R>> { 
         self.elements = elements.into_iter().collect_vec();
+    }
+
+    pub fn h_range(&self) -> Option<RangeInclusive<isize>> { 
+        self.h_range.clone()
     }
 
     pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
@@ -82,13 +90,36 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn choose_next(&mut self) -> Option<Crossing> { 
         let Some((i, _)) = self.crossings.iter().enumerate().max_by_key(|(_, x)|
-            count_loops(&self.complex, x)
+            self.count_loops_for(x)
         ) else { 
             return None
         };
 
         let x = self.crossings.remove(i);
         Some(x)
+    }
+
+    fn count_loops_for(&self, x: &Crossing) -> usize { 
+        let arcs = if x.is_resolved() { 
+            let a = x.arcs();
+            vec![a.0, a.1]
+        } else { 
+            let a0 = x.resolved(Bit::Bit0).arcs();
+            let a1 = x.resolved(Bit::Bit1).arcs();
+            vec![a0.0, a0.1, a1.0, a1.1]
+        }.into_iter().filter(|a|
+            self.complex.base_pt().map(|e| !a.contains(e)).unwrap_or(true)
+        ).collect_vec();
+
+        let count = self.complex.iter_verts().map(|(_, v)| {
+            v.tng().comps().map(|c| 
+                arcs.iter().filter(|a| 
+                    c.path().is_connectable_bothends(a)
+                ).count()
+            ).sum::<usize>()
+        }).sum::<usize>();
+
+        count
     }
 
     pub fn process_all(&mut self) { 
@@ -279,30 +310,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-pub(crate) fn count_loops<R>(complex: &TngComplex<R>, x: &Crossing) -> usize
-where R: Ring, for<'x> &'x R: RingOps<R> { 
-    let arcs = if x.is_resolved() { 
-        let a = x.arcs();
-        vec![a.0, a.1]
-    } else { 
-        let a0 = x.resolved(Bit::Bit0).arcs();
-        let a1 = x.resolved(Bit::Bit1).arcs();
-        vec![a0.0, a0.1, a1.0, a1.1]
-    }.into_iter().filter(|a|
-        complex.base_pt().map(|e| !a.contains(e)).unwrap_or(true)
-    ).collect_vec();
-
-    let count = complex.iter_verts().map(|(_, v)| {
-        v.tng().comps().map(|c| 
-            arcs.iter().filter(|a| 
-                c.path().is_connectable_bothends(a)
-            ).count()
-        ).sum::<usize>()
-    }).sum::<usize>();
-
-    count
-}
-pub(crate) struct BuildElem<R>
+pub struct BuildElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     init_cob: Cob,                       // initial cob, precomposed at the final step.
     retr_cob: HashMap<TngKey, LcCob<R>>, // building cob, src must always match init_cob. 
@@ -405,13 +413,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
+    pub fn is_evalable(&self) -> bool { 
         let init = LcCob::from(self.init_cob.clone());
+        self.retr_cob.values().all(|c| init.is_stackable(c)) && 
+        self.retr_cob.values().all(|c| c.iter().all(|(c, _)| c.tgt().is_empty()))
+    }
 
-        debug!("  eval {init} : {}", self);
+    pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
+        assert!(self.is_evalable());
 
-        assert!(self.retr_cob.values().all(|retr| init.is_stackable(retr)));
+        debug!("  eval {} : {}", self.init_cob, self);
 
+        let init = LcCob::from(self.init_cob.clone());
         let eval = self.retr_cob.iter().filter_map(|(k, retr)| {
             let f = retr * &init;
             (!f.is_zero()).then(|| (*k, f))
@@ -571,20 +584,24 @@ mod tests {
 
     #[test]
     fn drop_by_hrange() { 
-        let l = Link::load("8_3").unwrap();
+        let l = Link::load("4_1").unwrap();
         let range = -1..=1;
 
         let mut b = TngComplexBuilder::new(&l, &0, &0, None);
         b.set_h_range(range.clone());
         b.process_all();
 
-        let c = b.into_tng_complex().into_kh_complex(vec![]);
+        assert!(b.complex.is_finalizable());
+        assert!(b.elements().all(|e| e.is_evalable()));
+
+        let c = b.into_kh_complex();
         assert!(c.h_range().all(|i| range.contains(&i) || c[i].is_zero()));
 
         c.check_d_all();
 
         let h = c.homology();
-        assert_eq!(h[0].rank(), 4);
-        assert_eq!(h[0].tors(), &[2]);
+
+        assert_eq!(h[0].rank(), 2);
+        assert!(h[0].is_free());
     }
 }
