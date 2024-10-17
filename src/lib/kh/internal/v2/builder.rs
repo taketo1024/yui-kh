@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::ops::RangeInclusive;
 
 use itertools::Itertools;
 use log::{debug, info};
@@ -20,6 +21,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     crossings: Vec<Crossing>,
     complex: TngComplex<R>,
     elements: Vec<BuildElem<R>>,
+    pub h_range: Option<RangeInclusive<isize>>,
     pub auto_deloop: bool,
     pub auto_elim: bool
 }
@@ -27,26 +29,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> From<TngComplex<R>> for TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     fn from(complex: TngComplex<R>) -> Self {
-        Self { crossings: vec![], complex, elements: vec![], auto_deloop: true, auto_elim: true }
+        Self { crossings: vec![], complex, elements: vec![], h_range: None, auto_deloop: true, auto_elim: true }
     }
 }
 
 impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
-        assert!(!reduced || l.components().len() > 0);
-
-        let deg_shift = KhComplex::deg_shift_for(l, reduced);
-        let base_pt = reduced.then(|| l.first_edge().unwrap());
-
-        let mut b = Self::new(h, t, deg_shift, base_pt);
-        b.set_crossings(l.data().clone());
-
-        if t.is_zero() && l.is_knot() {
-            let canon = Self::make_canon_cycles(l, base_pt, reduced);
-            b.set_elements(canon);
-        }
-
+        let mut b = Self::new(l, h, t, reduced);
         b.process_all();
 
         let canon_cycles = b.eval_elements();
@@ -55,15 +45,26 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         complex
     }
 
-    pub fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
-        let crossings = vec![];
+    pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        assert!(!reduced || l.components().len() > 0);
+
+        let deg_shift = KhComplex::deg_shift_for(l, reduced);
+        let base_pt = reduced.then(|| l.first_edge().unwrap());
+
+        let mut b = Self::init(h, t, deg_shift, base_pt);
+        b.set_crossings(l.data().clone());
+
+        if t.is_zero() && l.is_knot() {
+            let canon = Self::make_canon_cycles(l, base_pt, reduced);
+            b.set_elements(canon);
+        }
+
+        b
+    }
+
+    pub fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
         let complex = TngComplex::init(h, t, deg_shift, base_pt);
-        let elements = vec![];
-
-        let auto_deloop = true;
-        let auto_elim   = true;
-
-        Self { crossings, complex, elements, auto_deloop, auto_elim }
+        Self::from(complex)
     }
 
     pub fn complex(&self) -> &TngComplex<R> { 
@@ -107,10 +108,31 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e.append(x);
         }
 
+        if self.h_range.is_some() { 
+            self.drop_vertices();
+        }
+
         if self.auto_deloop { 
             while let Some((k, r)) = self.find_loop(false) { 
                 self.deloop(&k, r);
             }
+        }
+    }
+
+    pub fn drop_vertices(&mut self) { 
+        let Some(h_range) = &self.h_range else { return };
+
+        let i0 = self.complex.deg_shift().0;
+        let remain = self.crossings.iter().filter(|x| !x.is_resolved()).count();
+
+        let drop = self.complex.iter_verts().map(|(&k, _)| k).filter(|k| 
+            i0 + ((k.weight() + remain) as isize) < *h_range.start() || 
+            i0 + (k.weight() as isize) > *h_range.end()
+        ).collect_vec();
+
+        for k in drop { 
+            info!("drop {}", self.complex.vertex(&k));
+            self.complex.remove_vertex(&k);
         }
     }
 
@@ -474,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_tangle() { 
-        let mut c = TngComplexBuilder::new(&0, &0, (0, 0), None);
+        let mut c = TngComplexBuilder::init(&0, &0, (0, 0), None);
         c.set_crossings([
             Crossing::from_pd_code([4,2,5,1]),
             Crossing::from_pd_code([3,6,4,1])
@@ -535,4 +557,43 @@ mod tests {
             assert!(c.d(0, &z).is_zero());
         }
     }
+
+    #[test]
+    fn drop_by_hrange() { 
+        // init_logger(log::LevelFilter::Info);
+
+        let l = Link::load("8_3").unwrap();
+        let range = -1..=1;
+        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
+        b.h_range = Some(range.clone());
+
+        b.process_all();
+
+        let c = b.into_tng_complex().into_kh_complex(vec![]);
+        assert!(c.h_range().all(|i| range.contains(&i) || c[i].is_zero()));
+
+        c.check_d_all();
+
+        let h = c.homology();
+        assert_eq!(h[0].rank(), 4);
+        assert_eq!(h[0].tors(), &[2]);
+    }
+
+    fn init_logger(l: log::LevelFilter) { 
+        use simplelog::*;
+    
+        let mut cb = simplelog::ConfigBuilder::new();
+        cb.set_location_level(LevelFilter::Off);
+        cb.set_target_level(LevelFilter::Off);
+        cb.set_thread_level(LevelFilter::Off);
+        cb.set_level_color(Level::Trace, Some(Color::Green));
+        let config = cb.build();
+    
+        TermLogger::init(
+            l,
+            config,
+            TerminalMode::Mixed,
+            ColorChoice::Always
+        ).unwrap();
+    }    
 }
