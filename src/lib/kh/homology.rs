@@ -1,14 +1,13 @@
-use std::collections::HashMap;
 use std::ops::{RangeInclusive, Index};
 use delegate::delegate;
 use cartesian::cartesian;
 
-use yui_homology::{isize2, Grid2, GridTrait, RModStr, XHomology, XHomology2, XHomologySummand, XModStr};
+use yui_homology::{isize2, Grid2, GridTrait, XHomology, XHomology2, XHomologySummand, XModStr};
 use yui::{EucRing, EucRingOps};
 use yui_link::Link;
 
-use crate::kh::{KhGen, KhChainExt};
-use crate::misc::range_of;
+use crate::kh::KhGen;
+use crate::misc::{collect_gen_info, range_of};
 
 use super::{KhChain, KhComplex, KhComplexBigraded};
 
@@ -66,7 +65,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         let reduced = self.reduced;
         let canon_cycles = self.canon_cycles.clone();
 
-        let table = self.collect_bigr_gens();
+        let table = collect_gen_info(self.inner());
         let h_range = range_of(table.keys().map(|i| i.0));
         let q_range = range_of(table.keys().map(|i| i.1)).step_by(2);
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
@@ -88,31 +87,6 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         });
 
         KhHomologyBigraded::new_impl(inner, ht, deg_shift, reduced, canon_cycles)
-    }
-
-    fn collect_bigr_gens(&self) -> HashMap<isize2, (usize, Vec<R>, Vec<usize>)> { 
-        let mut table = HashMap::new();
-        let init_entry = (0, vec![], vec![]);
-
-        for i in self.support() { 
-            let h = &self[i];
-            let r = h.rank();
-            let t = h.tors().len();
-
-            for k in 0..r + t { 
-                let z = h.gen_chain(k);
-                let q = z.q_deg();
-                let e = table.entry(isize2(i, q)).or_insert_with(|| init_entry.clone());
-                if k < r { 
-                    e.0 += 1;
-                } else { 
-                    e.1.push(h.tors()[k - r].clone());
-                }
-                e.2.push(k);
-            }
-        }
-
-        table
     }
 }
 
