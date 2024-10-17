@@ -81,6 +81,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.elements = elements.into_iter().collect_vec();
     }
 
+    pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
+        self.h_range = Some(h_range)
+    }
+
     pub fn choose_next(&mut self) -> Option<Crossing> { 
         let Some((i, _)) = self.crossings.iter().enumerate().max_by_key(|(_, x)|
             count_loops(&self.complex, x)
@@ -560,13 +564,11 @@ mod tests {
 
     #[test]
     fn drop_by_hrange() { 
-        // init_logger(log::LevelFilter::Info);
-
         let l = Link::load("8_3").unwrap();
         let range = -1..=1;
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
-        b.h_range = Some(range.clone());
 
+        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
+        b.set_h_range(range.clone());
         b.process_all();
 
         let c = b.into_tng_complex().into_kh_complex(vec![]);
@@ -578,22 +580,4 @@ mod tests {
         assert_eq!(h[0].rank(), 4);
         assert_eq!(h[0].tors(), &[2]);
     }
-
-    fn init_logger(l: log::LevelFilter) { 
-        use simplelog::*;
-    
-        let mut cb = simplelog::ConfigBuilder::new();
-        cb.set_location_level(LevelFilter::Off);
-        cb.set_target_level(LevelFilter::Off);
-        cb.set_thread_level(LevelFilter::Off);
-        cb.set_level_color(Level::Trace, Some(Color::Green));
-        let config = cb.build();
-    
-        TermLogger::init(
-            l,
-            config,
-            TerminalMode::Mixed,
-            ColorChoice::Always
-        ).unwrap();
-    }    
 }
