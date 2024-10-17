@@ -3,7 +3,7 @@ use std::ops::RangeInclusive;
 
 use yui::lc::{Gen, Lc};
 use yui::{EucRing, EucRingOps, Ring, RingOps};
-use yui_homology::{isize2, Grid1, RModStr, XModStr};
+use yui_homology::{isize2, Grid1, SummandTrait, Summand};
 use yui_matrix::sparse::SpVec;
 
 use crate::kh::KhChainExt;
@@ -49,7 +49,7 @@ where Idx: Ord + Default + Copy, Itr: IntoIterator<Item = Idx> {
     min ..= max
 }
 
-pub(crate) fn collect_gen_info<X, R>(grid: &Grid1<XModStr<X, R>>) -> HashMap<isize2, (usize, Vec<R>, Vec<usize>)>
+pub(crate) fn collect_gen_info<X, R>(grid: &Grid1<Summand<X, R>>) -> HashMap<isize2, (usize, Vec<R>, Vec<usize>)>
 where X: Gen, R: Ring, for<'x> &'x R: RingOps<R>, Lc<X, R>: KhChainExt { 
     let mut table = HashMap::new();
     let init_entry = (0, vec![], vec![]);
@@ -59,7 +59,7 @@ where X: Gen, R: Ring, for<'x> &'x R: RingOps<R>, Lc<X, R>: KhChainExt {
         let t = h.tors().len();
 
         for k in 0..r + t { 
-            let z = h.gen_chain(k);
+            let z = h.gen(k);
             let q = z.q_deg();
             let e = table.entry(isize2(i, q)).or_insert_with(|| init_entry.clone());
             if k < r { 

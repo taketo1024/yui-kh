@@ -2,7 +2,7 @@ use std::ops::{Index, RangeInclusive};
 use cartesian::cartesian;
 use delegate::delegate;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{isize2, Grid2, GridTrait, XHomology, XHomologySummand, XModStr};
+use yui_homology::{isize2, Grid2, GridTrait, Homology, Summand};
 use yui_link::InvLink;
 use crate::khi::{KhIComplex, KhIGen};
 use crate::misc::{collect_gen_info, range_of};
@@ -12,7 +12,7 @@ use super::KhIChain;
 #[derive(Clone)]
 pub struct KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology<KhIGen, R>,
+    inner: Homology<KhIGen, R>,
     canon_cycles: Vec<KhIChain<R>>
 }
 
@@ -23,7 +23,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         Self::from(&c)
     }
 
-    pub(crate) fn new_impl(inner: XHomology<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>) -> Self {
+    pub(crate) fn new_impl(inner: Homology<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>) -> Self {
         Self { inner, canon_cycles }
     }
 
@@ -35,7 +35,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         &self.canon_cycles
     }
 
-    pub fn inner(&self) -> &XHomology<KhIGen, R> { 
+    pub fn inner(&self) -> &Homology<KhIGen, R> { 
         &self.inner
     }
 
@@ -46,7 +46,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         )
     }
 
-    pub fn into_bigraded(self) -> Grid2<XModStr<KhIGen, R>> { 
+    pub fn into_bigraded(self) -> Grid2<Summand<KhIGen, R>> { 
         let table = collect_gen_info(self.inner());
         let h_range = range_of(table.keys().map(|i| i.0));
         let q_range = range_of(table.keys().map(|i| i.1)).step_by(2);
@@ -57,15 +57,13 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         Grid2::generate(support, move |idx| { 
             let i = idx.0;
             let Some(e) = table.get(&idx) else { 
-                return XModStr::zero()
+                return Summand::zero()
             };
             
             let (rank, tors, indices) = e;
-            let gens = self[i].gens().clone(); 
-            let trans = self[i].trans().map(|t|
-                t.sub(indices)
-            );
-            XModStr::new(gens, *rank, tors.clone(), trans)
+            let gens = self[i].raw_gens().clone(); 
+            let trans = self[i].trans().sub(indices);
+            Summand::new(gens, *rank, tors.clone(), trans)
         })
     }
 }
@@ -74,7 +72,7 @@ impl<R> From<&KhIComplex<R>> for KhIHomology<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     fn from(c: &KhIComplex<R>) -> Self {
         KhIHomology::new_impl(
-            c.inner().reduced().homology(true), 
+            c.inner().reduced().homology(), 
             c.canon_cycles().iter().cloned().collect()
         )
     }
@@ -83,7 +81,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> GridTrait<isize> for KhIHomology<R>
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     type Itr = std::vec::IntoIter<isize>;
-    type Output = XHomologySummand<KhIGen, R>;
+    type Output = Summand<KhIGen, R>;
 
     delegate! { 
         to self.inner { 
@@ -96,7 +94,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
 impl<R> Index<isize> for KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    type Output = XHomologySummand<KhIGen, R>;
+    type Output = Summand<KhIGen, R>;
 
     delegate! { 
         to self.inner { 
@@ -112,7 +110,7 @@ mod tests {
     use yui::poly::HPoly;
     use yui::FF2;
     use num_traits::{Zero, One};
-    use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
+    use yui_homology::{ChainComplexTrait, DisplaySeq, DisplayTable, SummandTrait};
     use yui_link::Link;
     use super::*;
 
