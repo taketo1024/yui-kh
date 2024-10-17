@@ -26,6 +26,10 @@ impl TngKey {
         Self { state: State::empty(), label: KhLabel::empty() }
     }
 
+    pub fn weight(&self) -> usize { 
+        self.state.weight()
+    }
+
     fn append(&mut self, other: TngKey) { 
         self.state.append(other.state);
         self.label.append(other.label);
@@ -196,10 +200,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn rank(&self, i: isize) -> usize { 
         let i0 = self.deg_shift.0;
-        self.vertices.keys().filter(|k| {
-            let w = k.state.weight() as isize;
-            w == i - i0
-        }).count()
+        if i >= i0 { 
+            self.keys_of_weight((i - i0) as usize).count()
+        } else { 
+            0
+        }
     }
 
     pub fn crossing(&self, i: usize) -> &Crossing {
@@ -219,7 +224,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn keys_of_weight(&self, w: usize) -> impl Iterator<Item = &TngKey> { 
-        self.vertices.keys().filter(move |k| k.state.weight() == w).sorted()
+        self.vertices.keys().filter(move |k| k.weight() == w).sorted()
     }
 
     pub fn keys_into(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
@@ -230,7 +235,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertex(k).out_edges()
     }
 
-    fn remove_vertex(&mut self, k: &TngKey) { 
+    pub fn remove_vertex(&mut self, k: &TngKey) { 
         let in_edges = self.keys_into(k).cloned().collect_vec();
         let out_edges = self.keys_out_from(k).cloned().collect_vec();
 
