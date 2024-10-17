@@ -21,6 +21,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     crossings: Vec<Crossing>,
     complex: TngComplex<R>,
     elements: Vec<BuildElem<R>>,
+    max_dim: usize,
     h_range: Option<RangeInclusive<isize>>,
     pub auto_deloop: bool,
     pub auto_elim: bool
@@ -29,7 +30,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> From<TngComplex<R>> for TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     fn from(complex: TngComplex<R>) -> Self {
-        Self { crossings: vec![], complex, elements: vec![], h_range: None, auto_deloop: true, auto_elim: true }
+        let max_dim = complex.dim();
+        Self { 
+            crossings: vec![], 
+            complex, 
+            elements: vec![], 
+            max_dim, 
+            h_range: None, 
+            auto_deloop: true, 
+            auto_elim: true 
+        }
     }
 }
 
@@ -48,6 +58,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let mut b = Self::init(h, t, deg_shift, base_pt);
         b.set_crossings(l.data().clone());
+        b.max_dim = l.crossing_num();
 
         if t.is_zero() && l.is_knot() {
             let canon = Self::make_canon_cycles(l, base_pt);
@@ -153,7 +164,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let Some(h_range) = &self.h_range else { return };
 
         let i0 = self.complex.deg_shift().0;
-        let remain = self.crossings.iter().filter(|x| !x.is_resolved()).count();
+        let remain = self.max_dim - self.complex.dim();
 
         let drop = self.complex.iter_verts().map(|(&k, _)| k).filter(|k| 
             i0 + ((k.weight() + remain) as isize) < *h_range.start() || 
@@ -164,6 +175,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             info!("drop {}", self.complex.vertex(&k));
             self.complex.remove_vertex(&k);
         }
+
+        // TODO drop elements
     }
 
     pub fn find_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
