@@ -3,7 +3,7 @@ use crate::app::err::*;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
-use yui_homology::DisplaySeq;
+use yui_homology::DisplayTable;
 use yui_homology::{ChainComplexCommon, DisplayForGrid, GridTrait, RModStr};
 use yui_kh::kh::KhChainExt;
 use yui_kh::khi::KhIComplex;
@@ -74,25 +74,25 @@ where
         }
     
         let l = load_sinv_knot(&self.args.link, self.args.mirror)?;
-        let ckh = KhIComplex::new(&l, &h, &t, self.args.reduced);
+        let ckhi = KhIComplex::new(&l, &h, &t, self.args.reduced);
         
         // CKh generators
-        self.out(&ckh.display_seq("i"));
+        self.out(&ckhi.gen_grid().display_table("i", "j"));
 
         // Generators
         if self.args.show_gens { 
-            self.show_gens(&ckh);
+            self.show_gens(&ckhi);
         }
 
         // Diff
         if self.args.show_diff { 
             let bigraded = h.is_zero() && t.is_zero();
-            self.show_diff(&ckh, bigraded);
+            self.show_diff(&ckhi, bigraded);
         }
     
         // Alpha
         if self.args.show_alpha { 
-            self.show_alpha(&ckh);
+            self.show_alpha(&ckhi);
         }
 
         let res = self.flush();

@@ -155,22 +155,25 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         )
     }
 
-    pub fn into_bigraded(self) -> XChainComplex2<KhIGen, R> {
-        // TODO assert h == 0
-
+    pub fn gen_grid(&self) -> Grid2<XModStr<KhIGen, R>> {
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
             isize2(i, j)
         );
 
-        let summands = Grid2::generate(support, |idx| { 
+        Grid2::generate(support, |idx| { 
             let isize2(i, j) = idx;
             let gens = self[i].gens().iter().filter(|x| { 
                 x.q_deg() == j
             }).cloned();
             XModStr::free(gens)
-        });
+        })
+    }
+
+    pub fn into_bigraded(self) -> XChainComplex2<KhIGen, R> {
+        // TODO assert h == 0
+        let summands = self.gen_grid();
 
         XChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
             let i = idx.0;
