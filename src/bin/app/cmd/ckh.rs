@@ -190,7 +190,7 @@ mod tests {
         fn test_zpoly_t() {
             let args = Args {
                 link: "3_1".to_string(),
-                c_value: "T".to_string(),
+                c_value: "0,T".to_string(),
                 c_type: CType::Z,
                 ..Default::default()
             };
