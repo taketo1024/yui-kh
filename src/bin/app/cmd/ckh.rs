@@ -74,7 +74,7 @@ where
         let ckh = KhComplex::new(&l, &h, &t, self.args.reduced);
         
         // CKh generators
-        self.out(&ckh.gen_table().display_table("i", "j"));
+        self.out(&ckh.gen_grid().display_table("i", "j"));
 
         // Generators
         if self.args.show_gens { 
