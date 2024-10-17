@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use cartesian::cartesian;
 
 use itertools::Itertools;
-use log::info;
+use log::{debug, info};
 use yui::bitseq::Bit;
 use yui::{Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
@@ -65,7 +65,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let (on_axis, off_axis) = Self::separate_crossings(l);
 
         let elements = if t.is_zero() && l.link().is_knot() {
-            TngComplexBuilder::make_canon_cycles(l.link(), l.base_pt(), reduced)
+            TngComplexBuilder::make_canon_cycles(l.link(), base_pt, reduced)
         } else { 
             vec![]
         };
@@ -150,6 +150,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         info!("process on-axis: {:?}", self.on_axis);
         
         while let Some(x) = self.choose_next() { 
+            info!("(n: {}, v: {}) append: {x}", self.complex.dim(), self.complex.nverts());
+
             self.append_x(&x);
 
             for e in self.elements.iter_mut() { 
@@ -235,7 +237,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.is_sym_key(k));
         assert!(self.is_sym_comp(c));
 
-        info!("deloop sym: {c} in {}", self.complex.vertex(&k));
+        info!("(n: {}, v: {}) deloop sym:", self.complex.dim(), self.complex.nverts());
+        info!("  {c} in {}", self.complex.vertex(&k));
 
         let updated = self.deloop_at(k, r);
 
@@ -262,7 +265,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let tc = c.convert_edges(|e| self.inv_e(e));
 
-        info!("deloop asym: {c} <--> {tc} in {}", self.complex.vertex(&k));
+        info!("(n: {}, v: {}) deloop asym:", self.complex.dim(), self.complex.nverts());
+        info!("  {c} <--> {tc} in {}", self.complex.vertex(&k));
 
         let ks = self.deloop_at(k, r);
 
@@ -300,7 +304,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let tc = c.convert_edges(|e| self.inv_e(e));
         let tr = self.complex.vertex(&tk).tng().index_of(&tc).unwrap();
 
-        info!("deloop parallel:");
+        info!("(n: {}, v: {}) deloop parallel:", self.complex.dim(), self.complex.nverts());
         info!("  {c} in {}", self.complex.vertex(&k));
         info!("  {tc} in {}", self.complex.vertex(&tk));
 
@@ -319,9 +323,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn deloop_at(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         let c = self.complex.vertex(k).tng().comp(r);
 
-        self.elements.iter_mut().for_each(|e| {
+        for (idx, e) in self.elements.iter_mut().enumerate() {
+            debug!("  e[{idx}] {e}");
+            
             e.deloop(k, c);
-        });
+            
+            debug!("    -> {e}");
+        };
 
         self.complex.deloop(k, r)
     }
@@ -377,7 +385,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.complex.has_edge(&i, &j));
 
         if self.is_sym_key(i) { 
-            info!("eliminate sym: {i} -> {j}: {}", self.complex.edge(i, j));
+            info!("(n: {}, v: {}) eliminate sym:", self.complex.dim(), self.complex.nverts());
+            info!("  {i} -> {j}: {}", self.complex.edge(i, j));
+
             self.eliminate(i, j);
         } else { 
             let ti = *self.inv_key(i);
@@ -385,7 +395,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
             assert!(self.complex.has_edge(&ti, &tj));
 
-            info!("eliminate parallel:");
+            info!("(n: {}, v: {}) eliminate parallel:", self.complex.dim(), self.complex.nverts());
             info!("  {i} -> {j}: {}", self.complex.edge(i, j));
             info!("  {ti} -> {tj}: {}", self.complex.edge(&ti, &tj));
 
@@ -408,11 +418,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
         let a = self.complex.edge(i, j);
-        for e in self.elements.iter_mut() { 
+        for (idx, e) in self.elements.iter_mut().enumerate() { 
+            debug!("  e[{idx}] {e}");
+            
             let i_out = self.complex.keys_out_from(i).map(|k| 
                 (k, self.complex.edge(i, k))
             );
             e.eliminate(i, j, a, i_out);
+            
+            debug!("    -> {e}");
         }
     }
 
