@@ -5,7 +5,8 @@ use delegate::delegate;
 use yui::{EucRing, EucRingOps};
 use yui_homology::{isize2, Grid2, GridTrait, RModStr, XHomology, XHomologySummand, XModStr};
 use yui_link::InvLink;
-use crate::khi::{KhIChainExt, KhIComplex, KhIGen};
+use crate::kh::KhChainExt;
+use crate::khi::{KhIComplex, KhIGen};
 use crate::misc::range_of;
 
 #[derive(Clone)]

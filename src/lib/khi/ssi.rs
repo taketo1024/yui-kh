@@ -11,8 +11,9 @@ use yui_homology::RModStr;
 use yui::{EucRing, EucRingOps};
 use yui_link::InvLink;
 
+use crate::kh::KhChainExt;
 use crate::misc::div_vec;
-use crate::khi::{KhIChainExt, KhIComplex};
+use crate::khi::KhIComplex;
 
 pub fn ssi_invariants<R>(l: &InvLink, c: &R, reduced: bool) -> (i32, i32)
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
