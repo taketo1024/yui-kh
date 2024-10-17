@@ -36,26 +36,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
-        let mut b = Self::new(l, h, t, reduced);
+        let base_pt = if reduced { l.first_edge() } else { None };
+        let mut b = Self::new(l, h, t, base_pt);
         b.process_all();
-
-        let canon_cycles = b.eval_elements();
-        let complex = b.into_tng_complex().into_kh_complex(canon_cycles);
-
-        complex
+        b.into_kh_complex()
     }
 
-    pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
-        assert!(!reduced || l.components().len() > 0);
-
+    pub fn new(l: &Link, h: &R, t: &R, base_pt: Option<Edge>) -> Self { 
+        let reduced = base_pt.is_some();
         let deg_shift = KhComplex::deg_shift_for(l, reduced);
-        let base_pt = reduced.then(|| l.first_edge().unwrap());
 
         let mut b = Self::init(h, t, deg_shift, base_pt);
         b.set_crossings(l.data().clone());
 
         if t.is_zero() && l.is_knot() {
-            let canon = Self::make_canon_cycles(l, base_pt, reduced);
+            let canon = Self::make_canon_cycles(l, base_pt);
             b.set_elements(canon);
         }
 
@@ -148,7 +143,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         })
     }
 
-    pub fn deloop(&mut self, k: &TngKey, r: usize) {
+    pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex.vertex(k).tng().comp(r);
 
         info!("(n: {}, v: {}) deloop: {c} in {}", self.complex.dim(), self.complex.nverts(), self.complex.vertex(k));
@@ -164,11 +159,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let keys = self.complex.deloop(k, r);
 
         if self.auto_elim { 
-            for k in keys.iter() { 
-                if let Some((i, j)) = self.find_inv_edge(k) { 
+            for k in keys { 
+                if let Some((i, j)) = self.find_inv_edge(&k) { 
                     self.eliminate(&i, &j)
                 }
             }
+            vec![]
+        } else { 
+            keys
         }
     }
 
@@ -219,18 +217,27 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }    
     }
 
-    pub(crate) fn take_elements(&mut self) -> Vec<BuildElem<R>> {
-        std::mem::take(&mut self.elements)
+    pub(crate) fn complex_mut(&mut self) -> &mut TngComplex<R> { 
+        &mut self.complex
+    }
+
+    pub(crate) fn elements_mut(&mut self) -> &mut Vec<BuildElem<R>> {
+        &mut self.elements
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.complex
     }
 
-    pub(crate) fn make_canon_cycles(l: &Link, base_pt: Option<Edge>, reduced: bool) -> Vec<BuildElem<R>> { 
-        assert!(l.is_knot());
-        assert!(!reduced || base_pt.is_some());
+    pub fn into_kh_complex(self) -> KhComplex<R> { 
+        let canon_cycles = self.eval_elements();
+        self.into_tng_complex().into_kh_complex(canon_cycles)
+    }
 
+    pub(crate) fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<BuildElem<R>> { 
+        assert!(l.is_knot());
+
+        let reduced = base_pt.is_some();
         let start_p = base_pt.or(l.first_edge()).unwrap();
         let circles = l.colored_seifert_circles(start_p);
 
@@ -567,7 +574,7 @@ mod tests {
         let l = Link::load("8_3").unwrap();
         let range = -1..=1;
 
-        let mut b = TngComplexBuilder::new(&l, &0, &0, false);
+        let mut b = TngComplexBuilder::new(&l, &0, &0, None);
         b.set_h_range(range.clone());
         b.process_all();
 
