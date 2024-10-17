@@ -1,7 +1,7 @@
-use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::{Add, AddAssign};
 
+use ahash::{AHashMap, AHashSet};
 use auto_impl_ops::auto_ops;
 use itertools::Itertools;
 use num_traits::Zero;
@@ -73,8 +73,8 @@ pub struct TngVertex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     key: TngKey,
     tng: Tng,
-    in_edges: HashSet<TngKey>,
-    out_edges: HashMap<TngKey, LcCob<R>>
+    in_edges: AHashSet<TngKey>,
+    out_edges: AHashMap<TngKey, LcCob<R>>
 }
 
 impl<R> TngVertex<R>
@@ -82,8 +82,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn init() -> Self { 
         let key = TngKey::init();
         let tng = Tng::empty();
-        let in_edges = HashSet::new();
-        let out_edges = HashMap::new();
+        let in_edges = AHashSet::new();
+        let out_edges = AHashMap::new();
         Self { key, tng, in_edges, out_edges }
     }
 
@@ -124,19 +124,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     ht: (R, R),
     deg_shift: (isize, isize),
     base_pt: Option<Edge>,
-    vertices: HashMap<TngKey, TngVertex<R>>,
+    vertices: AHashMap<TngKey, TngVertex<R>>,
     crossings: Vec<Crossing>,
 }
 
 impl<R> TngComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, vertices: HashMap<TngKey, TngVertex<R>>, crossings: Vec<Crossing>) -> Self { 
+    fn new(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, vertices: AHashMap<TngKey, TngVertex<R>>, crossings: Vec<Crossing>) -> Self { 
         let ht = (h.clone(), t.clone());
         TngComplex{ ht, deg_shift, base_pt, vertices, crossings }
     }
 
     pub fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
-        let mut vertices = HashMap::new();
+        let mut vertices = AHashMap::new();
         let k0 = TngKey::init();
         let v0 = TngVertex::init();
         vertices.insert(k0, v0);
@@ -145,7 +145,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn from_crossing(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, x: &Crossing) -> Self { 
-        let mut _self = Self::new(h, t, deg_shift, base_pt, HashMap::new(), vec![]);
+        let mut _self = Self::new(h, t, deg_shift, base_pt, AHashMap::new(), vec![]);
 
         if x.is_resolved() { 
             let mut v = TngVertex::init();
