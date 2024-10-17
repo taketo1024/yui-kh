@@ -102,7 +102,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn process_off_axis(&mut self) { 
-        info!("process off-axis: {:?}", self.off_axis);
+        info!("process off-axis: [{}]", self.off_axis.iter().join(", "));
 
         // process half
         let off_axis = std::mem::take(&mut self.off_axis);
@@ -141,7 +141,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn process_on_axis(&mut self) { 
-        info!("process on-axis: {:?}", self.on_axis);
+        info!("process on-axis: [{}]", self.on_axis.iter().join(", "));
         
         let on_axis = std::mem::take(&mut self.on_axis);
         self.inner.set_crossings(on_axis);
@@ -151,12 +151,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.append_x(&x);
 
             while let Some((k, r)) = self.inner.find_loop(false) { 
-                let updated = self.deloop_equiv(&k, r);
-                for k in updated { 
-                    if let Some((i, j)) = self.find_equiv_inv_edge(&k) { 
-                        self.eliminate_equiv(&i, &j);
-                    }
-                }
+                self.deloop_equiv(&k, r);
             }
         }
     }
@@ -177,7 +172,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }).collect();
     }
 
-    fn deloop_equiv(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
+    fn deloop_equiv(&mut self, k: &TngKey, r: usize) { 
         let c = self.complex().vertex(&k).tng().comp(r);
 
         let updated = if self.is_sym_key(&k) { 
@@ -197,7 +192,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.validate_equiv();
         }
 
-        updated
+        for k in updated { 
+            if let Some((i, j)) = self.find_equiv_inv_edge(&k) { 
+                self.eliminate_equiv(&i, &j);
+            }
+        }
     }
 
     fn deloop_sym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
@@ -375,6 +374,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.complex().is_finalizable());
         
         let deg_shift = self.complex().deg_shift();
+        let h_range = self.inner.h_range();
         let key_map = std::mem::take(&mut self.key_map);
 
         let map = move |x: &KhGen| -> KhGen { 
@@ -385,7 +385,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let c = self.into_kh_complex();
-        KhIComplex::from_kh_complex(c, map)
+        let ci = KhIComplex::from_kh_complex(c, map);
+
+        if let Some(h_range) = h_range { 
+            ci.truncated(h_range)
+        } else { 
+            ci
+        }
     }
 
     fn inv_e(&self, e: Edge) -> Edge { 
@@ -492,5 +498,29 @@ mod tests {
         assert_eq!(h[2].rank(), 2);
         assert_eq!(h[3].rank(), 4);
         assert_eq!(h[4].rank(), 2);
+    }
+
+    #[test]
+    fn test_khi_4_1_partial() { 
+        let l = InvLink::load("6_3").unwrap();
+        let (h, t) = (FF2::zero(), FF2::zero());
+        let range = -2..=2;
+
+        let mut b = SymTngBuilder::new(&l, &h, &t, false);
+        b.set_h_range(range.clone());
+        b.process_all();
+
+        assert!(b.complex().is_finalizable());
+        assert!(b.inner.elements().all(|e| e.is_evalable()));
+
+        let c = b.into_khi_complex();
+
+        assert!(c.h_range().all(|i| range.contains(&i) || c[i].is_zero()));
+
+        let h = c.homology();
+
+        assert!(h.h_range().all(|i| range.contains(&i) || h[i].is_zero()));
+        assert_eq!(h[0].rank(), 10);
+        assert_eq!(h[1].rank(), 10);
     }
 }
