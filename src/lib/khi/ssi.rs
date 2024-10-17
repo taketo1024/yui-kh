@@ -7,7 +7,7 @@ use itertools::Itertools;
 use num_traits::Zero;
 use log::info;
 
-use yui_homology::RModStr;
+use yui_homology::SummandTrait;
 use yui::{EucRing, EucRingOps};
 use yui_link::InvLink;
 

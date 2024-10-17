@@ -5,7 +5,7 @@ use delegate::delegate;
 use itertools::Itertools;
 use yui::lc::Lc;
 use yui::{EucRing, EucRingOps, Ring, RingOps};
-use yui_homology::{isize2, ChainComplexTrait, Grid1, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
+use yui_homology::{isize2, ChainComplexTrait, Grid1, Grid2, GridTrait, ChainComplex, ChainComplex2, Summand};
 use yui_link::InvLink;
 use yui_matrix::sparse::SpMat;
 
@@ -27,12 +27,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-pub type KhIComplexSummand<R> = XChainComplexSummand<KhIGen, R>;
+pub type KhIComplexSummand<R> = Summand<KhIGen, R>;
 
 #[derive(Clone)]
 pub struct KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
-    inner: XChainComplex<KhIGen, R>,
+    inner: ChainComplex<KhIGen, R>,
     canon_cycles: Vec<KhIChain<R>>,
     deg_shift: (isize, isize)
 }
@@ -94,9 +94,9 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         }).sorted_by_key(|z| z.h_deg()).collect_vec();
 
         let summands = Grid1::generate(h_range, |i| { 
-            let b_gens = c[i].gens().iter().map(|x| KhIGen::B(*x));
-            let q_gens = c[i - 1].gens().iter().map(|x| KhIGen::Q(*x));
-            XModStr::free(b_gens.chain(q_gens))
+            let b_gens = c[i].raw_gens().iter().map(|x| KhIGen::B(*x));
+            let q_gens = c[i - 1].raw_gens().iter().map(|x| KhIGen::Q(*x));
+            Summand::from_raw_gens(Iterator::chain(b_gens, q_gens))
         });
 
         let d = move |i: isize, x: &KhIGen| -> KhIChain<R> { 
@@ -118,18 +118,18 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             }
         };
 
-        let inner = XChainComplex::new(summands, 1, move |i, z| { 
+        let inner = ChainComplex::new(summands, 1, move |i, z| { 
             z.apply(|x| d(i, x))
         });
 
         KhIComplex::new_impl(inner, canon_cycles, deg_shift)
     }
 
-    pub(crate) fn new_impl(inner: XChainComplex<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>, deg_shift: (isize, isize)) -> Self { 
+    pub(crate) fn new_impl(inner: ChainComplex<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>, deg_shift: (isize, isize)) -> Self { 
         Self { inner, canon_cycles, deg_shift }
     }
 
-    pub fn inner(&self) -> &XChainComplex<KhIGen, R> {
+    pub fn inner(&self) -> &ChainComplex<KhIGen, R> {
         &self.inner
     }
 
@@ -139,7 +139,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
     pub fn q_range(&self) -> RangeInclusive<isize> {
         range_of(self.support().flat_map(|i| 
-            self[i].gens().iter().map(|x| x.q_deg())
+            self[i].raw_gens().iter().map(|x| x.q_deg())
         ))
     }
 
@@ -155,7 +155,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         )
     }
 
-    pub fn gen_grid(&self) -> Grid2<XModStr<KhIGen, R>> {
+    pub fn gen_grid(&self) -> Grid2<Summand<KhIGen, R>> {
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
@@ -164,18 +164,18 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 
         Grid2::generate(support, |idx| { 
             let isize2(i, j) = idx;
-            let gens = self[i].gens().iter().filter(|x| { 
+            let gens = self[i].raw_gens().iter().filter(|x| { 
                 x.q_deg() == j
             }).cloned();
-            XModStr::free(gens)
+            Summand::from_raw_gens(gens)
         })
     }
 
-    pub fn into_bigraded(self) -> XChainComplex2<KhIGen, R> {
+    pub fn into_bigraded(self) -> ChainComplex2<KhIGen, R> {
         // TODO assert h == 0
         let summands = self.gen_grid();
 
-        XChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
+        ChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
             let i = idx.0;
             let x = KhIChain::from(x.clone());
             let dx = self.d(i, &x);
@@ -239,7 +239,7 @@ if #[cfg(feature = "old")] {
         use yui::poly::HPoly;
         use yui::FF2;
         use num_traits::{Zero, One};
-        use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
+        use yui_homology::{ChainComplexTrait, DisplaySeq, DisplayTable, SummandTrait};
         use yui_link::Link;
         use super::*;
     
@@ -469,7 +469,7 @@ if #[cfg(feature = "old")] {
         use yui::poly::HPoly;
         use yui::FF2;
         use num_traits::{Zero, One};
-        use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq, DisplayTable, RModStr};
+        use yui_homology::{ChainComplexTrait, DisplaySeq, DisplayTable, SummandTrait};
         use yui_link::Link;
         use super::*;
     

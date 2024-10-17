@@ -5,7 +5,7 @@ use delegate::delegate;
 use yui::lc::Lc;
 use yui::{Ring, RingOps, EucRing, EucRingOps};
 use yui_link::Link;
-use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
+use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, ChainComplex, ChainComplex2, Summand};
 use yui_matrix::sparse::SpMat;
 
 use crate::kh::{KhGen, KhHomology, KhHomologyBigraded};
@@ -28,12 +28,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 }
 
-pub type KhComplexSummand<R> = XChainComplexSummand<KhGen, R>;
+pub type KhComplexSummand<R> = Summand<KhGen, R>;
 
 #[derive(Clone)]
 pub struct KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    inner: XChainComplex<KhGen, R>,
+    inner: ChainComplex<KhGen, R>,
     ht: (R, R),
     deg_shift: (isize, isize),
     reduced: bool,
@@ -84,7 +84,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         KhComplex::new_impl(complex, ht, deg_shift, reduced, canon_cycles)
     }
 
-    pub(crate) fn new_impl(inner: XChainComplex<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
+    pub(crate) fn new_impl(inner: ChainComplex<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
         KhComplex { inner, ht, deg_shift, reduced, canon_cycles }
     }
 
@@ -106,7 +106,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn q_range(&self) -> RangeInclusive<isize> {
         range_of(self.support().flat_map(|i| 
-            self[i].gens().iter().map(|x| x.q_deg())
+            self[i].raw_gens().iter().map(|x| x.q_deg())
         ))
     }
 
@@ -114,7 +114,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.canon_cycles
     }
 
-    pub fn inner(&self) -> &XChainComplex<KhGen, R> {
+    pub fn inner(&self) -> &ChainComplex<KhGen, R> {
         &self.inner
     }
 
@@ -128,7 +128,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
-    pub fn gen_grid(&self) -> Grid2<XModStr<KhGen, R>> { 
+    pub fn gen_grid(&self) -> Grid2<Summand<KhGen, R>> { 
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
@@ -137,10 +137,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         Grid2::generate(support, |idx| { 
             let isize2(i, j) = idx;
-            let gens = self[i].gens().iter().filter(|x| { 
+            let gens = self[i].raw_gens().iter().filter(|x| { 
                 x.q_deg() == j
             }).cloned();
-            XModStr::free(gens)
+            Summand::from_raw_gens(gens)
         })
     }
 
@@ -153,7 +153,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let canon_cycles = self.canon_cycles.clone();
         let summands = self.gen_grid();
 
-        let inner = XChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
+        let inner = ChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
             let i = idx.0;
             let x = KhChain::from(x.clone());
             let dx = self.d(i, &x);
@@ -229,7 +229,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 #[derive(Clone)]
 pub struct KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    inner: XChainComplex2<KhGen, R>,
+    inner: ChainComplex2<KhGen, R>,
     ht: (R, R),
     deg_shift: (isize, isize),
     reduced: bool,
@@ -246,7 +246,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn new_impl(
-        inner: XChainComplex2<KhGen, R>,
+        inner: ChainComplex2<KhGen, R>,
         ht: (R, R),
         deg_shift: (isize, isize),
         reduced: bool,
@@ -279,7 +279,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.canon_cycles
     }
 
-    pub fn inner(&self) -> &XChainComplex2<KhGen, R> {
+    pub fn inner(&self) -> &ChainComplex2<KhGen, R> {
         &self.inner
     }
 }
@@ -335,7 +335,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 cfg_if::cfg_if! { 
 if #[cfg(feature = "old")] { 
     mod tests_v1 {
-        use yui_homology::{RModStr, ChainComplexCommon};
+        use yui_homology::{SummandTrait, ChainComplexTrait};
         use yui_link::Link;
     
         use super::KhComplex;
@@ -372,7 +372,7 @@ if #[cfg(feature = "old")] {
     }    
 } else { 
     mod tests_v2 {
-        use yui_homology::{ChainComplexCommon, RModStr};
+        use yui_homology::{ChainComplexTrait, SummandTrait};
         use yui_link::Link;
     
         use crate::kh::KhComplexBigraded;
