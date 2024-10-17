@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ops::{RangeInclusive, Index};
 use cartesian::cartesian;
 
@@ -6,7 +5,7 @@ use delegate::delegate;
 use yui::lc::Lc;
 use yui::{Ring, RingOps, EucRing, EucRingOps};
 use yui_link::Link;
-use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, RModStr, SimpleRModStr, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
+use yui_homology::{isize2, ChainComplexTrait, Grid2, GridTrait, XChainComplex, XChainComplex2, XChainComplexSummand, XModStr};
 use yui_matrix::sparse::SpMat;
 
 use crate::kh::{KhGen, KhHomology, KhHomologyBigraded};
@@ -129,33 +128,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
-    pub fn gen_table(&self) -> Grid2<SimpleRModStr<R>> { 
+    pub fn gen_grid(&self) -> Grid2<XModStr<KhGen, R>> { 
         let h_range = self.h_range();
         let q_range = self.q_range().step_by(2);
         let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
             isize2(i, j)
         );
 
-        let mut table: HashMap<isize2, (usize, Vec<R>)> = HashMap::new();
-        let e = (0, vec![]);
-
-        for i in self.support() { 
-            let c = &self[i];
-            let r = c.rank();
-
-            for k in 0..r { 
-                let z = c.gens()[k];
-                let q = z.q_deg();
-                let e = table.entry(isize2(i, q)).or_insert_with(|| e.clone());
-                e.0 += 1;
-            }
-        }
-
-        Grid2::generate(support, move |idx| { 
-            let Some(e) = table.remove(&idx) else { 
-                return SimpleRModStr::zero()
-            };
-            SimpleRModStr::new(e.0, e.1, None)
+        Grid2::generate(support, |idx| { 
+            let isize2(i, j) = idx;
+            let gens = self[i].gens().iter().filter(|x| { 
+                x.q_deg() == j
+            }).cloned();
+            XModStr::free(gens)
         })
     }
 
@@ -163,24 +148,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert_eq!(self.ht(), &(R::zero(), R::zero()));
 
         let ht = self.ht.clone();
-        let reduced = self.reduced;
-
-        let h_range = self.h_range();
-        let q_range = self.q_range().step_by(2);
         let deg_shift = self.deg_shift;
-        let support = cartesian!(h_range, q_range.clone()).map(|(i, j)| 
-            isize2(i, j)
-        );
-
-        let summands = Grid2::generate(support, |idx| { 
-            let isize2(i, j) = idx;
-            let gens = self[i].gens().iter().filter(|x| { 
-                x.q_deg() == j
-            }).cloned();
-            XModStr::free(gens)
-        });
-
+        let reduced = self.reduced;
         let canon_cycles = self.canon_cycles.clone();
+        let summands = self.gen_grid();
 
         let inner = XChainComplex2::new(summands, isize2(1, 0), move |idx, x| { 
             let i = idx.0;
