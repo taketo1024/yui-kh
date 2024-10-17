@@ -39,7 +39,7 @@ fn k15n_103488() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     assert_eq!(ssi, (0, 2));
 }
@@ -56,7 +56,7 @@ fn knotJ() {
     ]);
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     // good
     assert_eq!(ssi, (0, 2));
@@ -83,9 +83,9 @@ fn k8_8_and_10_129() {
     let c = P::variable();
 
     // not good.
-    assert_eq!(ssi_invariants(&l1, &c), (0, 0));
-    assert_eq!(ssi_invariants(&l2, &c), (0, 0));
-    assert_eq!(ssi_invariants(&l3, &c), (0, 0));
+    assert_eq!(ssi_invariants(&l1, &c, true), (0, 0));
+    assert_eq!(ssi_invariants(&l2, &c, true), (0, 0));
+    assert_eq!(ssi_invariants(&l3, &c, true), (0, 0));
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn k10_71() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     // not good.
     assert_eq!(ssi, (0, 0));
@@ -110,7 +110,7 @@ fn k10_104() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     // not good.
     assert_eq!(ssi, (0, 0));
@@ -127,7 +127,7 @@ fn k13n_1496() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     // not good.
     assert_eq!(ssi, (2, 2));
@@ -145,7 +145,7 @@ fn W4_1() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     // not good.
     assert_eq!(ssi, (0, 0));
@@ -165,7 +165,7 @@ fn W3_1() {
     ).mirror();
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     println!("{ssi:?}");
 }
@@ -184,7 +184,7 @@ fn cable4_1() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c);
+    let ssi = ssi_invariants(&l, &c, true);
 
     println!("{ssi:?}");
 }

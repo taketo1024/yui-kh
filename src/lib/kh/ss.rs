@@ -44,7 +44,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     
     let ds = zs.into_iter().map(|z| {
         let v = kh[0].vectorize(z);
-        info!("{z} -> \n{v}");
+        info!("{z} -> [{}]", v.to_dense().iter().map(|r| r.to_string()).join(","));
         v
     }).map(|v| 
         div_vec(&v, c).expect("invalid divisibility for v = {:?}")
