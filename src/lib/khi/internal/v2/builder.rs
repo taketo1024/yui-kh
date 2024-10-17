@@ -112,7 +112,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let (h, t) = self.complex.ht();
         let elements = std::mem::take(&mut self.elements);
 
-        let mut b = TngComplexBuilder::new(h, t, (0, 0), None); // half off-axis part
+        let mut b = TngComplexBuilder::init(h, t, (0, 0), None); // half off-axis part
         b.set_crossings(self.off_axis.clone());
         b.set_elements(elements);
         b.process_all();
