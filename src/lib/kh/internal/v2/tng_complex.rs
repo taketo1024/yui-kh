@@ -186,6 +186,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.deg_shift
     }
 
+    pub fn set_deg_shift(&mut self, deg_shift: (isize, isize)) {
+        self.deg_shift = deg_shift
+    }
+
     pub fn base_pt(&self) -> Option<Edge> { 
         self.base_pt
     }
@@ -221,6 +225,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn iter_verts(&self) -> impl Iterator<Item = (&TngKey, &TngVertex<R>)> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &TngKey> { 
+        self.vertices.keys().sorted()
     }
 
     pub fn keys_of_weight(&self, w: usize) -> impl Iterator<Item = &TngKey> { 
