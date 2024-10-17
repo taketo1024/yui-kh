@@ -53,3 +53,4 @@ string-builder = "0.2.0"
 serde = { version = "1.0.210", features = ["derive"] }
 cfg-if = "1.0.0"
 itertools = "0.13.0"
+ahash = "0.8.11"
