@@ -791,7 +791,7 @@ impl Display for Cob {
         } else if self.comps.len() == 1 {
             write!(f, "{}", self.comps[0])
         } else { 
-            let cobs = self.comps.iter().map(|c| c.to_string()).join(" ⊔ ");
+            let cobs = self.comps.iter().join(" ⊔ ");
             write!(f, "|{cobs}|")
         }
     }

@@ -47,7 +47,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     for (i, z) in zs.iter().enumerate() { 
         let h = z.h_deg();
         let v = ckh[h].vectorize(z);
-        info!("a[{i}] in CKh[{h}]: {z} -> [{}]", v.to_dense().iter().map(|r| r.to_string()).join(","));
+        info!("a[{i}] in CKh[{h}]: {z} -> [{}]", v.to_dense().iter().join(","));
     }
 
     assert!(zs.iter().all(|z| !z.is_zero()));
@@ -68,8 +68,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     let v0 = kh[0].vectorize(&z0).subvec(0..r);
     let v1 = kh[1].vectorize(&z1).subvec(0..r);
 
-    info!("a0: {z0} -> [{}]", v0.to_dense().iter().map(|r| r.to_string()).join(","));
-    info!("a1: {z1} -> [{}]", v1.to_dense().iter().map(|r| r.to_string()).join(","));
+    info!("a0: {z0} -> [{}]", v0.to_dense().iter().join(","));
+    info!("a1: {z1} -> [{}]", v1.to_dense().iter().join(","));
 
     let Some(d0) = div_vec(&v0, c) else { 
         panic!("invalid divisibility for v = {}, c = {}", v0, c)
