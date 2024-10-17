@@ -519,9 +519,6 @@ if #[cfg(feature = "old")] {
     
             let c = KhIComplex::new(&l, &h, &t, false);
     
-            c.print_seq("i");
-            c.print_d();
-    
             assert_eq!(c.h_range(), 0..=4);
             assert_eq!(c[0].rank(), 2);
             assert_eq!(c[1].rank(), 2);
@@ -605,8 +602,6 @@ if #[cfg(feature = "old")] {
     
             let zs = c.canon_cycles();
 
-            println!("{:?}", zs);
-    
             assert_eq!(zs.len(), 4);
             assert!(zs[0].gens().all(|x| x.h_deg() == 0));
             assert!(zs[1].gens().all(|x| x.h_deg() == 0));
