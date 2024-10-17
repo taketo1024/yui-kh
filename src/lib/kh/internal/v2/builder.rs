@@ -605,7 +605,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 #[cfg(test)]
 mod tests { 
     use num_traits::Zero;
-    use yui_homology::{ChainComplexCommon, RModStr};
+    use yui_homology::{ChainComplexTrait, SummandTrait};
 
     use super::*;
 
@@ -695,7 +695,7 @@ mod tests {
 
         c.check_d_all();
 
-        let h = c.inner().homology(false);
+        let h = c.inner().homology();
 
         for i in [1,6,7,8] {
             assert_eq!(h[i].rank(), 0);

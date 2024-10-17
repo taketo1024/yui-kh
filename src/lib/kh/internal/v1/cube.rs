@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::RangeInclusive;
 use itertools::Itertools;
 use yui::{Ring, RingOps, PowMod2, Sign, GetSign};
-use yui_homology::{XChainComplex, Grid, XModStr};
+use yui_homology::{ChainComplex, Grid, Summand};
 use yui_link::{Link, State, Path, Edge};
 
 use crate::kh::{KhAlgStr, KhChain, KhGen, KhLabel};
@@ -260,13 +260,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub fn into_complex(self) -> XChainComplex<KhGen, R> {
+    pub fn into_complex(self) -> ChainComplex<KhGen, R> {
         let summands = Grid::generate(self.h_range(), |i| { 
             let gens = self.generators(i);
-            XModStr::free(gens.into_iter().cloned())
+            Summand::from_raw_gens(gens.into_iter().cloned())
         });
 
-        XChainComplex::new(summands, 1, move |_, z| { 
+        ChainComplex::new(summands, 1, move |_, z| { 
             z.apply(|x| self.d(x))
         })
     }   

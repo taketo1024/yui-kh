@@ -664,7 +664,7 @@ mod tests {
 
     use yui::FF2;
     use yui::poly::HPoly;
-    use yui_homology::{ChainComplexCommon, DisplaySeq, DisplayTable, RModStr};
+    use yui_homology::{ChainComplexTrait, DisplaySeq, DisplayTable, SummandTrait};
 
     #[test]
     fn test_kh_3_1() { 
@@ -672,9 +672,9 @@ mod tests {
         let (h, t) = (FF2::zero(), FF2::zero());
 
         let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false);
-        c.check_d_all();;
+        c.check_d_all();
 
-        let h = c.inner().homology(false);
+        let h = c.inner().homology();
 
         assert_eq!(h[0].rank(), 2);
         assert_eq!(h[1].rank(), 0);
@@ -710,7 +710,7 @@ mod tests {
         let c = b.into_khi_complex();
         c.check_d_all();;
 
-        let h = c.inner().homology(false);
+        let h = c.inner().homology();
 
         assert_eq!(h[0].rank(), 2);
         assert_eq!(h[1].rank(), 2);

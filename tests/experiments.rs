@@ -5,7 +5,7 @@ use num_traits::Zero;
 use log::*;
 use yui::poly::HPoly;
 use yui::FF2;
-use yui_homology::{ChainComplexCommon, DisplaySeq, DisplayTable};
+use yui_homology::{ChainComplexTrait, DisplaySeq, DisplayTable};
 use yui_kh::khi::internal::v2::builder::SymTngBuilder;
 use yui_link::{Crossing, InvLink, Link};
 use yui_kh::khi::{ssi_invariants, KhIComplex, KhIHomology};

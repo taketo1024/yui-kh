@@ -5,7 +5,7 @@ use itertools::Itertools;
 use yui::bitseq::{Bit, BitSeq};
 use yui::lc::Lc;
 use yui::{Ring, RingOps};
-use yui_homology::{Grid, XChainComplex, XModStr};
+use yui_homology::{Grid, ChainComplex, Summand};
 use yui_link::{InvLink, State};
 
 use crate::kh::{KhGen, KhLabel};
@@ -124,8 +124,8 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         ).collect()
     }
 
-    pub fn summand(&self, i: isize) -> XModStr<KhIGen, R> { 
-        XModStr::free(self.generators(i))
+    pub fn summand(&self, i: isize) -> Summand<KhIGen, R> { 
+        Summand::from_raw_gens(self.generators(i))
     }
 
     pub fn differentiate(&self, z: &Lc<KhIGen, R>) -> Lc<KhIGen, R> { 
@@ -151,8 +151,8 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         }
     }
 
-    pub fn into_complex(self) -> XChainComplex<KhIGen, R> {
-        XChainComplex::new(
+    pub fn into_complex(self) -> ChainComplex<KhIGen, R> {
+        ChainComplex::new(
             Grid::generate(self.h_range(), |i| self.summand(i)),
             1, 
             move |_, z| self.differentiate(z)
@@ -167,7 +167,7 @@ mod tests {
     use yui::poly::Poly;
     use yui::FF2;
     use num_traits::{Zero, One};
-    use yui_homology::{ChainComplexCommon, ChainComplexTrait, DisplaySeq};
+    use yui_homology::{ChainComplexTrait, DisplaySeq};
     use yui_link::Link;
     use crate::kh::{KhAlgGen, KhAlgGen::*, KhHomology};
 

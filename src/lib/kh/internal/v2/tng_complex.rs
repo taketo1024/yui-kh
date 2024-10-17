@@ -9,7 +9,7 @@ use num_traits::Zero;
 use rayon::prelude::*;
 use cartesian::cartesian;
 use yui::{Ring, RingOps, Sign};
-use yui_homology::{XChainComplex, XModStr, Grid1};
+use yui_homology::{ChainComplex, Summand, Grid1};
 use yui_link::{Crossing, Edge, State};
 use yui::bitseq::Bit;
 
@@ -586,7 +586,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.remove_vertex(k1);
     }
 
-    pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> {
+    pub fn into_raw_complex(self) -> ChainComplex<KhGen, R> {
         assert!(self.is_completely_delooped());
 
         let summands = Grid1::generate(self.h_range(), |i| { 
@@ -595,7 +595,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             ).sorted_by_key(|x|
                 x.q_deg()
             );
-            XModStr::free(gens)
+            Summand::from_raw_gens(gens)
         });
 
         let d = move |x: &KhGen| { 
@@ -607,7 +607,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             ).collect()
         };
 
-        XChainComplex::new(summands, 1, move |_, z| { 
+        ChainComplex::new(summands, 1, move |_, z| { 
             z.apply(&d)
         })
     }
