@@ -233,10 +233,7 @@ impl Display for Tng {
         } else if self.comps.len() == 1 { 
             write!(f, "{}", self.comps[0])
         } else { 
-            let arcs = self.comps.iter().map(|a| 
-                a.to_string()
-            ).join(", ");
-            write!(f, "{{{}}}", arcs)
+            write!(f, "{{{}}}", self.comps.iter().join(", "))
         }
     }
 }
