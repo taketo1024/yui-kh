@@ -153,6 +153,7 @@ mod tests {
         let args = Args {
             link: "3_1".to_string(),
             c_value: "0".to_string(),
+            c_type: CType::F2,
             ..Default::default()
         };
         let res = dispatch(&args);
@@ -163,7 +164,8 @@ mod tests {
     fn test2() {
         let args = Args {
             link: "[[1,4,2,5],[3,6,4,1],[5,2,6,3]]".to_string(),
-            c_value: "2".to_string(),
+            c_value: "1".to_string(),
+            c_type: CType::F2,
             mirror: true,
             reduced: true,
             show_alpha: true,
@@ -178,11 +180,11 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_zpoly_h() {
+        fn test_poly_h() {
             let args = Args {
                 link: "3_1".to_string(),
                 c_value: "H".to_string(),
-                c_type: CType::Z,
+                c_type: CType::F2,
                 ..Default::default()
             };
             let res = dispatch(&args);
@@ -190,11 +192,11 @@ mod tests {
         }
 
         #[test]
-        fn test_zpoly_t() {
+        fn test_poly_t() {
             let args = Args {
                 link: "3_1".to_string(),
-                c_value: "T".to_string(),
-                c_type: CType::Z,
+                c_value: "0,T".to_string(),
+                c_type: CType::F2,
                 ..Default::default()
             };
             let res = dispatch(&args);
@@ -202,11 +204,11 @@ mod tests {
         }
 
         #[test]
-        fn test_zpoly_ht() {
+        fn test_poly_ht() {
             let args = Args {
                 link: "3_1".to_string(),
                 c_value: "H,T".to_string(),
-                c_type: CType::Z,
+                c_type: CType::F2,
                 ..Default::default()
             };
             let res = dispatch(&args);
