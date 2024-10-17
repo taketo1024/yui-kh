@@ -5,7 +5,7 @@ use std::str::FromStr;
 use yui::{Ring, RingOps};
 use yui_homology::DisplaySeq;
 use yui_homology::{ChainComplexCommon, DisplayForGrid, GridTrait, RModStr};
-use yui_kh::khi::KhIChainExt;
+use yui_kh::kh::KhChainExt;
 use yui_kh::khi::KhIComplex;
 
 pub fn dispatch(args: &Args) -> Result<String, Box<dyn std::error::Error>> {
