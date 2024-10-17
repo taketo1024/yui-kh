@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use itertools::Itertools;
+use log::{debug, info};
 use num_traits::Zero;
 use yui::bitseq::Bit;
 use yui::{hashmap, Ring, RingOps};
@@ -98,6 +99,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn process(&mut self, x: &Crossing) { 
+        info!("(n: {}, v: {}) append: {x}", self.complex.dim(), self.complex.nverts());
+
         self.complex.append(x);
 
         for e in self.elements.iter_mut() { 
@@ -121,8 +124,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) {
         let c = self.complex.vertex(k).tng().comp(r);
-        for e in self.elements.iter_mut() { 
+
+        info!("(n: {}, v: {}) deloop: {c} in {}", self.complex.dim(), self.complex.nverts(), self.complex.vertex(k));
+
+        for (idx, e) in self.elements.iter_mut().enumerate() { 
+            debug!("  e[{idx}] {e}");
+
             e.deloop(k, c);
+
+            debug!("    -> {e}");
         }
 
         let keys = self.complex.deloop(k, r);
@@ -155,17 +165,23 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
+        info!("(n: {}, v: {}) eliminate {}: {} -> {}", self.complex.dim(), self.complex.nverts(), self.complex.edge(i, j), self.complex.vertex(i), self.complex.vertex(j));
+        
         self.eliminate_elements(i, j);
         self.complex.eliminate(i, j);
     }
 
     fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
         let a = self.complex.edge(i, j);
-        for e in self.elements.iter_mut() { 
+        for (idx, e) in self.elements.iter_mut().enumerate() { 
+            debug!("  e[{idx}] {e}");
+
             let i_out = self.complex.keys_out_from(i).map(|k| 
                 (k, self.complex.edge(i, k))
             );
             e.eliminate(i, j, a, i_out);
+
+            debug!("    -> {e}");
         }
     }
 
@@ -189,8 +205,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(l.is_knot());
         assert!(!reduced || base_pt.is_some());
 
-        let p = base_pt.or(l.first_edge()).unwrap();
-        let s = l.ori_pres_state().iter().enumerate().map(|(i, b)|
+        let start_p = base_pt.or(l.first_edge()).unwrap();
+        let circles = l.colored_seifert_circles(start_p);
+
+        let state_map = l.ori_pres_state().iter().enumerate().map(|(i, b)|
             (l.crossing_at(i).clone(), b)
         ).collect::<HashMap<_, _>>();
 
@@ -200,11 +218,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             vec![true, false]
         };
 
-        ori.into_iter().map(|o| { 
-            let circles = l.colored_seifert_circles(p);
+        let cycles = ori.into_iter().map(|o| { 
             let cob = Cob::new(
-                circles.into_iter().map(|(circ, col)| { 
-                    let t = TngComp::from(circ);
+                circles.iter().map(|(circ, col)| { 
+                    let t = TngComp::from(circ.clone());
                     let mut cup = CobComp::cup(t);
                     let dot = if col.is_a() == o { 
                         Dot::X 
@@ -215,8 +232,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                     cup
                 })
             );
-            BuildElem::new(cob, s.clone(), base_pt)
-        }).collect()
+            BuildElem::new(cob, state_map.clone(), base_pt)
+        }).collect();
+
+        cycles
     }
 
     pub fn eval_elements(&self) -> Vec<KhChain<R>> {
@@ -356,6 +375,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
         let init = LcCob::from(self.init_cob.clone());
 
+        debug!("  eval {init} : {}", self);
+
         assert!(self.retr_cob.values().all(|retr| init.is_stackable(retr)));
 
         let eval = self.retr_cob.iter().filter_map(|(k, retr)| {
@@ -364,9 +385,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }).map(|(k, f)| { 
             let x = KhGen::new(k.state, k.label, deg_shift);
             (x, f.eval(h, t))
-        });
+        }).collect::<KhChain<R>>();
 
-        KhChain::from_iter(eval)
+        debug!("    -> {eval}");
+
+        eval
     }
 
     pub fn modify<F>(&mut self, f: F)
@@ -381,7 +404,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> Display for BuildElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mors = self.retr_cob.iter().map(|(k, f)| { 
+        let mors = self.retr_cob.iter().sorted_by_key(|(&k, _)| k).map(|(k, f)| { 
             format!("{}: {}", k, f)
         }).join(", ");
         write!(f, "[{}]", mors)

@@ -3,7 +3,6 @@ use std::fmt::Display;
 use std::ops::{Add, AddAssign};
 
 use auto_impl_ops::auto_ops;
-use log::info; 
 use itertools::Itertools;
 use num_traits::Zero;
 use cartesian::cartesian;
@@ -344,8 +343,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     // TODO rename to add_crossing
     pub fn append(&mut self, x: &Crossing) {
-        info!("(n: {}, v: {}) append: {x}", self.dim(), self.nverts());
-
         let (h, t) = self.ht();
         let c = Self::from_crossing(h, t, (0, 0), None, x);
         self.connect(c);
@@ -400,8 +397,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
-        info!("(n: {}, v: {}) deloop {} at {r}", self.dim(), self.nverts(), &self.vertices[k]);
-
         let c = self.vertex(k).tng.comp(r);
         assert!(c.is_circle());
         
@@ -470,8 +465,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             panic!("{a} is not invertible.")
         };
 
-        info!("(n: {}, v: {}) eliminate {}: {} -> {}", self.dim(), self.nverts(), a, self.vertex(k0), self.vertex(k1));
-        
         let v0_out = self.keys_out_from(k0).cloned().collect_vec();
         let v1_in  = self.keys_into(k1).cloned().collect_vec();
         
