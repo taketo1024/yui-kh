@@ -35,7 +35,8 @@ fn compute_div<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
     let r = if reduced { 1 } else { 2 };
 
-    let kh = KhHomology::new_partial(l, c, &R::zero(), reduced, Some(0..=0));
+    let kh = KhHomology::new(l, c, &R::zero(), reduced).truncated(0..=0);
+    // let kh = KhHomology::new_partial(l, c, &R::zero(), reduced, Some(0..=0));
 
     assert_eq!(kh[0].rank(), r);
     info!("Kh[0]: {}", kh[0].math_symbol());
@@ -222,7 +223,7 @@ mod tests {
     #[ignore]
     fn test_k14_c2() { 
         let l = Link::from_pd_code([[1,19,2,18],[19,1,20,28],[20,13,21,14],[12,17,13,18],[16,21,17,22],[5,15,6,14],[15,5,16,4],[6,27,7,28],[2,7,3,8],[26,3,27,4],[25,23,26,22],[11,9,12,8],[23,10,24,11],[9,24,10,25]]);
-        let c = 2;
+        let c = 2_i64;
         
         assert_eq!(ss_invariant(&l, &c, false), -2);
         assert_eq!(ss_invariant(&l, &c, true ), -2);
@@ -234,7 +235,7 @@ mod tests {
     #[ignore]
     fn test_k14_c3() { 
         let l = Link::from_pd_code([[1,19,2,18],[19,1,20,28],[20,13,21,14],[12,17,13,18],[16,21,17,22],[5,15,6,14],[15,5,16,4],[6,27,7,28],[2,7,3,8],[26,3,27,4],[25,23,26,22],[11,9,12,8],[23,10,24,11],[9,24,10,25]]);
-        let c = 3;
+        let c = 3_i64;
         
         assert_eq!(ss_invariant(&l, &c, false), 0);
         assert_eq!(ss_invariant(&l, &c, true ), 0);
