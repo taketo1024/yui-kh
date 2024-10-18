@@ -2,7 +2,6 @@
 // T. Sano, K. Sato
 // https://arxiv.org/abs/2211.02494
 
-use core::panic;
 use itertools::Itertools;
 use num_traits::Zero;
 use log::info;
@@ -13,7 +12,7 @@ use yui_link::InvLink;
 
 use crate::kh::KhChainExt;
 use crate::misc::div_vec;
-use crate::khi::KhIComplex;
+use crate::khi::KhIHomology;
 
 pub fn ssi_invariants<R>(l: &InvLink, c: &R, reduced: bool) -> (i32, i32)
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
@@ -40,44 +39,40 @@ fn div<R>(l: &InvLink, c: &R, reduced: bool) -> (i32, i32)
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     let r = if reduced { 1 } else { 2 };
     let t = R::zero(); 
-    let ckh = KhIComplex::new(l, c, &t, reduced).truncated(-1..=2);
-    let zs = ckh.canon_cycles();
 
-    assert_eq!(zs.len(), 2 * r);
+    let kh = KhIHomology::new(l, c, &t, reduced).truncated(0..=1);
+    // let kh = KhIHomology::new_partial(l, c, &t, reduced, Some(0..=1));
 
-    for (i, z) in zs.iter().enumerate() { 
-        let h = z.h_deg();
-        let v = ckh[h].vectorize(z);
-        info!("a[{i}] in CKh[{h}]: {z} -> [{}]", v.to_dense().iter().join(","));
-    }
-
-    assert!(zs.iter().all(|z| !z.is_zero()));
-
-    let z0 = &zs[0];
-    let z1 = &zs[r]; 
-
-    assert!(z0.gens().all(|x| x.h_deg() == 0));
-    assert!(z1.gens().all(|x| x.h_deg() == 1));
-
-    let kh = ckh.homology();
     assert_eq!(kh[0].rank(), r);
     assert_eq!(kh[1].rank(), r);    
 
     info!("KhI[0]: {}", kh[0].math_symbol());    
     info!("KhI[1]: {}", kh[1].math_symbol());    
 
-    let v0 = kh[0].vectorize(&z0).subvec(0..r);
-    let v1 = kh[1].vectorize(&z1).subvec(0..r);
+    let zs = kh.canon_cycles();
+    
+    assert_eq!(zs.len(), 2 * r);
+    assert!(zs.iter().all(|z| !z.is_zero()));
+    assert!(zs.iter().enumerate().all(|(i, z)| z.h_deg() == if i < r { 0 } else { 1 } ));
 
-    info!("a0: {z0} -> [{}]", v0.to_dense().iter().join(","));
-    info!("a1: {z1} -> [{}]", v1.to_dense().iter().join(","));
+    let ds = zs.iter().enumerate().map(|(i, z)| {
+        let h = z.h_deg();
+        let v = kh[h].vectorize_euc(z);
+        info!("a[{i}] in Kh[{h}]: ({})", v.to_dense().iter().join(","));
+        v
+    }).map(|v| 
+        div_vec(&v.subvec(0..r), c).expect("invalid divisibility.")
+    ).collect_vec();
 
-    let Some(d0) = div_vec(&v0, c) else { 
-        panic!("invalid divisibility for v = {}, c = {}", v0, c)
+    let (d0, d1) = if reduced { 
+        (ds[0], ds[1])
+    } else { 
+        assert_eq!(ds[0], ds[1]);
+        assert_eq!(ds[2], ds[3]);
+        (ds[0], ds[2])
     };
-    let Some(d1) = div_vec(&v1, c) else { 
-        panic!("invalid divisibility for v = {}, c = {}", v1, c)
-    };
+
+    assert!(d0 <= d1);
 
     (d0, d1)
 }
@@ -130,7 +125,7 @@ mod tests {
         );
         let c = P::variable();
 
-        let ssi = ssi_invariants(&l, &c, true);
+        let ssi = ssi_invariants(&l, &c, false);
         assert_eq!(ssi.0, 0);
         assert_eq!(ssi.1, 0);
     }
@@ -144,7 +139,7 @@ mod tests {
         );
         let c = P::variable();
 
-        let ssi = ssi_invariants(&l, &c, true);
+        let ssi = ssi_invariants(&l, &c, false);
         assert_eq!(ssi.0, 2);
         assert_eq!(ssi.1, 2);
     }
@@ -158,9 +153,23 @@ mod tests {
         ).mirror();
         let c = P::variable();
 
-        let ssi = ssi_invariants(&l, &c, true);
+        let ssi = ssi_invariants(&l, &c, false);
         assert_eq!(ssi.0, -2);
         assert_eq!(ssi.1, -2);
+    }
+
+    #[test]
+    fn test_3_1_red() { 
+        let l = InvLink::new( // positive
+            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
+            [(1,5), (2,4)],
+            Some(3)
+        );
+        let c = P::variable();
+
+        let ssi = ssi_invariants(&l, &c, true);
+        assert_eq!(ssi.0, 2);
+        assert_eq!(ssi.1, 2);
     }
 
     macro_rules! test {
@@ -173,7 +182,7 @@ mod tests {
                 let c = P::variable();
     
                 let l = InvLink::load($name)?;
-                let ssi = ssi_invariants(&l, &c, true);
+                let ssi = ssi_invariants(&l, &c, false);
                 assert_eq!(ssi, $expected);
     
                 Ok(())
@@ -212,8 +221,8 @@ mod tests {
         );
 
         let c = P::variable();
-        let ssi = ssi_invariants(&l, &c, true);
+        let ssi = ssi_invariants(&l, &c, false);
 
         assert_eq!(ssi, (0, 2));
-    }   
+    }
 }
