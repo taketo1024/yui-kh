@@ -7,10 +7,13 @@ use yui_link::InvLink;
 use crate::khi::{KhIComplex, KhIGen};
 use crate::misc::{collect_gen_info, range_of};
 
+use super::KhIChain;
+
 #[derive(Clone)]
 pub struct KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
-    inner: XHomology<KhIGen, R>
+    inner: XHomology<KhIGen, R>,
+    canon_cycles: Vec<KhIChain<R>>
 }
 
 impl<R> KhIHomology<R> 
@@ -31,12 +34,16 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
         }
     }
 
-    pub(crate) fn new_impl(inner: XHomology<KhIGen, R>) -> Self {
-        Self { inner }
+    pub(crate) fn new_impl(inner: XHomology<KhIGen, R>, canon_cycles: Vec<KhIChain<R>>) -> Self {
+        Self { inner, canon_cycles }
     }
 
     pub fn h_range(&self) -> RangeInclusive<isize> { 
         range_of(self.support())
+    }
+
+    pub fn canon_cycles(&self) -> &[KhIChain<R>] { 
+        &self.canon_cycles
     }
 
     pub fn inner(&self) -> &XHomology<KhIGen, R> { 
@@ -45,7 +52,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     pub fn truncated(&self, range: RangeInclusive<isize>) -> Self {
         Self::new_impl(
-            self.inner.truncated(range)
+            self.inner.truncated(range),
+            self.canon_cycles.clone()
         )
     }
 
@@ -78,6 +86,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     fn from(c: &KhIComplex<R>) -> Self {
         KhIHomology::new_impl(
             c.inner().reduced().homology(true), 
+            c.canon_cycles().iter().cloned().collect()
         )
     }
 }
