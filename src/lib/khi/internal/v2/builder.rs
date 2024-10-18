@@ -52,10 +52,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let base_pt = if reduced { l.base_pt() } else { None };
         let mut inner = TngComplexBuilder::new(l.link(), h, t, base_pt);
-
         inner.set_crossings(vec![]); // clear crossings
-        inner.auto_deloop = false;
-        inner.auto_elim = false;
 
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
         let key_map = HashMap::new();
@@ -157,10 +154,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         
         let on_axis = std::mem::take(&mut self.on_axis);
         self.inner.set_crossings(on_axis);
+        self.inner.auto_deloop = false;
+        self.inner.auto_elim = false;
 
         while let Some(x) = self.inner.choose_next() { 
             self.inner.process(&x);
             self.append_x(&x);
+
+            while let Some((k, r)) = self.inner.find_good_loop(false) { 
+                self.deloop_equiv(&k, r);
+            }
 
             while let Some((k, r)) = self.inner.find_loop(false) { 
                 self.deloop_equiv(&k, r);
