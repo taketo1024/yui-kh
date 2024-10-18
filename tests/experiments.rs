@@ -12,34 +12,23 @@ use yui_kh::khi::{ssi_invariants, KhIComplex};
 type R = FF2;
 type P = HPoly<'H', R>;
 
-fn init_logger(l: LevelFilter) { 
-    use simplelog::*;
-
-    let mut cb = simplelog::ConfigBuilder::new();
-    cb.set_location_level(LevelFilter::Off);
-    cb.set_target_level(LevelFilter::Off);
-    cb.set_thread_level(LevelFilter::Off);
-    cb.set_level_color(Level::Trace, Some(Color::Green));
-    let config = cb.build();
-
-    TermLogger::init(
-        l,
-        config,
-        TerminalMode::Mixed,
-        ColorChoice::Always
-    );
+fn init_logger() { 
+    use yui::util::log::init_simple_logger;
+    init_simple_logger(log::LevelFilter::Info).unwrap();
 }
 
 // cargo test -r -- --exact k15n_103488 --nocapture --include-ignored
 #[test]
 #[ignore]
 fn k15n_103488() { 
+    init_logger();
+
     let l = InvLink::sinv_knot_from_code(
         [[1,11,2,10],[2,20,3,19],[5,17,6,16],[6,25,7,26],[9,22,10,23],[12,30,13,29],[14,8,15,7],[15,27,16,26],[18,4,19,3],[20,11,21,12],[21,1,22,30],[23,4,24,5],[24,18,25,17],[27,8,28,9],[28,14,29,13]],
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     assert_eq!(ssi, (0, 2));
 }
@@ -48,6 +37,8 @@ fn k15n_103488() {
 #[test]
 #[ignore]
 fn knotJ() { 
+    init_logger();
+    
     let l = InvLink::sinv_knot_from_code([
         [1,27,2,26],[19,2,20,3],[3,13,4,12],[4,31,5,32],[30,5,31,6],
         [13,7,14,6],[8,27,9,28],[9,1,10,34],[10,18,11,17],[24,11,25,12],
@@ -56,7 +47,7 @@ fn knotJ() {
     ]);
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     // good
     assert_eq!(ssi, (0, 2));
@@ -96,7 +87,7 @@ fn k10_71() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     // not good.
     assert_eq!(ssi, (0, 0));
@@ -110,7 +101,7 @@ fn k10_104() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     // not good.
     assert_eq!(ssi, (0, 0));
@@ -127,7 +118,7 @@ fn k13n_1496() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     // not good.
     assert_eq!(ssi, (2, 2));
@@ -145,7 +136,7 @@ fn W4_1() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     // not good.
     assert_eq!(ssi, (0, 0));
@@ -165,7 +156,7 @@ fn W3_1() {
     ).mirror();
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     println!("{ssi:?}");
 }
@@ -184,7 +175,7 @@ fn cable4_1() {
     );
 
     let c = P::variable();
-    let ssi = ssi_invariants(&l, &c, true);
+    let ssi = ssi_invariants(&l, &c, false);
 
     println!("{ssi:?}");
 }
@@ -193,6 +184,8 @@ fn cable4_1() {
 #[ignore]
 // cargo test -r -- --exact k9_46_interlock --nocapture --include-ignored
 fn k9_46_interlock() { 
+    init_logger();
+    
     type R = HPoly<'H', FF2>;
 
     let l = InvLink::sinv_knot_from_code([
@@ -203,17 +196,18 @@ fn k9_46_interlock() {
         [44,28,45,27],[46,6,47,5],[48,4,49,3],[50,2,51,1],[51,10,52,11],
         [53,8,54,9],[55,36,56,37],[56,16,57,15],[58,14,59,13],[60,12,1,11]
     ]);
-    let (h, t) = (R::variable(), R::zero());
-    let c = KhIComplex::new(&l, &h, &t, false);
-    let h = c.homology();
+    let c = P::variable();
+    let ssi = ssi_invariants(&l, &c, false);
 
-    h.into_bigraded().print_table("i", "j");
+    assert_eq!(ssi, (0, 4));
 }
 
 #[test]
 #[ignore]
 // cargo test -r -- --exact k9_46_interlock3 --nocapture --include-ignored
 fn k9_46_interlock3() { 
+    init_logger();
+    
     type R = HPoly<'H', FF2>;
 
     let l = InvLink::sinv_knot_from_code([
@@ -228,17 +222,19 @@ fn k9_46_interlock3() {
         [84,2,85,1],[85,10,86,11],[87,8,88,9],[89,68,90,69],[90,16,91,15],
         [92,14,93,13],[94,12,1,11]
     ]);
-    let (h, t) = (R::variable(), R::zero());
-    let c = KhIComplex::new(&l, &h, &t, false);
-    let h = c.homology();
+    let c = P::variable();
+    let ssi = ssi_invariants(&l, &c, false);
 
-    h.into_bigraded().print_table("i", "j");
+    println!("{:?}", ssi);
+    assert_eq!(ssi, (0, 4));
 }
 
 #[test]
 #[ignore]
 // cargo test -r -- --exact knotJ_interlock --nocapture --include-ignored
 fn knotJ_interlock() { 
+    init_logger();
+    
     type R = HPoly<'H', FF2>;
 
     let l = InvLink::sinv_knot_from_code([
@@ -255,9 +251,9 @@ fn knotJ_interlock() {
         [99,23,100,22],[104,17,105,18],[105,1,106,120],[108,73,109,74],[109,33,110,32],
         [110,28,111,27],[116,101,117,102],[117,5,118,4],[118,25,119,26],[119,113,120,112]
     ]);
-    let (h, t) = (R::variable(), R::zero());
-    let c = KhIComplex::new(&l, &h, &t, false);
-    let h = c.homology();
+    let c = P::variable();
+    let ssi = ssi_invariants(&l, &c, false);
 
-    h.into_bigraded().print_table("i", "j");
+    println!("{:?}", ssi);
+    assert_eq!(ssi, (0, 4));
 }
