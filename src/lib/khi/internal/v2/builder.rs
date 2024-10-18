@@ -111,19 +111,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.set_crossings(off_axis);
         self.inner.process_all();
 
-        // make key_map
+        // preserve old keys
         let keys = self.complex().keys().cloned().collect_vec();
-        for (k1, k2) in cartesian!(keys.iter(), keys.iter()) { 
-            let k  = k1 + k2;
-            let tk = k2 + k1;
-            self.key_map.insert(k, tk);
-        }
+
+        info!("merge two sides...");
+        info!("  current: {}", self.inner.stat());
 
         // create other half and connect
         let mut tc = self.complex().convert_edges(|e| self.inv_e(e));
         tc.set_deg_shift((0, 0));
-
+        
         self.inner.complex_mut().connect(tc);
+
+        info!("     done: {}", self.inner.stat());
 
         // create other half for each element
         let inv_e = self.e_map.clone();
@@ -136,6 +136,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 })
             ))
         );
+
+        // update keys
+        for (k1, k2) in cartesian!(keys.iter(), keys.iter()) { 
+            let k  = k1 + k2;
+            let tk = k2 + k1;
+            self.key_map.insert(k, tk);
+        }
+
+        // drop if possible
+        self.inner.drop_vertices();
 
         if self.auto_validate { 
             self.validate_equiv();
