@@ -125,13 +125,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // create other half for each element
         let inv_e = self.e_map.clone();
         self.inner.elements_mut().iter_mut().for_each(|e|
-            e.modify(|k, cob| (
-                k + k, 
-                cob.map_cob(|c| {
+            e.modify(|k, c| {
+                let kk = k + k;
+                let cc = c.into_map(|mut c, r| { 
+                    let r = &r * &r;
                     let tc = c.convert_edges(|e| inv_e[&e]);
-                    c.connect(tc)
-                })
-            ))
+                    c.connect(tc);
+                    (c, r)
+                });
+                (kk, cc)
+            })
         );
 
         // update keys
