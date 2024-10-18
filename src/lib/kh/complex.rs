@@ -332,114 +332,100 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 }
 
 #[cfg(test)]
-cfg_if::cfg_if! { 
-if #[cfg(feature = "old")] { 
-    mod tests_v1 {
-        use yui_homology::{RModStr, ChainComplexCommon};
-        use yui_link::Link;
-    
-        use super::KhComplex;
-    
-        #[test]
-        fn ckh_trefoil() {
-            let l = Link::trefoil();
-            let c = KhComplex::new(&l, &0, &0, false);
-    
-            assert_eq!(c.h_range(), -3..=0);
-    
+mod tests {
+    use yui_homology::{ChainComplexCommon, RModStr};
+    use yui_link::Link;
+
+    use crate::kh::KhComplexBigraded;
+
+    use super::KhComplex;
+
+    #[test]
+    fn ckh_trefoil() {
+        let l = Link::trefoil();
+        let c = KhComplex::new(&l, &0, &0, false);
+
+        assert_eq!(c.h_range(), -3..=0);
+
+        cfg_if::cfg_if! { 
+        if #[cfg(feature = "old")] { 
             assert_eq!(c[-3].rank(), 8);
             assert_eq!(c[-2].rank(), 12);
             assert_eq!(c[-1].rank(), 6);
-            assert_eq!(c[ 0].rank(), 4);
-    
-            c.check_d_all();
-        }
-    
-        #[test]
-        fn ckh_trefoil_red() {
-            let l = Link::trefoil();
-            let c = KhComplex::new(&l, &0, &0, true);
-    
-            assert_eq!(c.h_range(), -3..=0);
-    
-            assert_eq!(c[-3].rank(), 4);
-            assert_eq!(c[-2].rank(), 6);
-            assert_eq!(c[-1].rank(), 3);
-            assert_eq!(c[ 0].rank(), 2);
-    
-            c.check_d_all();
-        }
-    }    
-} else { 
-    mod tests_v2 {
-        use yui_homology::{ChainComplexCommon, RModStr};
-        use yui_link::Link;
-    
-        use crate::kh::KhComplexBigraded;
-    
-        use super::KhComplex;
-    
-        #[test]
-        fn ckh_trefoil() {
-            let l = Link::trefoil();
-            let c = KhComplex::new(&l, &0, &0, false);
-    
-            assert_eq!(c.h_range(), -3..=0);
-    
+            assert_eq!(c[ 0].rank(), 4);    
+        } else { 
             assert_eq!(c[-3].rank(), 2);
             assert_eq!(c[-2].rank(), 2);
             assert_eq!(c[-1].rank(), 0);
             assert_eq!(c[ 0].rank(), 2);
-    
-            c.check_d_all();
-        }
-    
-        #[test]
-        fn ckh_trefoil_red() {
-            let l = Link::trefoil();
-            let c = KhComplex::new(&l, &0, &0, true);
-    
-            assert_eq!(c.h_range(), -3..=0);
-    
+        }}  
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_trefoil_red() {
+        let l = Link::trefoil();
+        let c = KhComplex::new(&l, &0, &0, true);
+
+        assert_eq!(c.h_range(), -3..=0);
+
+        cfg_if::cfg_if! { 
+        if #[cfg(feature = "old")] { 
+            assert_eq!(c[-3].rank(), 4);
+            assert_eq!(c[-2].rank(), 6);
+            assert_eq!(c[-1].rank(), 3);
+            assert_eq!(c[ 0].rank(), 2);
+        } else {
             assert_eq!(c[-3].rank(), 1);
             assert_eq!(c[-2].rank(), 1);
             assert_eq!(c[-1].rank(), 0);
             assert_eq!(c[ 0].rank(), 1);
-    
-            c.check_d_all();
-        }
-    
-        #[test]
-        fn ckh_bigr_trefoil() {
-            let l = Link::trefoil();
-            let c = KhComplexBigraded::new(&l, &0, &0, false);
-    
-            assert_eq!(c.h_range(), -3..=0);
-            assert_eq!(c.q_range(), -9..=-1);
-    
+        }}
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_bigr_trefoil() {
+        let l = Link::trefoil();
+        let c = KhComplexBigraded::new(&l, &0, &0, false);
+
+        assert_eq!(c.h_range(), -3..=0);
+        assert_eq!(c.q_range(), -9..=-1);
+
+        cfg_if::cfg_if! { 
+        if #[cfg(feature = "old")] { 
+            // TODO
+        } else { 
             assert_eq!(c[(-3, -9)].rank(), 1);
             assert_eq!(c[(-3, -7)].rank(), 1);
             assert_eq!(c[(-2, -7)].rank(), 1);
             assert_eq!(c[(-2, -5)].rank(), 1);
             assert_eq!(c[(0, -3)].rank(), 1);
             assert_eq!(c[(0, -1)].rank(), 1);
-    
-            c.check_d_all();
-        }
-    
-        #[test]
-        fn ckh_bigr_red_trefoil() {
-            let l = Link::trefoil();
-            let c = KhComplexBigraded::new(&l, &0, &0, true);
-    
-            assert_eq!(c.h_range(), -3..=0);
-            assert_eq!(c.q_range(), -8..=-2);
-    
+        }}
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_bigr_red_trefoil() {
+        let l = Link::trefoil();
+        let c = KhComplexBigraded::new(&l, &0, &0, true);
+
+        assert_eq!(c.h_range(), -3..=0);
+        assert_eq!(c.q_range(), -8..=-2);
+
+        cfg_if::cfg_if! { 
+        if #[cfg(feature = "old")] { 
+            // TODO
+        } else { 
             assert_eq!(c[(-3, -8)].rank(), 1);
             assert_eq!(c[(-2, -6)].rank(), 1);
             assert_eq!(c[(0, -2)].rank(), 1);
-    
-            c.check_d_all();
-        }
+        }}
+
+        c.check_d_all();
     }
-}}
+}
