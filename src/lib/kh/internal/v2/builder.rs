@@ -3,14 +3,14 @@ use std::fmt::Display;
 use std::ops::RangeInclusive;
 
 use itertools::Itertools;
-use log::{debug, info};
+use log::info;
 use num_traits::Zero;
 use yui::bitseq::Bit;
 use yui::{hashmap, Ring, RingOps};
 use yui_link::{Crossing, Edge, Link};
 
 use crate::ext::LinkExt;
-use crate::kh::{KhAlgGen, KhChain, KhComplex, KhGen};
+use crate::kh::{KhAlgGen, KhChain, KhComplex};
 
 use super::cob::{Bottom, Dot, Cob, CobComp, LcCobTrait, LcCob};
 use super::tng::{Tng, TngComp};
@@ -228,12 +228,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("({}) deloop: {c} in {}", self.stat(), self.complex.vertex(k));
 
-        for (idx, e) in self.elements.iter_mut().enumerate() { 
-            debug!("  e[{idx}] {e}");
-
+        for e in self.elements.iter_mut() { 
             e.deloop(k, c);
-
-            debug!("    -> {e}");
         }
 
         let keys = self.complex.deloop(k, r);
@@ -277,15 +273,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
         let a = self.complex.edge(i, j);
-        for (idx, e) in self.elements.iter_mut().enumerate() { 
-            debug!("  e[{idx}] {e}");
-
+        for e in self.elements.iter_mut() { 
             let i_out = self.complex.keys_out_from(i).map(|k| 
                 (k, self.complex.edge(i, k))
             );
             e.eliminate(i, j, a, i_out);
-
-            debug!("    -> {e}");
         }
     }
 
@@ -381,8 +373,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> BuildElem<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new(init_cob: Cob, state: HashMap<Crossing, Bit>, base_pt: Option<Edge>) -> Self { 
-        let f = LcCob::from(Cob::empty());
-        let retr_cob = hashmap! { TngKey::init() => f };
+        let k0 = TngKey::init();
+        let f0 = LcCob::from(Cob::empty());
+        let retr_cob = hashmap! { k0 => f0 };
         Self{ init_cob, retr_cob, state, base_pt }
     }
 
@@ -482,18 +475,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn eval(&self, h: &R, t: &R, deg_shift: (isize, isize)) -> KhChain<R> {
         assert!(self.is_evalable());
 
-        debug!("  eval {} : {}", self.init_cob, self);
-
         let init = LcCob::from(self.init_cob.clone());
-        let eval = self.retr_cob.iter().filter_map(|(k, retr)| {
+        let eval = self.retr_cob.iter().map(|(k, retr)| {
+            let x = k.as_gen(deg_shift);
             let f = retr * &init;
-            (!f.is_zero()).then(|| (*k, f))
-        }).map(|(k, f)| { 
-            let x = KhGen::new(k.state, k.label, deg_shift);
-            (x, f.eval(h, t))
+            let r = f.eval(h, t);
+            (x, r)
         }).collect::<KhChain<R>>();
-
-        debug!("    -> {eval}");
 
         eval
     }
