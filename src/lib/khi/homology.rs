@@ -1,7 +1,7 @@
 use std::ops::{Index, RangeInclusive};
 use cartesian::cartesian;
 use delegate::delegate;
-use yui::{EucRing, EucRingOps};
+use yui::{EucRing, EucRingOps, RangeExt};
 use yui_homology::{isize2, Grid2, GridTrait, XHomology, XHomologySummand, XModStr};
 use yui_link::InvLink;
 use crate::khi::{KhIComplex, KhIGen};
@@ -16,8 +16,19 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> KhIHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn new(l: &InvLink, h: &R, t: &R, reduced: bool) -> Self {
-        let c = KhIComplex::new(l, h, t, reduced);
-        Self::from(&c)
+        Self::new_partial(l, h, t, reduced, None)
+    }
+
+    pub fn new_partial(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self {
+        let c_range = h_range.clone().map(|r| r.expand(1)); // must expand to compute homology
+        let c = KhIComplex::new_partial(l, h, t, reduced, c_range);
+        let h = Self::from(&c);
+
+        if let Some(h_range) = h_range { 
+            h.truncated(h_range)
+        } else { 
+            h
+        }
     }
 
     pub(crate) fn new_impl(inner: XHomology<KhIGen, R>) -> Self {
@@ -30,6 +41,12 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     pub fn inner(&self) -> &XHomology<KhIGen, R> { 
         &self.inner
+    }
+
+    pub fn truncated(&self, range: RangeInclusive<isize>) -> Self {
+        Self::new_impl(
+            self.inner.truncated(range)
+        )
     }
 
     pub fn into_bigraded(self) -> Grid2<XModStr<KhIGen, R>> { 
@@ -245,4 +262,18 @@ mod tests {
 
     //     c.check_d_all();
     // }
+
+    #[test]
+    fn khi_partial() { 
+        let l = InvLink::load("4_1").unwrap();
+
+        type R = FF2;
+        let (h, t) = (R::zero(), R::zero());
+        let range = 0..=1;
+        let h = KhIHomology::new_partial(&l, &h, &t, false, Some(range.clone()));
+
+        assert_eq!(h.h_range(), range);
+        assert_eq!(h[0].rank(), 4);
+        assert_eq!(h[1].rank(), 4);
+    }
 }

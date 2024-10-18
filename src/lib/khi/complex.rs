@@ -40,23 +40,27 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
 impl<R> KhIComplex<R>
 where R: Ring, for<'a> &'a R: RingOps<R> { 
     pub fn new(l: &InvLink, h: &R, t: &R, reduced: bool) -> Self { 
+        Self::new_partial(l, h, t, reduced, None)
+    }
+
+    pub fn new_partial(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self { 
         cfg_if::cfg_if! { 
         if #[cfg(feature = "old")] { 
-            Self::new_v1(l, h, t, reduced)
+            Self::new_v1(l, h, t, reduced, h_range)
         } else { 
-            Self::new_v2(l, h, t, reduced)
+            Self::new_v2(l, h, t, reduced, h_range)
         }}
     }
 
     #[cfg(not(feature = "old"))]
-    fn new_v2(l: &InvLink, h: &R, t: &R, reduced: bool) -> Self {
+    fn new_v2(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self {
         use crate::khi::internal::v2::builder::SymTngBuilder;
 
-        SymTngBuilder::build_khi_complex(l, h, t, reduced, None)
+        SymTngBuilder::build_khi_complex(l, h, t, reduced, h_range)
     }
 
     #[cfg(feature = "old")]
-    fn new_v1(l: &InvLink, h: &R, t: &R, reduced: bool) -> Self { 
+    fn new_v1(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self { 
         use crate::khi::internal::v1::cube::KhICube;
         use crate::kh::KhComplex;
 
@@ -78,7 +82,13 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
             vec![]
         };
 
-        Self::new_impl(inner, canon_cycles, deg_shift)
+        let ckhi = Self::new_impl(inner, canon_cycles, deg_shift);
+
+        if let Some(h_range) = h_range { 
+            ckhi.truncated(h_range)
+        } else { 
+            ckhi
+        }
     }
 
     pub fn from_kh_complex<'a, F>(c: KhComplex<R>, map: F) -> Self
@@ -519,5 +529,28 @@ mod tests {
             let i = i as isize;
             assert!(c.d(i, z).is_zero());
         }
+    }
+
+    #[test]
+    fn complex_kh_partial() { 
+        let l = InvLink::load("4_1").unwrap();
+
+        type R = FF2;
+        let (h, t) = (R::zero(), R::zero());
+        let range = -1..=1;
+        let c = KhIComplex::new_partial(&l, &h, &t, false, Some(range.clone()));
+
+        assert_eq!(c.h_range(), range);
+
+        cfg_if::cfg_if! { 
+        if #[cfg(feature = "old")] { 
+            // TODO
+        } else { 
+            assert_eq!(c[-1].rank(), 4);
+            assert_eq!(c[ 0].rank(), 6);
+            assert_eq!(c[ 1].rank(), 10);
+        }}
+            
+        c.check_d_all();
     }
 }
