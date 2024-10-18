@@ -846,10 +846,9 @@ pub trait LcCobTrait: Sized {
     fn is_invertible(&self) -> bool;
     fn is_stackable(&self, other: &Self) -> bool;
     fn inv(&self) -> Option<Self>;
-    fn map_cob<F>(self, f: F) -> Self where F: Fn(&mut Cob);
     fn convert_edges<F>(&self, f: F) -> Self where F: Fn(Edge) -> Edge;
+    fn modify<F>(self, f: F) -> Self where F: Fn(&mut Cob);
     fn connect(self, c: &Cob) -> Self;
-    fn connect_comp(self, c: &CobComp) -> Self;
     fn connected(&self, c: &Cob) -> Self;
     fn cap_off(self, b: Bottom, c: &TngComp, dot: Dot) -> Self;
     fn should_part_eval(&self) -> bool;
@@ -904,7 +903,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn map_cob<F>(self, f: F) -> Self 
+    fn convert_edges<F>(&self, f: F) -> Self 
+    where F: Fn(Edge) -> Edge { 
+        self.map_gens(|c| c.convert_edges(&f))
+    }
+
+    fn modify<F>(self, f: F) -> Self 
     where F: Fn(&mut Cob) {
         self.into_map(|mut cob, r| { 
             f(&mut cob);
@@ -916,17 +920,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         })
     }
 
-    fn convert_edges<F>(&self, f: F) -> Self 
-    where F: Fn(Edge) -> Edge { 
-        self.map_gens(|c| c.convert_edges(&f))
-    }
-
     fn connect(self, c: &Cob) -> Self {
-        self.map_cob(|cob| cob.connect(c.clone()) )
-    }
-
-    fn connect_comp(self, c: &CobComp) -> Self {
-        self.map_cob(|cob| cob.connect_comp(c.clone()) )
+        self.modify(|cob| cob.connect(c.clone()) )
     }
 
     fn connected(&self, c: &Cob) -> Self { 
@@ -936,7 +931,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn cap_off(self, b: Bottom, c: &TngComp, dot: Dot) -> Self {
-        self.map_cob(|cob| cob.cap_off(b, c, dot) )
+        self.modify(|cob| cob.cap_off(b, c, dot) )
     }
 
     fn should_part_eval(&self) -> bool {
