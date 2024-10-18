@@ -142,7 +142,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn process(&mut self, x: &Crossing) { 
-        info!("(n: {}, v: {}) append: {x}", self.complex.dim(), self.complex.nverts());
+        info!("({}) append: {x}", self.stat());
 
         self.complex.append(x);
 
@@ -173,7 +173,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ).collect_vec();
 
         for k in drop { 
-            info!("drop {}", self.complex.vertex(&k));
+            info!("({}) drop {}", self.stat(), self.complex.vertex(&k));
             self.complex.remove_vertex(&k);
         }
 
@@ -191,7 +191,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex.vertex(k).tng().comp(r);
 
-        info!("(n: {}, v: {}) deloop: {c} in {}", self.complex.dim(), self.complex.nverts(), self.complex.vertex(k));
+        info!("({}) deloop: {c} in {}", self.stat(), self.complex.vertex(k));
 
         for (idx, e) in self.elements.iter_mut().enumerate() { 
             debug!("  e[{idx}] {e}");
@@ -234,7 +234,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
-        info!("(n: {}, v: {}) eliminate {}: {} -> {}", self.complex.dim(), self.complex.nverts(), self.complex.edge(i, j), self.complex.vertex(i), self.complex.vertex(j));
+        info!("({}) eliminate {}: {} -> {}", self.stat(), self.complex.edge(i, j), self.complex.vertex(i), self.complex.vertex(j));
         
         self.eliminate_elements(i, j);
         self.complex.eliminate(i, j);
@@ -328,6 +328,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.elements.iter().map(|z|
             z.eval(h, t, self.complex.deg_shift())
         ).collect()
+    }
+
+    fn stat(&self) -> String { 
+        format!("n: {}, v: {}", self.complex.dim(), self.complex.nverts())
     }
 }
 
