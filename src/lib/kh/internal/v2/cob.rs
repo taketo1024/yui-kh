@@ -141,6 +141,10 @@ impl CobComp {
         self.src.endpts() // == self.tgt.endpts()
     }
 
+    pub fn ndots(&self) -> usize { 
+        self.dots.0 + self.dots.1
+    }
+
     pub fn bottom(&self, b: Bottom) -> &Tng { 
         match b { 
             Bottom::Src => &self.src,
@@ -212,13 +216,13 @@ impl CobComp {
         self.src.ncomps() == 1 && self.tgt.ncomps() == 2
     }
 
-    pub fn is_zero(&self) -> bool { 
+    pub fn is_zero_cob(&self) -> bool { 
         self.is_closed() && 
         self.genus % 2 == 0 &&
         self.dots.0 == self.dots.1 // XY = T
     }
 
-    pub fn is_dot_sph(&self) -> bool {
+    pub fn is_unit_cob(&self) -> bool {
         self.is_sph() && 
         (self.dots == (1, 0) || // ε.X.ι = 1,
          self.dots == (0, 1))   // ε.Y.ι = 1.
@@ -248,6 +252,13 @@ impl CobComp {
         let b = self.nbdr_comps() as i32;
         let g = self.genus as i32;
         2 - 2 * g - b
+    }
+
+    pub fn deg(&self) -> i32 { 
+        let x = self.euler_num();
+        let b = self.src.endpts().len() as i32;
+        let d = self.ndots() as i32;
+        x - (b / 2) - 2 * d
     }
 
     pub fn nbdr_comps(&self) -> usize { 
@@ -364,7 +375,8 @@ impl CobComp {
     }
 
     pub fn should_part_eval(&self) -> bool {
-        self.is_zero() ||
+        self.is_zero_cob() ||
+        self.is_unit_cob() ||
         self.genus > 0 || 
         self.dots.0 >= 1 && self.dots.1 >= 1 ||
         self.dots.0 >= 2 ||
@@ -410,10 +422,11 @@ impl CobComp {
     where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.is_closed(), "cannot eval: {}", self);
 
-        R::sum(self.part_eval(h, t).into_iter().map(|(c, r)| {
-            assert!(c.is_dot_sph());
-            r
-        }))
+        let comps = self.part_eval(h, t);
+        assert!(comps.gens().all(|c| c.is_unit_cob()));
+        
+        let coeffs = comps.into_iter().map(|(_, r)|  r);
+        R::sum(coeffs)
     }
 }
 
@@ -525,8 +538,8 @@ impl Cob {
         self.comps.is_empty()
     }
 
-    pub fn is_zero(&self) -> bool { 
-        self.comps.iter().any(|c| c.is_zero())
+    pub fn is_zero_cob(&self) -> bool { 
+        self.comps.iter().any(|c| c.is_zero_cob())
     }
 
     pub fn is_closed(&self) -> bool { 
@@ -551,6 +564,10 @@ impl Cob {
         self.comps.iter().map(|c| c.euler_num()).sum()
     }
 
+    pub fn deg(&self) -> i32 { 
+        self.comps.iter().map(|c| c.deg()).sum()
+    }
+
     pub fn nbdr_comps(&self) -> usize { 
         self.comps.iter().map(|c| c.nbdr_comps()).sum()
     }
@@ -564,7 +581,7 @@ impl Cob {
         comp.cap_off(b, p);
         comp.add_dot(x);
 
-        if comp.is_dot_sph() { 
+        if comp.is_unit_cob() { 
             self.comps.remove(i);
         }
 
@@ -742,7 +759,7 @@ impl Cob {
 
     pub fn part_eval<R>(self, h: &R, t: &R) -> Lc<Cob, R>
     where R: Ring, for<'x> &'x R: RingOps<R> {
-        if self.is_zero() { 
+        if self.is_zero_cob() { 
             return Lc::zero()
         }
         if !self.should_part_eval() { 
@@ -755,7 +772,7 @@ impl Cob {
             let all = cartesian!(res.iter(), eval.iter());
             let prod = all.map(|((cob, r), (c, s))| {
                 let mut cob = cob.clone();
-                if !c.is_dot_sph() {
+                if !c.is_unit_cob() {
                     cob.comps.push(c.clone());
                 }
                 (cob, r * s)
@@ -766,9 +783,10 @@ impl Cob {
 
     pub fn eval<R>(&self, h: &R, t: &R) -> R
     where R: Ring, for<'x> &'x R: RingOps<R> {
-        R::product(self.comps.iter().map(|c| 
+        let comps = self.comps.iter().map(|c| 
             c.eval(h, t)
-        ))
+        );
+        R::product(comps)
     }
 
     fn normalize(&mut self) {
@@ -786,8 +804,6 @@ impl Display for Cob {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.comps.is_empty() { 
             write!(f, "(∅)")
-        } else if self.is_zero() { 
-            write!(f, "0")
         } else if self.comps.len() == 1 {
             write!(f, "{}", self.comps[0])
         } else { 
@@ -839,6 +855,7 @@ pub trait LcCobTrait: Sized {
     fn should_part_eval(&self) -> bool;
     fn part_eval(self, h: &Self::R, t: &Self::R) -> Self;
     fn eval(&self, h: &Self::R, t: &Self::R) -> Self::R;
+    fn is_homogeneous(&self) -> bool; // only for debug
 }
 
 impl<R> LcCobTrait for LcCob<R>
@@ -891,7 +908,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     where F: Fn(&mut Cob) {
         self.into_map(|mut cob, r| { 
             f(&mut cob);
-            if cob.is_zero() { 
+            if cob.is_zero_cob() { 
                 (cob, R::zero())
             } else { 
                 (cob, r)
@@ -937,9 +954,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn eval(&self, h: &R, t: &R) -> R {
-        R::sum(self.iter().map(|(c, a)| { 
+        let coeffs = self.iter().map(|(c, a)|
             a * c.eval(h, t)
-        }))
+        );
+        R::sum(coeffs)
+    }
+
+    fn is_homogeneous(&self) -> bool {
+        use std::any::Any;
+        use yui::{FF2, poly::HPoly};
+
+        if let Some(_self) = (self as &dyn Any).downcast_ref::<LcCob<HPoly<'H', FF2>>>() { 
+            _self.iter().map(|(cob, r)| cob.deg() - 2 * (r.deg() as i32)).all_equal()
+        } else { 
+            true
+        }
     }
 }
 
