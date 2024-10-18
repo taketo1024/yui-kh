@@ -9,7 +9,7 @@ use yui_link::Link;
 use yui::{EucRing, EucRingOps};
 
 use crate::misc::div_vec;
-use crate::kh::KhComplex;
+use crate::kh::KhHomology;
 
 pub fn ss_invariant<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
@@ -34,9 +34,8 @@ fn compute_div<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
     let r = if reduced { 1 } else { 2 };
 
-    let ckh = KhComplex::new(l, c, &R::zero(), reduced).truncated(-1 ..= 1);
-    let kh = ckh.homology();
-    let zs = ckh.canon_cycles();
+    let kh = KhHomology::new_partial(l, c, &R::zero(), reduced, Some(0..=0));
+    let zs = kh.canon_cycles();
 
     info!("Kh[0]: {}", kh[0].math_symbol());
     
