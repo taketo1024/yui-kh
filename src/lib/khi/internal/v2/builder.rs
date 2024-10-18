@@ -5,7 +5,7 @@ use cartesian::cartesian;
 use itertools::Itertools;
 use log::info;
 use yui::bitseq::Bit;
-use yui::{Ring, RingOps};
+use yui::{RangeExt, Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::{KhComplex, KhGen};
@@ -27,14 +27,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
+    pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> KhComplex<R> { 
         let mut b = Self::new(l, h, t, reduced);
+        if let Some(h_range) = h_range { 
+            b.inner.set_h_range(h_range);
+        }
         b.process_all();
         b.into_kh_complex()
     }
 
-    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhIComplex<R> { 
+    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> KhIComplex<R> { 
         let mut b = Self::new(l, h, t, reduced);
+        if let Some(h_range) = h_range { 
+            b.inner.set_h_range(h_range.mv(-1, 0)); // must extend left
+        }
         b.process_all();
         b.into_khi_complex()
     }
@@ -89,10 +95,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert_eq!(on_axis.len() + 2 * off_axis.len(), l.link().crossing_num());
 
         (on_axis, off_axis)
-    }
-
-    pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
-        self.inner.set_h_range(h_range);
     }
 
     pub fn process_all(&mut self) { 
@@ -388,7 +390,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let ci = KhIComplex::from_kh_complex(c, map);
 
         if let Some(h_range) = h_range { 
-            ci.truncated(h_range)
+            ci.truncated(h_range.mv(1, 0))
         } else { 
             ci
         }
@@ -477,7 +479,10 @@ mod tests {
     fn test_kh_3_1() { 
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
-        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false);
+
+        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false, None);
+        c.check_d_all();;
+
         let h = c.inner().homology(false);
 
         assert_eq!(h[0].rank(), 2);
@@ -490,7 +495,10 @@ mod tests {
     fn test_khi_3_1() { 
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
-        let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false);
+
+        let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false, None);
+        c.check_d_all();;
+
         let h = c.homology();
 
         assert_eq!(h[0].rank(), 2);
@@ -501,25 +509,31 @@ mod tests {
     }
 
     #[test]
-    fn test_khi_4_1_partial() { 
+    fn test_kh_6_3_partial() { 
         let l = InvLink::load("6_3").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
-        let range = -2..=2;
+        let range = -1..=2;
 
-        let mut b = SymTngBuilder::new(&l, &h, &t, false);
-        b.set_h_range(range.clone());
-        b.process_all();
-
-        assert!(b.complex().is_finalizable());
-        assert!(b.inner.elements().all(|e| e.is_evalable()));
-
-        let c = b.into_khi_complex();
-
-        assert!(c.h_range().all(|i| range.contains(&i) || c[i].is_zero()));
+        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false, Some(range.clone()));
+        assert_eq!(c.h_range(), range);
+        c.check_d_all();
 
         let h = c.homology();
+        assert_eq!(h[0].rank(), 6);
+        assert_eq!(h[1].rank(), 4);
+    }
+    
+    #[test]
+    fn test_khi_6_3_partial() { 
+        let l = InvLink::load("6_3").unwrap();
+        let (h, t) = (FF2::zero(), FF2::zero());
+        let range = -1..=2;
 
-        assert!(h.h_range().all(|i| range.contains(&i) || h[i].is_zero()));
+        let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false, Some(range.clone()));
+        assert_eq!(c.h_range(), range);
+        c.check_d_all();
+
+        let h = c.homology();
         assert_eq!(h[0].rank(), 10);
         assert_eq!(h[1].rank(), 10);
     }

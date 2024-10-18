@@ -58,7 +58,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         assert!(!reduced || (!l.is_empty() && t.is_zero()));
 
-        TngComplexBuilder::build_kh_complex(l, h, t, reduced)
+        TngComplexBuilder::build_kh_complex(l, h, t, reduced, None)
     }
 
     #[cfg(feature = "old")]
