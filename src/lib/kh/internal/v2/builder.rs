@@ -330,7 +330,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ).collect()
     }
 
-    fn stat(&self) -> String { 
+    pub(crate) fn stat(&self) -> String { 
         format!("n: {}, v: {}", self.complex.dim(), self.complex.nverts())
     }
 }
