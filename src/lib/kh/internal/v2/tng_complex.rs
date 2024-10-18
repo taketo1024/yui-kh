@@ -409,6 +409,59 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // self.validate();
     }
 
+    pub fn connect_filter<F>(&mut self, mut other: TngComplex<R>, pred: F) 
+    where F: Fn(&TngKey) -> bool { 
+        assert_eq!(self.ht(), other.ht());
+        assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
+
+        // create vertices
+        let vertices = std::mem::take(&mut self.vertices);
+        self.vertices = cartesian!(vertices.iter(), other.vertices.iter()).filter_map(|((k, v), (l, w))| {  
+            let kl = k + l;
+            if !pred(&kl) { return None }
+
+            let mut vw = TngVertex::init();
+            vw.key = kl;
+            vw.tng = v.tng.connected(&w.tng); // D(v, w)
+            Some((kl, vw))
+        }).collect();
+
+        // create edges
+        cartesian!(vertices.iter(), other.vertices.iter()).for_each(|((k0, v0), (l0, w0))| {
+            let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
+            let k0_l0 = k0 + l0;
+            
+            for (k1, f) in v0.out_edges.iter() { 
+                let k1_l0 = k1 + l0;
+                if !self.vertices.contains_key(&k1_l0) { continue }
+
+                let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
+                
+                if !f_id.is_zero() { 
+                    self.add_edge(&k0_l0, &k1_l0, f_id);
+                }                
+            }
+
+            for (l1, f) in w0.out_edges.iter() { 
+                let k0_l1 = k0 + l1;
+                if !self.vertices.contains_key(&k0_l1) { continue }
+
+                let e = R::from_sign(Sign::from_parity(i0 as i64));
+                let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
+                if !id_f.is_zero() { 
+                    self.add_edge(&k0_l0, &k0_l1, id_f);
+                }
+            }
+        });
+
+        self.base_pt = self.base_pt.or(other.base_pt);
+        self.deg_shift.0 += other.deg_shift.0;
+        self.deg_shift.1 += other.deg_shift.1;
+        self.crossings.append(&mut other.crossings);
+
+        // self.validate();
+    }
+
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         let c = self.vertex(k).tng.comp(r);
         assert!(c.is_circle());

@@ -100,6 +100,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.h_range = Some(h_range)
     }
 
+    pub(crate) fn max_dim(&self) -> usize { 
+        self.max_dim
+    }
+
     pub fn choose_next(&mut self) -> Option<Crossing> { 
         let Some((i, _)) = self.crossings.iter().enumerate().max_by_key(|(_, x)|
             self.count_loops_for(x)

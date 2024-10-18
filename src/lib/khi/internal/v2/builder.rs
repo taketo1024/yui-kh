@@ -118,7 +118,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let mut tc = self.complex().convert_edges(|e| self.inv_e(e));
         tc.set_deg_shift((0, 0));
         
-        self.inner.complex_mut().connect(tc);
+        let h_range = self.inner.h_range();
+        let i0 = self.complex().deg_shift().0;
+        let remain = self.inner.max_dim() - self.complex().dim();
+
+        let pred = move |k: &TngKey| { 
+            if let Some(h_range) = h_range.clone() { 
+                i0 + ((k.weight() + remain) as isize) >= *h_range.start() &&
+                i0 + (k.weight() as isize) <= *h_range.end()
+            } else { 
+                true
+            }
+        };
+        
+        self.inner.complex_mut().connect_filter(tc, &pred);
 
         info!("     done: {}", self.inner.stat());
 
