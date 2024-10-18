@@ -43,26 +43,29 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn new(link: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+        Self::new_partial(link, h, t, reduced, None)
+    }
+
+    pub fn new_partial(link: &Link, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self { 
         cfg_if::cfg_if! { 
         if #[cfg(feature = "old")] { 
-            Self::new_v1(link, h, t, reduced)
+            Self::new_v1(link, h, t, reduced, h_range)
         } else { 
-            Self::new_v2(link, h, t, reduced)
-        }
-        }
+            Self::new_v2(link, h, t, reduced, h_range)
+        }}
     }
 
     #[cfg(not(feature = "old"))]
-    fn new_v2(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+    fn new_v2(l: &Link, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self { 
         use crate::kh::internal::v2::builder::TngComplexBuilder;
 
         assert!(!reduced || (!l.is_empty() && t.is_zero()));
 
-        TngComplexBuilder::build_kh_complex(l, h, t, reduced, None)
+        TngComplexBuilder::build_kh_complex(l, h, t, reduced, h_range)
     }
 
     #[cfg(feature = "old")]
-    fn new_v1(l: &Link, h: &R, t: &R, reduced: bool) -> Self { 
+    fn new_v1(l: &Link, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self { 
         use crate::kh::internal::v1::cube::KhCube;
 
         assert!(!reduced || (!l.is_empty() && t.is_zero()));
@@ -81,7 +84,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             vec![]
         };
 
-        KhComplex::new_impl(complex, ht, deg_shift, reduced, canon_cycles)
+        let ckh = KhComplex::new_impl(complex, ht, deg_shift, reduced, canon_cycles);
+        if let Some(h_range) = h_range { 
+            ckh.truncated(h_range)
+        } else { 
+            ckh
+        }
     }
 
     pub(crate) fn new_impl(inner: XChainComplex<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
@@ -425,6 +433,25 @@ mod tests {
             assert_eq!(c[(-2, -6)].rank(), 1);
             assert_eq!(c[(0, -2)].rank(), 1);
         }}
+
+        c.check_d_all();
+    }
+
+    #[test]
+    fn ckh_fig8_partial() {
+        let l = Link::figure8();
+        let c = KhComplex::new_partial(&l, &0, &0, false, Some(-1..=1));
+
+        assert_eq!(c.h_range(), -1..=1);
+
+        cfg_if::cfg_if! { 
+        if #[cfg(feature = "old")] { 
+            // TODO
+        } else { 
+            assert_eq!(c[-1].rank(), 4);
+            assert_eq!(c[ 0].rank(), 2);
+            assert_eq!(c[ 1].rank(), 4);
+        }}  
 
         c.check_d_all();
     }

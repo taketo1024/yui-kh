@@ -3,7 +3,7 @@ use delegate::delegate;
 use cartesian::cartesian;
 
 use yui_homology::{isize2, Grid2, GridTrait, XHomology, XHomology2, XHomologySummand, XModStr};
-use yui::{EucRing, EucRingOps};
+use yui::{EucRing, EucRingOps, RangeExt};
 use yui_link::Link;
 
 use crate::kh::KhGen;
@@ -24,8 +24,19 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 impl<R> KhHomology<R> 
 where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     pub fn new(l: &Link, h: &R, t: &R, reduced: bool) -> Self {
-        let c = KhComplex::new(&l, h, t, reduced); 
-        Self::from(&c)
+        Self::new_partial(l, h, t, reduced, None)
+    }
+    
+    pub fn new_partial(l: &Link, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> Self {
+        let c_range = h_range.clone().map(|r| r.expand(1)); // must expand to compute homology
+        let c = KhComplex::new_partial(&l, h, t, reduced, c_range); 
+        let h = Self::from(&c);
+
+        if let Some(h_range) = h_range { 
+            h.truncated(h_range)
+        } else { 
+            h
+        }
     }
     
     pub(crate) fn new_impl(inner: XHomology<KhGen, R>, ht: (R, R), deg_shift: (isize, isize), reduced: bool, canon_cycles: Vec<KhChain<R>>) -> Self { 
@@ -54,6 +65,16 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
 
     pub fn inner(&self) -> &XHomology<KhGen, R> { 
         &self.inner
+    }
+
+    pub fn truncated(&self, range: RangeInclusive<isize>) -> Self {
+        Self::new_impl(
+            self.inner.truncated(range), 
+            self.ht.clone(), 
+            self.deg_shift, 
+            self.reduced, 
+            self.canon_cycles.clone()
+        )
     }
 
     // TODO take self instead of &self
@@ -487,5 +508,23 @@ mod tests {
         assert!(kh[( 0,-3)].is_free());
         assert_eq!(kh[( 0,-1)].rank(), 1);
         assert!(kh[( 0,-1)].is_free());
+    }
+
+    #[test]
+    fn kh_figure8_partial() {
+        let l = Link::figure8();
+        let range = -1..=1;
+        let h = KhHomology::new_partial(&l, &0, &0, false, Some(range));
+
+        assert_eq!(h.h_range(), -1..=1);
+
+        assert_eq!(h[-1].rank(), 1);
+        assert_eq!(h[-1].tors(), &vec![2]);
+
+        assert_eq!(h[0].rank(), 2);
+        assert!(h[0].is_free());
+
+        assert_eq!(h[1].rank(), 1);
+        assert!(h[1].is_free());
     }
  }
