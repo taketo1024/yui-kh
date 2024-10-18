@@ -52,7 +52,7 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
     fn new_v2(l: &InvLink, h: &R, t: &R, reduced: bool) -> Self {
         use crate::khi::internal::v2::builder::SymTngBuilder;
 
-        SymTngBuilder::build_khi_complex(l, h, t, reduced)
+        SymTngBuilder::build_khi_complex(l, h, t, reduced, None)
     }
 
     #[cfg(feature = "old")]
