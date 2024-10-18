@@ -4,12 +4,13 @@
 
 use itertools::Itertools;
 use log::info;
+use num_traits::Zero;
 use yui_homology::RModStr;
 use yui_link::Link;
 use yui::{EucRing, EucRingOps};
 
 use crate::misc::div_vec;
-use crate::kh::KhHomology;
+use crate::kh::{KhChainExt, KhHomology};
 
 pub fn ss_invariant<R>(l: &Link, c: &R, reduced: bool) -> i32
 where R: EucRing, for<'x> &'x R: EucRingOps<R> { 
@@ -35,18 +36,22 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     let r = if reduced { 1 } else { 2 };
 
     let kh = KhHomology::new_partial(l, c, &R::zero(), reduced, Some(0..=0));
-    let zs = kh.canon_cycles();
 
+    assert_eq!(kh[0].rank(), r);
     info!("Kh[0]: {}", kh[0].math_symbol());
     
-    assert_eq!(kh[0].rank(), r);
-    
-    let ds = zs.into_iter().map(|z| {
-        let v = kh[0].vectorize(z);
-        info!("{z} -> [{}]", v.to_dense().iter().join(","));
+    let zs = kh.canon_cycles();
+
+    assert_eq!(zs.len(), r);
+    assert!(zs.iter().all(|z| !z.is_zero()));
+    assert!(zs.iter().all(|z| z.h_deg() == 0));    
+
+    let ds = zs.iter().enumerate().map(|(i, z)| {
+        let v = kh[0].vectorize_euc(z);
+        info!("a[{i}] in Kh[0]: ({})", v.to_dense().iter().join(","));
         v
     }).map(|v| 
-        div_vec(&v, c).expect("invalid divisibility for v = {:?}")
+        div_vec(&v.subvec(0..r), c).expect("invalid divisibility.")
     ).collect_vec();
 
     assert!(ds.iter().all_equal());
