@@ -92,7 +92,7 @@ mod tests {
     fn test_unknot_pos_twist() { 
         let l = InvLink::new(
             Link::from_pd_code([[0,0,1,1]]),
-            [],
+            |e| e,
             Some(0)
         );
         let c = P::variable();
@@ -106,7 +106,7 @@ mod tests {
     fn test_unknot_neg_twist() { 
         let l = InvLink::new(
             Link::from_pd_code([[0,1,1,0]]),
-            [],
+            |e| e,
             Some(0)
         );
         let c = P::variable();
@@ -120,7 +120,7 @@ mod tests {
     fn test_unknot_neg_twist2() { 
         let l = InvLink::new(
             Link::from_pd_code([[0,1,3,0],[2,3,1,2]]),
-            [(1,3)],
+            |e| (4 - e) % 4,
             Some(0)
         );
         let c = P::variable();
@@ -132,11 +132,7 @@ mod tests {
 
     #[test]
     fn test_3_1() { 
-        let l = InvLink::new( // positive
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+        let l = InvLink::load("3_1").unwrap();
         let c = P::variable();
 
         let ssi = ssi_invariants(&l, &c, false);
@@ -146,11 +142,7 @@ mod tests {
 
     #[test]
     fn test_3_1_m() { 
-        let l = InvLink::new( // negative
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        ).mirror();
+        let l = InvLink::load("3_1").unwrap().mirror();
         let c = P::variable();
 
         let ssi = ssi_invariants(&l, &c, false);
@@ -160,11 +152,7 @@ mod tests {
 
     #[test]
     fn test_3_1_red() { 
-        let l = InvLink::new( // positive
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+        let l = InvLink::load("3_1").unwrap();
         let c = P::variable();
 
         let ssi = ssi_invariants(&l, &c, true);
