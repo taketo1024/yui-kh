@@ -18,10 +18,9 @@ use crate::kh::internal::v2::tng_complex::{TngComplex, TngKey};
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {
     inner: TngComplexBuilder<R>,
+    x_map: HashMap<Crossing, Crossing>,
     e_map: HashMap<Edge, Edge>,
     key_map: HashMap<TngKey, TngKey>,
-    on_axis: HashSet<Crossing>,
-    off_axis: HashSet<Crossing>,
     auto_validate: bool
 }
 
@@ -51,61 +50,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(!reduced || l.base_pt().is_some());
 
         let base_pt = if reduced { l.base_pt() } else { None };
-        let mut inner = TngComplexBuilder::new(l.link(), h, t, base_pt);
-        inner.set_crossings(vec![]); // clear crossings
 
+        let mut inner = TngComplexBuilder::new(l.link(), h, t, base_pt);
+        inner.auto_deloop = false;
+        inner.auto_elim = false;
+
+        let x_map = l.link().data().iter().map(|x| (x.clone(), l.inv_x(x).clone())).collect();
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
         let key_map = HashMap::new();
-        let (on_axis, off_axis) = Self::separate_crossings(l);
 
         let auto_validate = false;
 
-        SymTngBuilder { inner, e_map, key_map, on_axis, off_axis, auto_validate }
-    }
-
-    fn separate_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
-        let crossings = l.link().data();
-
-        let mut on_axis = HashSet::new();
-        let mut off_axis = KeyedUnionFind::new();
-
-        let is_adj = |l: &InvLink, x: &Crossing, y: &Crossing| {
-            x.edges().iter().filter(|&&e| 
-                l.inv_e(e) != e // no axis-crossing edge
-            ).any(|e| 
-                y.edges().contains(e)
-            )
-        };
-
-        for (i, x) in crossings.iter().enumerate() { 
-            if l.inv_x(x) == x { 
-                on_axis.insert(x.clone());
-            } else {
-                off_axis.insert(x);
-
-                for j in 0 .. i { 
-                    let y = &crossings[j];
-                    if off_axis.contains(&y) && is_adj(l, x, y) { 
-                        off_axis.union(&x, &y);
-                    }
-                }
-            }
-        }
-
-        // take half of the off-axis crossings
-        let off_axis = off_axis.into_group().into_iter().fold(HashSet::new(), |mut res, next| { 
-            if let Some(x) = next.iter().next() { 
-                let tx = l.inv_x(x);
-                if !res.contains(tx) { 
-                    res.extend(next.into_iter().cloned());
-                }
-            }
-            res
-        });
-
-        assert_eq!(on_axis.len() + 2 * off_axis.len(), crossings.len());
-
-        (on_axis, off_axis)
+        SymTngBuilder { inner, x_map, e_map, key_map, auto_validate }
     }
 
     pub fn process_all(&mut self) { 
@@ -115,48 +71,57 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn process_off_axis(&mut self) { 
-        info!("process off-axis: [{}]", self.off_axis.iter().join(", "));
+        assert_eq!(self.complex().dim(), 0);
+
+        info!("process off-axis");
 
         // process half
-        let off_axis = std::mem::take(&mut self.off_axis);
-        self.inner.set_crossings(off_axis);
-        self.inner.process_all();
+        let off_axis = self.extract_off_axis_crossings(true);
+        let elements = self.inner.take_elements();
 
-        // preserve old keys
-        let keys = self.complex().keys().cloned().collect_vec();
+        let (h, t) = self.complex().ht();
+        let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
 
+        b.set_crossings(off_axis);
+        b.set_elements(elements);
+        b.process_all();
+
+        // take results
+        let keys = b.complex().keys().cloned().collect_vec();
+        let elements = b.take_elements();
+        let c = b.into_tng_complex();
+        let tc = c.convert_edges(|e| self.inv_e(e));
+
+        // merge complexes
         info!("merge two sides...");
         info!("  current: {}", self.inner.stat());
 
-        // create other half and connect
-        let mut tc = self.complex().convert_edges(|e| self.inv_e(e));
-        tc.set_deg_shift((0, 0));
-        
+        self.inner.complex_mut().connect(c);
         self.inner.complex_mut().connect(tc);
 
         info!("     done: {}", self.inner.stat());
 
-        // create other half for each element
-        let inv_e = self.e_map.clone();
-        self.inner.elements_mut().iter_mut().for_each(|e|
+        // update elements
+        self.inner.set_elements(elements.into_iter().map(|mut e| { 
             e.modify(|k, c| {
                 let kk = k + k;
                 let cc = c.into_map(|mut c, r| { 
                     let r = &r * &r;
-                    let tc = c.convert_edges(|e| inv_e[&e]);
+                    let tc = c.convert_edges(|e| self.inv_e(e));
                     c.connect(tc);
                     (c, r)
                 });
                 (kk, cc)
-            })
-        );
+            });
+            e
+        }).collect_vec());
 
         // update keys
-        for (k1, k2) in cartesian!(keys.iter(), keys.iter()) { 
+        self.key_map = cartesian!(keys.iter(), keys.iter()).map(|(k1, k2)| { 
             let k  = k1 + k2;
             let tk = k2 + k1;
-            self.key_map.insert(k, tk);
-        }
+            (k, tk)
+        }).collect();
 
         // drop if possible
         self.inner.drop_vertices();
@@ -166,14 +131,56 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn process_on_axis(&mut self) { 
-        info!("process on-axis: [{}]", self.on_axis.iter().join(", "));
-        
-        let on_axis = std::mem::take(&mut self.on_axis);
+    fn extract_off_axis_crossings(&mut self, take_half: bool) -> Vec<Crossing> { 
+        let crossings = self.inner.take_crossings();
+        let (on_axis, off_axis) = crossings.into_iter().partition::<Vec<_>, _>(|x|
+            self.inv_x(x) == x
+        );
         self.inner.set_crossings(on_axis);
-        self.inner.auto_deloop = false;
-        self.inner.auto_elim = false;
 
+        if !take_half { 
+            return off_axis
+        }
+
+        let is_adj = |x: &Crossing, y: &Crossing| {
+            x.edges().iter().filter(|&&e| 
+                self.inv_e(e) != e // no axis-crossing edge
+            ).any(|e| 
+                y.edges().contains(e)
+            )
+        };
+
+        let mut u = KeyedUnionFind::from_iter(off_axis.iter());
+
+        for (i, x) in off_axis.iter().enumerate() { 
+            for j in 0 .. i { 
+                let y = &off_axis[j];
+                if is_adj(x, y) { 
+                    u.union(&x, &y);
+                }
+            }
+        }
+
+        let retain = u.group().into_iter().fold(HashSet::<&Crossing>::new(), |mut res, next| { 
+            if let Some(x) = next.iter().next() { 
+                let tx = self.inv_x(x);
+                if !res.contains(&tx) { 
+                    res.extend(next.into_iter());
+                }
+            }
+            res
+        });
+
+        let flags = off_axis.iter().map(|x| retain.contains(x)).collect_vec();
+
+        off_axis.into_iter().enumerate().filter(|(i, _)| 
+            flags[*i]
+        ).map(|(_, x)| x).collect()
+    }
+
+    fn process_on_axis(&mut self) { 
+        info!("process on-axis");
+        
         while let Some(x) = self.inner.choose_next() { 
             self.inner.process(&x);
             self.append_x(&x);
@@ -424,6 +431,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         } else { 
             ci
         }
+    }
+
+    fn inv_x(&self, x: &Crossing) -> &Crossing { 
+        &self.x_map[x]
     }
 
     fn inv_e(&self, e: Edge) -> Edge { 
