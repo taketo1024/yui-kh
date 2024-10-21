@@ -21,7 +21,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     x_map: HashMap<Crossing, Crossing>,
     e_map: HashMap<Edge, Edge>,
     key_map: HashMap<TngKey, TngKey>,
-    auto_validate: bool
 }
 
 impl<R> SymTngBuilder<R> 
@@ -60,9 +59,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
         let key_map = HashMap::new();
 
-        let auto_validate = false;
-
-        SymTngBuilder { inner, x_map, e_map, key_map, auto_validate }
+        SymTngBuilder { inner, x_map, e_map, key_map }
     }
 
     pub fn complex(&self) -> &TngComplex<R> { 
@@ -99,10 +96,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // drop if possible
         self.inner.drop_vertices();
-
-        if self.auto_validate { 
-            self.validate_equiv();
-        }
     }
 
     fn extract_off_axis_crossings(&mut self, take_half: bool) -> Vec<Crossing> { 
@@ -215,7 +208,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // k <-> l  =>  k0 <-> l0,
         //              k1 <-> l1
-
         self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
             [Bit::Bit0, Bit::Bit1].map(|b| { 
                 let mut k = *k;
@@ -251,10 +243,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             // (symmetric or asymmetric) loop on asymmetric key
             self.deloop_parallel(&k, r)
         };
-
-        if self.auto_validate { 
-            self.validate_equiv();
-        }
 
         for k in updated { 
             if let Some((i, j)) = self.find_equiv_inv_edge(&k) { 
@@ -406,10 +394,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.remove_key_pair(i);
         self.remove_key_pair(j);
-
-        if self.auto_validate { 
-            self.validate_equiv();
-        }
     }
 
     pub fn finalize(&mut self) {
@@ -506,6 +490,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         println!();
     }
 
+    #[allow(unused)]
     fn validate_equiv(&self) {
         for (k, _) in self.complex().iter_verts() { 
             assert!(self.key_map.contains_key(k), "no inv-key for {k}");
