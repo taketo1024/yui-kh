@@ -78,9 +78,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.complex
     }
 
+    pub(crate) fn complex_mut(&mut self) -> &mut TngComplex<R> { 
+        &mut self.complex
+    }
+
+    pub fn crossings(&self) -> impl Iterator<Item = &Crossing> { 
+        self.crossings.iter()
+    }
+
     pub fn set_crossings<I>(&mut self, crossings: I)
     where I: IntoIterator<Item = Crossing> {
         self.crossings = crossings.into_iter().collect_vec();
+    }
+
+    pub(crate) fn take_crossings(&mut self) -> Vec<Crossing> { 
+        std::mem::take(&mut self.crossings)
     }
 
     pub fn elements(&self) -> impl Iterator<Item = &BuildElem<R>> { 
@@ -90,6 +102,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn set_elements<I>(&mut self, elements: I)
     where I: IntoIterator<Item = BuildElem<R>> { 
         self.elements = elements.into_iter().collect_vec();
+    }
+
+    pub(crate) fn take_elements(&mut self) -> Vec<BuildElem<R>> {
+        std::mem::take(&mut self.elements)
     }
 
     pub fn h_range(&self) -> Option<RangeInclusive<isize>> { 
@@ -144,6 +160,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn process(&mut self, x: &Crossing) { 
         info!("({}) append: {x}", self.stat());
 
+        if let Some(i) = self.crossings.iter().find_position(|&e| e == x) { 
+            self.crossings.remove(i.0);
+        }
         self.complex.append(x);
 
         for e in self.elements.iter_mut() { 
@@ -287,14 +306,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 self.deloop(&k, r);
             }
         }    
-    }
-
-    pub(crate) fn complex_mut(&mut self) -> &mut TngComplex<R> { 
-        &mut self.complex
-    }
-
-    pub(crate) fn elements_mut(&mut self) -> &mut Vec<BuildElem<R>> {
-        &mut self.elements
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
