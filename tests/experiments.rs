@@ -292,36 +292,12 @@ fn knotJ_interlock_divided() {
 
     info!("start b1");
 
-    b1.set_crossings(l.link().data()[0..23].iter().cloned());
+    b1.set_crossings(l.link().data()[0..37].iter().cloned());
     b1.set_elements([]);
     b1.process_all();
 
-    info!("start b2");
+    // TODO
 
-    b2.set_crossings(l.link().data()[23..37].iter().cloned());
-    b2.set_elements([]);
-    b2.process_all();
-
-    info!("merge b1({}) & b2({}) ...", b1.stat(), b2.stat());
-
-    b1.merge(b2);
-
-    info!("done b1({})", b1.stat());
-
-    b1.deloop_all(false);
-
-    info!("start b3");
-
-    b3.set_crossings(l.link().data()[37..].iter().cloned());
-    b3.set_elements([]);
-
-    info!("merge b1({}) & b3({}) ...", b1.stat(), b3.stat());
-
-    b1.merge(b3);
-    
-    info!("done b1({})", b1.stat());
-
-    b1.deloop_all(false);
     b1.finalize();
     
     let c = b1.into_khi_complex();
