@@ -374,10 +374,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub(crate) fn stat(&self) -> String { 
-        format!("n: {}, v: {}", self.complex.dim(), self.complex.nverts())
+        self.complex.stat()
     }
 }
 
+#[derive(Clone)]
 pub struct BuildElem<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     init_cob: Cob,                       // initial cob, precomposed at the final step.
