@@ -245,16 +245,11 @@ mod tests {
     use yui::FF2;
     use num_traits::{Zero, One};
     use yui_homology::{ChainComplexCommon, ChainComplexTrait, RModStr};
-    use yui_link::Link;
     use super::*;
 
     #[test]
     fn complex_kh() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -280,11 +275,7 @@ mod tests {
 
     #[test]
     fn complex_fbn() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         let (h, t) = (R::one(), R::zero());
@@ -310,11 +301,7 @@ mod tests {
 
     #[test]
     fn complex_bn() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         type P = HPoly<'H', R>;
@@ -342,11 +329,7 @@ mod tests {
 
     #[test]
     fn complex_red() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -372,11 +355,7 @@ mod tests {
 
     #[test]
     fn complex_kh_bigr() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -403,12 +382,8 @@ mod tests {
     }
 
     #[test]
-    fn complex_kh_red_bigr() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+    fn complex_kh_red_bigr() {
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -431,11 +406,7 @@ mod tests {
 
     #[test]
     fn canon_fbn() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         let (h, t) = (R::one(), R::zero());
@@ -457,11 +428,7 @@ mod tests {
 
     #[test]
     fn canon_fbn_red() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         let (h, t) = (R::one(), R::zero());
@@ -481,11 +448,7 @@ mod tests {
 
     #[test]
     fn canon_bn() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         type P = HPoly<'H', R>;
@@ -508,11 +471,7 @@ mod tests {
 
     #[test]
     fn canon_bn_red() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            Some(3)
-        );
+        let l = InvLink::load("3_1").unwrap();
 
         type R = FF2;
         type P = HPoly<'H', R>;
