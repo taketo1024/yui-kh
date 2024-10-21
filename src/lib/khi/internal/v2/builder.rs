@@ -10,7 +10,7 @@ use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::{KhComplex, KhGen};
 use crate::khi::KhIComplex;
-use crate::kh::internal::v2::builder::TngComplexBuilder;
+use crate::kh::internal::v2::builder::{BuildElem, TngComplexBuilder};
 use crate::kh::internal::v2::cob::LcCobTrait;
 use crate::kh::internal::v2::tng::TngComp;
 use crate::kh::internal::v2::tng_complex::{TngComplex, TngKey};
@@ -45,7 +45,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn new(l: &InvLink, h: &R, t: &R, reduced: bool) -> SymTngBuilder<R> { 
-        assert!(l.link().is_knot(), "Only invertible knots are supported.");
         assert!(l.link().data().iter().all(|x| !x.is_resolved()));
         assert!(!reduced || l.base_pt().is_some());
 
@@ -64,6 +63,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         SymTngBuilder { inner, x_map, e_map, key_map, auto_validate }
     }
 
+    pub fn set_crossings<I>(&mut self, crossings: I) 
+    where I: IntoIterator<Item = Crossing>{ 
+        self.inner.set_crossings(crossings);
+    }
+
+    pub fn set_elements<I>(&mut self, elements: I) 
+    where I: IntoIterator<Item = BuildElem<R>>{ 
+        self.inner.set_elements(elements);
+    }
+    
     pub fn process_all(&mut self) { 
         self.process_off_axis();
         self.process_on_axis();
