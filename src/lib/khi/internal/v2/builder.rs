@@ -88,11 +88,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let off_axis = self.extract_off_axis_crossings(true);
         let elements = self.inner.take_elements();
-        let (c, elements, key_map) = self.build_from_half(off_axis, elements);
+        let b = self.build_from_half(off_axis, elements);
 
-        self.inner.complex_mut().connect(c);
-        self.inner.set_elements(elements);
-        self.key_map = key_map;
+        self.merge(b);
 
         // drop if possible
         self.inner.drop_vertices();
@@ -145,7 +143,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ).map(|(_, x)| x).collect()
     }
 
-    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, Vec<BuildElem<R>>, HashMap<TngKey, TngKey>) { 
+    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> Self { 
         let (h, t) = self.complex().ht();
         let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
 
@@ -189,7 +187,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (k, tk)
         }).collect::<HashMap<_, _>>();
 
-        (c, elements, key_map)
+        let mut inner = TngComplexBuilder::from(c);
+        inner.set_elements(elements);
+        
+        Self {
+            inner,
+            x_map: self.x_map.clone(),
+            e_map: self.e_map.clone(),
+            key_map,
+        }
     }
 
     fn process_on_axis(&mut self) { 
@@ -403,6 +409,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.deloop_all(true);
 
         assert!(self.complex().is_completely_delooped());
+    }
+
+    pub fn merge(&mut self, mut other: Self) { 
+        let key_map = std::mem::take(&mut other.key_map);
+        let elements = other.inner.take_elements();
+        let c = other.into_tng_complex();
+
+        self.inner.complex_mut().connect(c);
+        self.inner.set_elements(elements); // TODO must merge
+        self.key_map = key_map;            // TODO must merge
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
