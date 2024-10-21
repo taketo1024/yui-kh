@@ -85,57 +85,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn process_off_axis(&mut self) { 
-        assert_eq!(self.complex().dim(), 0);
+        assert_eq!(self.complex().dim(), 0, "must start from init state.");
 
         info!("process off-axis");
 
-        // process half
         let off_axis = self.extract_off_axis_crossings(true);
         let elements = self.inner.take_elements();
-
-        let (h, t) = self.complex().ht();
-        let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
-
-        b.set_crossings(off_axis);
-        b.set_elements(elements);
-        b.process_all();
-
-        // take results
-        let keys = b.complex().keys().cloned().collect_vec();
-        let elements = b.take_elements();
-        let c = b.into_tng_complex();
-        let tc = c.convert_edges(|e| self.inv_e(e));
-
-        // merge complexes
-        info!("merge two sides...");
-        info!("  current: {}", self.inner.stat());
+        let (c, elements, key_map) = self.build_from_half(off_axis, elements);
 
         self.inner.complex_mut().connect(c);
-        self.inner.complex_mut().connect(tc);
-
-        info!("     done: {}", self.inner.stat());
-
-        // update elements
-        self.inner.set_elements(elements.into_iter().map(|mut e| { 
-            e.modify(|k, c| {
-                let kk = k + k;
-                let cc = c.into_map(|mut c, r| { 
-                    let r = &r * &r;
-                    let tc = c.convert_edges(|e| self.inv_e(e));
-                    c.connect(tc);
-                    (c, r)
-                });
-                (kk, cc)
-            });
-            e
-        }).collect_vec());
-
-        // update keys
-        self.key_map = cartesian!(keys.iter(), keys.iter()).map(|(k1, k2)| { 
-            let k  = k1 + k2;
-            let tk = k2 + k1;
-            (k, tk)
-        }).collect();
+        self.inner.set_elements(elements);
+        self.key_map = key_map;
 
         // drop if possible
         self.inner.drop_vertices();
@@ -190,6 +150,53 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         off_axis.into_iter().enumerate().filter(|(i, _)| 
             flags[*i]
         ).map(|(_, x)| x).collect()
+    }
+
+    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, Vec<BuildElem<R>>, HashMap<TngKey, TngKey>) { 
+        let (h, t) = self.complex().ht();
+        let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
+
+        b.set_crossings(crossings);
+        b.set_elements(elements);
+        b.process_all();
+
+        // take results
+        let keys = b.complex().keys().cloned().collect_vec();
+        let elements = b.take_elements();
+        let mut c = b.into_tng_complex();
+
+        // merge complexes
+        info!("merge two sides...");
+        info!("  current: {}", self.inner.stat());
+
+        let tc = c.convert_edges(|e| self.inv_e(e));
+        c.connect(tc);
+
+        info!("     done: {}", self.inner.stat());
+
+        // build elements
+        let elements = elements.into_iter().map(|mut e| { 
+            e.modify(|k, c| {
+                let kk = k + k;
+                let cc = c.into_map(|mut c, r| { 
+                    let r = &r * &r;
+                    let tc = c.convert_edges(|e| self.inv_e(e));
+                    c.connect(tc);
+                    (c, r)
+                });
+                (kk, cc)
+            });
+            e
+        }).collect_vec();
+
+        // build keys
+        let key_map = cartesian!(keys.iter(), keys.iter()).map(|(k1, k2)| { 
+            let k  = k1 + k2;
+            let tk = k2 + k1;
+            (k, tk)
+        }).collect::<HashMap<_, _>>();
+
+        (c, elements, key_map)
     }
 
     fn process_on_axis(&mut self) { 
