@@ -50,6 +50,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let mut b = Self::new(l, h, t, base_pt);
         b.h_range = h_range;
         b.process_all();
+        b.finalize();
         b.into_kh_complex()
     }
 
@@ -154,7 +155,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         while let Some(x) = self.choose_next() { 
             self.process(&x)
         }
-        self.finalize();
     }
 
     pub fn process(&mut self, x: &Crossing) { 
@@ -174,13 +174,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         if self.auto_deloop { 
-            while let Some((k, r)) = self.find_good_loop(false) { 
-                self.deloop(&k, r);
-            }
-
-            while let Some((k, r)) = self.find_loop(false) { 
-                self.deloop(&k, r);
-            }
+            self.deloop_all(false);
         }
     }
 
@@ -201,6 +195,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         // TODO drop elements
+    }
+
+    pub fn deloop_all(&mut self, allow_based: bool) { 
+        while let Some((k, r)) = self.find_good_loop(allow_based) { 
+            self.deloop(&k, r);
+        }
+
+        while let Some((k, r)) = self.find_loop(allow_based) { 
+            self.deloop(&k, r);
+        }
     }
 
     pub fn find_good_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
@@ -301,11 +305,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn finalize(&mut self) { 
-        for b in [false, true] { 
-            while let Some((k, r)) = self.find_loop(b) { 
-                self.deloop(&k, r);
-            }
-        }    
+        info!("finalize");
+
+        self.deloop_all(false);
+        self.deloop_all(true);
+
+        assert!(self.complex.is_completely_delooped());
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
@@ -586,6 +591,8 @@ mod tests {
         ]);
 
         c.process_all();
+        
+        assert!(!c.complex.is_completely_delooped());
     }
 
     #[test]

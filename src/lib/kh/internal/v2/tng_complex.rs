@@ -521,7 +521,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> {
-        debug_assert!(self.is_finalizable());
+        assert!(self.is_completely_delooped());
 
         let n = self.dim();
         let i0 = self.deg_shift.0;
@@ -552,6 +552,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn into_kh_complex(self, canon_cycles: Vec<KhChain<R>>) -> KhComplex<R> { 
+        assert!(self.is_completely_delooped());
+
         let ht = self.ht().clone();
         let deg_shift = self.deg_shift;
         let reduced = self.base_pt.is_some();
@@ -560,7 +562,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         KhComplex::new_impl(inner, ht, deg_shift, reduced, canon_cycles)
     }
 
-    pub fn is_finalizable(&self) -> bool { 
+    pub fn is_completely_delooped(&self) -> bool { 
         self.vertices.iter().all(|(_, v)|
             v.tng.is_empty()
         )

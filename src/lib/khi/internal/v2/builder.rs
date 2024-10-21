@@ -32,6 +32,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             b.inner.set_h_range(h_range);
         }
         b.process_all();
+        b.finalize();
         b.into_kh_complex()
     }
 
@@ -41,6 +42,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             b.inner.set_h_range(h_range.mv(-1, 0)); // must extend left
         }
         b.process_all();
+        b.finalize();
         b.into_khi_complex()
     }
 
@@ -63,6 +65,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         SymTngBuilder { inner, x_map, e_map, key_map, auto_validate }
     }
 
+    pub fn complex(&self) -> &TngComplex<R> { 
+        self.inner.complex()
+    }
+
     pub fn set_crossings<I>(&mut self, crossings: I) 
     where I: IntoIterator<Item = Crossing>{ 
         self.inner.set_crossings(crossings);
@@ -76,7 +82,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn process_all(&mut self) { 
         self.process_off_axis();
         self.process_on_axis();
-        self.finalize();
     }
 
     fn process_off_axis(&mut self) { 
@@ -193,14 +198,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         while let Some(x) = self.inner.choose_next() { 
             self.inner.process(&x);
             self.append_x(&x);
-
-            while let Some((k, r)) = self.inner.find_good_loop(false) { 
-                self.deloop_equiv(&k, r);
-            }
-
-            while let Some((k, r)) = self.inner.find_loop(false) { 
-                self.deloop_equiv(&k, r);
-            }
+            self.deloop_all(false);
         }
     }
 
@@ -218,6 +216,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e1.1.state.push(Bit::Bit1);
             [e0, e1]
         }).collect();
+    }
+
+    pub fn deloop_all(&mut self, allow_based: bool) { 
+        while let Some((k, r)) = self.inner.find_good_loop(allow_based) { 
+            self.deloop_equiv(&k, r);
+        }
+        while let Some((k, r)) = self.inner.find_loop(allow_based) { 
+            self.deloop_equiv(&k, r);
+        }
     }
 
     fn deloop_equiv(&mut self, k: &TngKey, r: usize) { 
@@ -396,18 +403,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    fn finalize(&mut self) {
+    pub fn finalize(&mut self) {
         info!("finalize");
 
-        for b in [false, true] { 
-            while let Some((k, r)) = self.inner.find_loop(b) { 
-                self.deloop_equiv(&k, r);
-            }
-        }
-    }
+        self.deloop_all(false);
+        self.deloop_all(true);
 
-    pub fn complex(&self) -> &TngComplex<R> { 
-        self.inner.complex()
+        assert!(self.complex().is_completely_delooped());
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
@@ -418,8 +420,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.into_kh_complex()
     }
 
-    fn into_khi_complex(mut self) -> KhIComplex<R> {
-        assert!(self.complex().is_finalizable());
+    pub fn into_khi_complex(mut self) -> KhIComplex<R> {
+        assert!(self.complex().is_completely_delooped());
         
         let deg_shift = self.complex().deg_shift();
         let h_range = self.inner.h_range();
@@ -512,6 +514,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 assert_eq!(&f.convert_edges(|e| self.inv_e(e)), tf);
             }
         }
+    }
+
+    pub fn stat(&self) -> String { 
+        self.inner.stat()
     }
 }
 
