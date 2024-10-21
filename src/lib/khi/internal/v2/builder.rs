@@ -57,7 +57,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let x_map = l.link().data().iter().map(|x| (x.clone(), l.inv_x(x).clone())).collect();
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
-        let key_map = HashMap::new();
+        let key_map = HashMap::from_iter([(TngKey::init(), TngKey::init())]);
 
         SymTngBuilder { inner, x_map, e_map, key_map }
     }
@@ -189,7 +189,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let mut inner = TngComplexBuilder::from(c);
         inner.set_elements(elements);
-        
+
         Self {
             inner,
             x_map: self.x_map.clone(),
@@ -417,8 +417,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let c = other.into_tng_complex();
 
         self.inner.complex_mut().connect(c);
-        self.inner.set_elements(elements); // TODO must merge
-        self.key_map = key_map;            // TODO must merge
+        self.key_map = self.key_map.iter().flat_map(|(k1, l1)|
+            key_map.iter().map(move |(k2, l2)|
+                (k1 + k2, l1 + l2)
+            )
+        ).collect();
+
+        // TODO merge elements
+        self.inner.set_elements(elements);
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
@@ -534,6 +540,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 #[cfg(test)]
 #[allow(unused)]
 mod tests { 
+    use crate::khi::KhIHomology;
+
     use super::*;
     use num_traits::Zero;
 
@@ -602,5 +610,34 @@ mod tests {
         let h = c.homology();
         assert_eq!(h[0].rank(), 10);
         assert_eq!(h[1].rank(), 10);
+    }
+
+    #[test]
+    fn test_merge() { 
+        let l = InvLink::sinv_knot_from_code([
+            [6,9,7,10],[8,1,9,2],[14,7,1,8], // upper
+            [3,13,4,12],[10,5,11,6],[11,3,12,2],[13,5,14,4], // lower
+        ]); // 6_3
+
+        let (h, t) = (FF2::zero(), FF2::zero());
+        let mut b1 = SymTngBuilder::new(&l, &h, &t, false);
+        let mut b2 = SymTngBuilder::new(&l, &h, &t, false);
+
+        b1.set_crossings(l.link().data()[0..3].iter().cloned());
+        b1.set_elements([]);
+        b1.process_all();
+
+        b2.set_crossings(l.link().data()[3..].iter().cloned());
+        b2.set_elements([]);
+        b2.process_all();
+
+        b1.merge(b2);
+        b1.deloop_all(false);
+        b1.finalize();
+
+        let c = b1.into_khi_complex();
+        c.check_d_all();
+
+        // TODO check homology
     }
 }
