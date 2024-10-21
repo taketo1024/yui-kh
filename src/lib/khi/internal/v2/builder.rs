@@ -203,25 +203,27 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         info!("process on-axis");
         
         while let Some(x) = self.inner.choose_next() { 
-            self.inner.process(&x);
             self.append_x(&x);
             self.deloop_all(false);
         }
     }
 
     fn append_x(&mut self, x: &Crossing) { 
+        self.inner.process(&x);
+        
         if x.is_resolved() { return } 
 
         // k <-> l  =>  k0 <-> l0,
         //              k1 <-> l1
+
         self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
-            let mut e0 = (*k, *l);
-            let mut e1 = e0;
-            e0.0.state.push(Bit::Bit0);
-            e0.1.state.push(Bit::Bit0);
-            e1.0.state.push(Bit::Bit1);
-            e1.1.state.push(Bit::Bit1);
-            [e0, e1]
+            [Bit::Bit0, Bit::Bit1].map(|b| { 
+                let mut k = *k;
+                let mut l = *l;
+                k.state.push(b);
+                l.state.push(b);
+                (k, l)
+            })
         }).collect();
     }
 
