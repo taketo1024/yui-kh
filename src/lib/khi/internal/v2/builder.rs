@@ -167,12 +167,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // merge complexes
         info!("merge two sides...");
-        info!("  current: {}", self.inner.stat());
+        info!("  current: {}", c.stat());
 
         let tc = c.convert_edges(|e| self.inv_e(e));
         c.connect(tc);
 
-        info!("     done: {}", self.inner.stat());
+        info!("     done: {}", c.stat());
 
         // build elements
         let elements = elements.into_iter().map(|mut e| { 

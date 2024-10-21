@@ -634,6 +634,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
+    pub(crate) fn stat(&self) -> String { 
+        format!("n: {}, v: {}", self.dim(), self.nverts())
+    }
+
     pub fn convert_edges<F>(&self, f: F) -> Self
     where F: Fn(Edge) -> Edge { 
         let (h, t) = self.ht();
