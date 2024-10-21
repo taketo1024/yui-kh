@@ -5,7 +5,7 @@ use cartesian::cartesian;
 use itertools::Itertools;
 use log::info;
 use yui::bitseq::Bit;
-use yui::{RangeExt, Ring, RingOps};
+use yui::{KeyedUnionFind, RangeExt, Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::{KhComplex, KhGen};
@@ -64,32 +64,46 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn separate_crossings(l: &InvLink) -> (HashSet<Crossing>, HashSet<Crossing>) { 
+        let crossings = l.link().data();
+
         let mut on_axis = HashSet::new();
-        let mut off_axis = HashSet::new();
-        let mut take = false; // a flag to collect only half of the off-axis crossings.
+        let mut off_axis = KeyedUnionFind::new();
 
-        l.link().traverse_edges((0, 0), |i, j| { 
-            let x = &l.link().data()[i];
+        let is_adj = |l: &InvLink, x: &Crossing, y: &Crossing| {
+            x.edges().iter().filter(|&&e| 
+                l.inv_e(e) != e // no axis-crossing edge
+            ).any(|e| 
+                y.edges().contains(e)
+            )
+        };
 
-            if i == l.inv_x(i) {
-                take = !take;
-
-                if !on_axis.contains(x) {
-                    on_axis.insert(x.clone());
-                }
+        for (i, x) in crossings.iter().enumerate() { 
+            if l.inv_x(x) == x { 
+                on_axis.insert(x.clone());
             } else {
-                let e = x.edge(j);
-                if e == l.inv_e(e) { // on-axis edge
-                    take = !take;
-                }
+                off_axis.insert(x);
 
-                if take && !off_axis.contains(x) { 
-                    off_axis.insert(x.clone());
+                for j in 0 .. i { 
+                    let y = &crossings[j];
+                    if off_axis.contains(&y) && is_adj(l, x, y) { 
+                        off_axis.union(&x, &y);
+                    }
                 }
             }
+        }
+
+        // take half of the off-axis crossings
+        let off_axis = off_axis.into_group().into_iter().fold(HashSet::new(), |mut res, next| { 
+            if let Some(x) = next.iter().next() { 
+                let tx = l.inv_x(x);
+                if !res.contains(tx) { 
+                    res.extend(next.into_iter().cloned());
+                }
+            }
+            res
         });
 
-        assert_eq!(on_axis.len() + 2 * off_axis.len(), l.link().crossing_num());
+        assert_eq!(on_axis.len() + 2 * off_axis.len(), crossings.len());
 
         (on_axis, off_axis)
     }
