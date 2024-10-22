@@ -1,9 +1,10 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::ops::RangeInclusive;
+use ahash::AHashMap;
 use cartesian::cartesian;
-
 use itertools::Itertools;
 use log::info;
+use rayon::prelude::*;
 use yui::bitseq::{Bit, BitSeq};
 use yui::{KeyedUnionFind, RangeExt, Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
@@ -18,9 +19,9 @@ use crate::kh::internal::v2::tng_complex::{TngComplex, TngKey};
 pub struct SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> {
     inner: TngComplexBuilder<R>,
-    x_map: HashMap<Crossing, Crossing>,
-    e_map: HashMap<Edge, Edge>,
-    key_map: HashMap<TngKey, TngKey>,
+    x_map: AHashMap<Crossing, Crossing>,
+    e_map: AHashMap<Edge, Edge>,
+    key_map: AHashMap<TngKey, TngKey>,
 }
 
 impl<R> SymTngBuilder<R> 
@@ -57,7 +58,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let x_map = l.link().data().iter().map(|x| (x.clone(), l.inv_x(x).clone())).collect();
         let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
-        let key_map = HashMap::from_iter([(TngKey::init(), TngKey::init())]);
+        let key_map = AHashMap::from_iter([(TngKey::init(), TngKey::init())]);
 
         SymTngBuilder { inner, x_map, e_map, key_map }
     }
@@ -150,7 +151,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ).map(|(_, x)| x).collect()
     }
 
-    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, HashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
+    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
         let (h, t) = self.complex().ht();
         let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
 
@@ -173,14 +174,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         info!("     done: {}", c.stat());
 
         // build keys
-        let key_map = cartesian!(keys.iter(), keys.iter()).map(|(k1, k2)| { 
+        let keys = cartesian!(keys.iter(), keys.iter()).collect_vec();
+        let key_map = keys.into_par_iter().map(|(k1, k2)| { 
             let k  = k1 + k2;
             let tk = k2 + k1;
             (k, tk)
-        }).collect::<HashMap<_, _>>();
+        }).collect::<Vec<_>>().into_iter().collect();
 
         // build elements
-        let elements = elements.into_iter().map(|mut e| { 
+        let elements = elements.into_par_iter().map(|mut e| { 
             e.modify(|k, c| {
                 let kk = k + k;
                 let cc = c.into_map(|mut c, r| { 
@@ -192,7 +194,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 (kk, cc)
             });
             e
-        }).collect_vec();
+        }).collect::<Vec<_>>();
 
         (c, key_map, elements)
     }
@@ -219,7 +221,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // k <-> l  =>  k0 <-> l0,
         //              k1 <-> l1
 
-        self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
+        let iter = self.key_map.iter().collect_vec();
+        let key_map = iter.into_par_iter().flat_map(|(k, l)| { 
             [Bit::Bit0, Bit::Bit1].map(|b| { 
                 let mut k = *k;
                 let mut l = *l;
@@ -227,8 +230,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 l.state.push(b);
                 (k, l)
             })
-        }).collect();
+        }).collect::<Vec<_>>();
 
+        self.key_map = key_map.into_iter().collect();
         self.clean_keys();
 
     }
@@ -246,7 +250,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         //                      k11 <-> l11
         
         let bs = |b| BitSeq::from_iter(b);
-        self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
+        let iter = self.key_map.iter().collect_vec();
+        let key_map = iter.into_par_iter().flat_map(|(k, l)| { 
             [
                 (bs([0, 0]), bs([0, 0])),
                 (bs([1, 0]), bs([0, 1])),
@@ -259,8 +264,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 l.state.append(b1);
                 (k, l)
             })
-        }).collect();
+        }).collect::<Vec<_>>();
 
+        self.key_map = key_map.into_iter().collect();
         self.clean_keys();
     }
 
