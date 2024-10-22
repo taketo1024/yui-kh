@@ -227,6 +227,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
     }
 
+    pub fn contains_key(&self, key: &TngKey) -> bool { 
+        self.vertices.contains_key(key)
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = &TngKey> { 
         self.vertices.keys().sorted()
     }

@@ -4,7 +4,7 @@ use cartesian::cartesian;
 
 use itertools::Itertools;
 use log::info;
-use yui::bitseq::Bit;
+use yui::bitseq::{Bit, BitSeq};
 use yui::{KeyedUnionFind, RangeExt, Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
 
@@ -78,16 +78,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     
     pub fn process_all(&mut self) { 
         self.process_off_axis();
-        self.process_on_axis();
+        self.process_remain();
     }
 
     fn process_off_axis(&mut self) { 
         assert_eq!(self.complex().dim(), 0, "must start from init state.");
 
-        info!("process off-axis");
-
         let off_axis = self.extract_off_axis_crossings(true);
         let elements = self.inner.take_elements();
+
+        info!("({}) process off-axis: {}", self.stat(), off_axis.len());
+
         let (c, key_map, elements) = self.build_from_half(off_axis, elements);
 
         self.inner.complex_mut().connect(c);
@@ -192,22 +193,28 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (c, key_map, elements)
     }
 
-    fn process_on_axis(&mut self) { 
-        info!("process on-axis");
+    pub fn process_remain(&mut self) { 
+        info!("({}) process remain: {}", self.stat(), self.inner.crossings().count());
         
         while let Some(x) = self.inner.choose_next() { 
-            self.append_x(&x);
+            let tx = self.inv_x(&x);
+            if &x == tx { 
+                self.append_on_axis(&x);
+            } else { 
+                self.append_off_axis(&x, &tx.clone());
+            }
             self.deloop_all(false);
         }
     }
 
-    fn append_x(&mut self, x: &Crossing) { 
+    fn append_on_axis(&mut self, x: &Crossing) { 
         self.inner.process(&x);
         
         if x.is_resolved() { return } 
 
         // k <-> l  =>  k0 <-> l0,
         //              k1 <-> l1
+
         self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
             [Bit::Bit0, Bit::Bit1].map(|b| { 
                 let mut k = *k;
@@ -217,6 +224,40 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 (k, l)
             })
         }).collect();
+
+        self.clean_keys();
+
+    }
+
+    fn append_off_axis(&mut self, x: &Crossing, tx: &Crossing) { 
+        assert_eq!(self.inv_x(x), tx);
+
+        self.inner.process(x);
+        self.inner.process(tx);
+        
+        if x.is_resolved() { return } 
+
+        //                      k00 <-> l00,
+        // k <-> l  =>  k10 <-> l01  |  k01 <-> l10,
+        //                      k11 <-> l11
+        
+        let bs = |b| BitSeq::from_iter(b);
+        self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
+            [
+                (bs([0, 0]), bs([0, 0])),
+                (bs([1, 0]), bs([0, 1])),
+                (bs([0, 1]), bs([1, 0])),
+                (bs([1, 1]), bs([1, 1]))
+            ].map(|(b0, b1)| { 
+                let mut k = *k;
+                let mut l = *l;
+                k.state.append(b0);
+                l.state.append(b1);
+                (k, l)
+            })
+        }).collect();
+
+        self.clean_keys();
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
@@ -397,7 +438,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn finalize(&mut self) {
-        info!("finalize");
+        if self.complex().is_completely_delooped() { 
+            return
+        }
+
+        info!("({}) finalize", self.stat());
 
         self.deloop_all(false);
         self.deloop_all(true);
@@ -461,6 +506,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         if k != &tk { 
             self.key_map.remove(&tk);
         }
+    }
+
+    fn clean_keys(&mut self) { 
+        let mut key_map = std::mem::take(&mut self.key_map);
+        key_map.retain(|k, _|
+            self.complex().contains_key(k)
+        );
+        self.key_map = key_map;
     }
 
     fn is_sym_key(&self, k: &TngKey) -> bool { 
@@ -588,5 +641,25 @@ mod tests {
         let h = c.homology();
         assert_eq!(h[0].rank(), 10);
         assert_eq!(h[1].rank(), 10);
+    }
+
+    #[test]
+    fn no_process_off_axis() { 
+        let l = InvLink::load("3_1").unwrap();
+        let (h, t) = (FF2::zero(), FF2::zero());
+
+        let mut b = SymTngBuilder::new(&l, &h, &t, false);
+        b.process_remain();
+
+        let c = b.into_khi_complex();
+        c.check_d_all();;
+
+        let h = c.inner().homology(false);
+
+        assert_eq!(h[0].rank(), 2);
+        assert_eq!(h[1].rank(), 2);
+        assert_eq!(h[2].rank(), 2);
+        assert_eq!(h[3].rank(), 4);
+        assert_eq!(h[4].rank(), 2);
     }
 }
