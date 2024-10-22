@@ -269,16 +269,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.complex().vertex(k).tng().contains_circle()
         ).cloned().collect::<BTreeSet<_>>();
 
-        while let Some((k, r)) = self.inner.find_loop(allow_based, keys.iter()) { 
-            keys.remove(&k);
+        for special in [true, false] { 
+            while let Some((k, r)) = self.inner.find_loop(allow_based, special, keys.iter()) { 
+                keys.remove(&k);
 
-            let updated = self.deloop_equiv(&k, r);
-            
-            keys.extend(updated);
-            keys.retain(|k| 
-                self.complex().contains_key(k) && 
-                self.complex().vertex(k).tng().contains_circle()
-            );
+                let updated = self.deloop_equiv(&k, r);
+                
+                keys.extend(updated);
+                keys.retain(|k| 
+                    self.complex().contains_key(k) && 
+                    self.complex().vertex(k).tng().contains_circle()
+                );
+            }
         }
     }
 
