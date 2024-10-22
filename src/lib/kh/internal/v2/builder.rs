@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;
 use std::ops::RangeInclusive;
 
@@ -202,16 +202,25 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
-        while let Some((k, r)) = self.find_good_loop(allow_based) { 
-            self.deloop(&k, r);
-        }
+        let mut keys = self.complex.keys().filter(|k| 
+            self.complex.vertex(k).tng().contains_circle()
+        ).cloned().collect::<BTreeSet<_>>();
 
-        while let Some((k, r)) = self.find_loop(allow_based) { 
-            self.deloop(&k, r);
+        while let Some((k, r)) = self.find_loop(allow_based, keys.iter()) { 
+            keys.remove(&k);
+
+            let updated = self.deloop(&k, r);
+            
+            keys.extend(updated);
+            keys.retain(|k| 
+                self.complex.contains_key(k) && 
+                self.complex.vertex(k).tng().contains_circle()
+            );
         }
     }
 
-    pub fn find_good_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
+    pub fn find_good_loop<'a, I>(&self, allow_based: bool, keys: I) -> Option<(TngKey, usize)>
+    where I: IntoIterator<Item = &'a TngKey> { 
         let find_in = |k: &TngKey, loc_tng: &Tng| { 
             if let Some(r_loc) = loc_tng.find_comp(|c| { 
                 c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
@@ -225,8 +234,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         };
         
-        self.complex.iter_verts().find_map(|(k, v)|
-            v.out_edges().find_map(|l|
+        keys.into_iter().filter(|k|
+            self.complex.contains_key(k)
+        ).find_map(|k|
+            self.complex.vertex(k).out_edges().find_map(|l|
                 self.complex.edge(k, l).gens().find_map(|cob| 
                     cob.comps().find_map(|c| 
                         if c.is_plain() && c.is_merge() { 
@@ -242,12 +253,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
-    pub fn find_loop(&self, allow_based: bool) -> Option<(TngKey, usize)> { 
-        self.complex.iter_verts().find_map(|(k, v)| {
-            v.tng().find_comp(|c| 
+    pub fn find_loop<'a, I>(&self, allow_based: bool, keys: I) -> Option<(TngKey, usize)>
+    where I: IntoIterator<Item = &'a TngKey> { 
+        keys.into_iter().find_map(|k|
+            self.complex.vertex(k).tng().find_comp(|c| 
                 c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
             ).map(|r| (*k, r))
-        })
+        )
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
@@ -262,15 +274,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let keys = self.complex.deloop(k, r);
 
         if self.auto_elim { 
-            for k in keys { 
-                if let Some((i, j)) = self.find_inv_edge(&k) { 
+            for k in keys.iter() { 
+                if let Some((i, j)) = self.find_inv_edge(k) { 
                     self.eliminate(&i, &j)
                 }
             }
-            vec![]
-        } else { 
-            keys
         }
+
+        keys
     }
 
     pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
