@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::RangeInclusive;
 use cartesian::cartesian;
 
@@ -265,15 +265,24 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
-        while let Some((k, r)) = self.inner.find_good_loop(allow_based) { 
-            self.deloop_equiv(&k, r);
-        }
-        while let Some((k, r)) = self.inner.find_loop(allow_based) { 
-            self.deloop_equiv(&k, r);
+        let mut keys = self.complex().keys().filter(|k| 
+            self.complex().vertex(k).tng().contains_circle()
+        ).cloned().collect::<BTreeSet<_>>();
+
+        while let Some((k, r)) = self.inner.find_loop(allow_based, keys.iter()) { 
+            keys.remove(&k);
+
+            let updated = self.deloop_equiv(&k, r);
+            
+            keys.extend(updated);
+            keys.retain(|k| 
+                self.complex().contains_key(k) && 
+                self.complex().vertex(k).tng().contains_circle()
+            );
         }
     }
 
-    fn deloop_equiv(&mut self, k: &TngKey, r: usize) { 
+    fn deloop_equiv(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
         let c = self.complex().vertex(&k).tng().comp(r);
 
         let updated = if self.is_sym_key(&k) { 
@@ -289,11 +298,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.deloop_parallel(&k, r)
         };
 
-        for k in updated { 
-            if let Some((i, j)) = self.find_equiv_inv_edge(&k) { 
+        for k in updated.iter() { 
+            if !self.complex().contains_key(k) { continue }
+            if let Some((i, j)) = self.find_equiv_inv_edge(k) { 
                 self.eliminate_equiv(&i, &j);
             }
         }
+
+        updated
     }
 
     fn deloop_sym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
@@ -347,7 +359,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.add_key_pair(k_X1, k_1X);
         self.add_key_pair(k_11, k_11);
 
-        vec![k_XX, k_X1, k_11]
+        vec![k_XX, k_X1, k_1X, k_11]
     }
 
     #[allow(non_snake_case)]

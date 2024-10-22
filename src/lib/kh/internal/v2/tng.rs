@@ -133,6 +133,10 @@ impl Tng {
         self.comps.iter().all(|a| a.is_circle())
     }
 
+    pub fn contains_circle(&self) -> bool { 
+        self.comps.iter().any(|a| a.is_circle())
+    }
+
     pub fn ncomps(&self) -> usize { 
         self.comps.len()
     }
