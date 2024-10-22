@@ -206,58 +206,58 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.complex.vertex(k).tng().contains_circle()
         ).cloned().collect::<BTreeSet<_>>();
 
-        while let Some((k, r)) = self.find_loop(allow_based, keys.iter()) { 
-            keys.remove(&k);
-
-            let updated = self.deloop(&k, r);
-            
-            keys.extend(updated);
-            keys.retain(|k| 
-                self.complex.contains_key(k) && 
-                self.complex.vertex(k).tng().contains_circle()
-            );
+        for special in [true, false] { 
+            while let Some((k, r)) = self.find_loop(allow_based, special, keys.iter()) { 
+                keys.remove(&k);
+    
+                let updated = self.deloop(&k, r);
+                
+                keys.extend(updated);
+                keys.retain(|k| 
+                    self.complex.contains_key(k) && 
+                    self.complex.vertex(k).tng().contains_circle()
+                );
+            }
         }
     }
 
-    pub fn find_good_loop<'a, I>(&self, allow_based: bool, keys: I) -> Option<(TngKey, usize)>
+    pub fn find_loop<'a, I>(&self, allow_based: bool, special: bool, keys: I) -> Option<(TngKey, usize)>
     where I: IntoIterator<Item = &'a TngKey> { 
-        let find_in = |k: &TngKey, loc_tng: &Tng| { 
-            if let Some(r_loc) = loc_tng.find_comp(|c| { 
-                c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
-            }) {
-                let circ = loc_tng.comp(r_loc);
-                let v = self.complex.vertex(k);
-                let r = v.tng().find_comp(|c| c == circ).unwrap();
-                Some((*k, r))
-            } else {
-                None
-            }
+        let ok = |c: &TngComp| { 
+            c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
         };
-        
-        keys.into_iter().filter(|k|
-            self.complex.contains_key(k)
-        ).find_map(|k|
-            self.complex.vertex(k).out_edges().find_map(|l|
-                self.complex.edge(k, l).gens().find_map(|cob| 
-                    cob.comps().find_map(|c| 
-                        if c.is_plain() && c.is_merge() { 
-                            find_in(k, c.src())
-                        } else if c.is_plain() && c.is_split() {
-                            find_in(l, c.tgt())
-                        } else { 
-                            None
-                        }
-                    )
-                )
-            )
-        )
-    }
 
-    pub fn find_loop<'a, I>(&self, allow_based: bool, keys: I) -> Option<(TngKey, usize)>
-    where I: IntoIterator<Item = &'a TngKey> { 
+        let plain_merge = |k: &TngKey, c: &TngComp| { 
+            self.complex.keys_out_from(k).find(|l|
+                self.complex.edge(k, l).iter().find(|(cob, a)|
+                    a.is_unit() && cob.comps().find(|cob|
+                        cob.src().contains(c) && cob.is_plain() && cob.is_merge()
+                    ).is_some()
+                ).is_some()
+            ).is_some()
+        };
+
+        let plain_split = |k: &TngKey, c: &TngComp| {
+            self.complex.keys_into(k).find(|j|
+                self.complex.edge(j, k).iter().find(|(cob, a)|
+                    a.is_unit() && cob.comps().find(|cob|
+                        cob.tgt().contains(c) && cob.is_plain() && cob.is_split()
+                    ).is_some()
+                ).is_some()
+            ).is_some()
+        };
+
+        let special_ok = |k: &TngKey, c: &TngComp| {
+            ok(c) && (plain_merge(k, c) || plain_split(k, c))
+        };
+
         keys.into_iter().find_map(|k|
-            self.complex.vertex(k).tng().find_comp(|c| 
-                c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
+            self.complex.vertex(k).tng().find_comp(|c|
+                if special { 
+                    special_ok(k, c)
+                } else { 
+                    ok(c)
+                }
             ).map(|r| (*k, r))
         )
     }
