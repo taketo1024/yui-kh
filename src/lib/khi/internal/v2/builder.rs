@@ -75,6 +75,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     where I: IntoIterator<Item = BuildElem<R>>{ 
         self.inner.set_elements(elements);
     }
+
+    pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
+        self.inner.set_h_range(h_range);
+    }
     
     pub fn process_all(&mut self) { 
         self.process_off_axis();
