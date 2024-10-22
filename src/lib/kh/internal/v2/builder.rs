@@ -228,22 +228,25 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let plain_merge = |k: &TngKey, c: &TngComp| { 
-            self.complex.keys_out_from(k).find(|l|
-                self.complex.edge(k, l).iter().find(|(cob, a)|
+            self.complex.keys_out_from(k).find(|l| {
+                let f = self.complex.edge(k, l);
+                f.nterms() == 1 && f.iter().find(|(cob, a)|
                     a.is_unit() && cob.comps().find(|cob|
                         cob.src().contains(c) && cob.is_plain() && cob.is_merge()
                     ).is_some()
                 ).is_some()
-            ).is_some()
+            }).is_some()
         };
 
         let plain_split = |k: &TngKey, c: &TngComp| {
-            self.complex.keys_into(k).find(|j|
-                self.complex.edge(j, k).iter().find(|(cob, a)|
+            self.complex.keys_into(k).find(|j| {
+                let f = self.complex.edge(j, k);
+                f.nterms() == 1 && f.iter().find(|(cob, a)|
                     a.is_unit() && cob.comps().find(|cob|
                         cob.tgt().contains(c) && cob.is_plain() && cob.is_split()
                     ).is_some()
                 ).is_some()
+            }
             ).is_some()
         };
 
