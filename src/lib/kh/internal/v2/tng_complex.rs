@@ -5,6 +5,7 @@ use ahash::{AHashMap, AHashSet};
 use auto_impl_ops::auto_ops;
 use itertools::Itertools;
 use num_traits::Zero;
+use rayon::prelude::*;
 use cartesian::cartesian;
 use yui::{Ring, RingOps, Sign};
 use yui_homology::{XChainComplex, XModStr, Grid1};
@@ -371,39 +372,52 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert_eq!(self.ht(), other.ht());
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
-        // create vertices
-        let vertices = std::mem::take(&mut self.vertices);
-        self.vertices = cartesian!(vertices.iter(), other.vertices.iter()).map(|((k, v), (l, w))| {  
+        let keys = cartesian!(
+            self.keys(),
+            other.keys()
+        ).collect_vec();
+
+        let vertices = keys.clone().into_par_iter().map(|(k, l)| { 
+            let v = self.vertex(k);
+            let w = other.vertex(l);
             let kl = k + l;
             let mut vw = TngVertex::init();
             vw.key = kl;
             vw.tng = v.tng.connected(&w.tng); // D(v, w)
             (kl, vw)
-        }).collect();
+        }).collect::<Vec<_>>();
 
-        // create edges
-        cartesian!(vertices.iter(), other.vertices.iter()).for_each(|((k0, v0), (l0, w0))| {
+        let edges = keys.clone().into_par_iter().flat_map(|(k0, l0)| { 
+            let v0 = self.vertex(k0);
+            let w0 = other.vertex(l0);
             let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
             let k0_l0 = k0 + l0;
-            
-            for (k1, f) in v0.out_edges.iter() { 
-                let k1_l0 = k1 + l0;
-                let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-                
-                if !f_id.is_zero() { 
-                    self.add_edge(&k0_l0, &k1_l0, f_id);
-                }                
-            }
 
-            for (l1, f) in w0.out_edges.iter() { 
+            let e1 = self.keys_out_from(k0).map(|k1| { 
+                let k1_l0 = k1 + l0;
+                let f = self.edge(k0, k1);
+                let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
+                (k0_l0, k1_l0, f_id)
+            });
+
+            let e2 = other.keys_out_from(l0).map(|l1| { 
                 let k0_l1 = k0 + l1;
+                let f = other.edge(l0, l1);
                 let e = R::from_sign(Sign::from_parity(i0 as i64));
                 let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                if !id_f.is_zero() { 
-                    self.add_edge(&k0_l0, &k0_l1, id_f);
-                }
+                (k0_l0, k0_l1, id_f)
+            });
+
+            Iterator::chain(e1, e2).collect_vec()
+        }).collect::<Vec<_>>();
+
+        self.vertices = vertices.into_iter().collect();
+        
+        for (k, l, f) in edges { 
+            if !f.is_zero() { 
+                self.add_edge(&k, &l, f);
             }
-        });
+        }
 
         self.base_pt = self.base_pt.or(other.base_pt);
         self.deg_shift.0 += other.deg_shift.0;
@@ -482,33 +496,34 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             panic!("{a} is not invertible.")
         };
 
-        let v0_out = self.keys_out_from(k0).cloned().collect_vec();
-        let v1_in  = self.keys_into(k1).cloned().collect_vec();
-        
-        for (l0, l1) in cartesian!(v1_in.iter(), v0_out.iter()) {
-            if l0 == k0 || l1 == k1 { 
-                continue
-            }
+        let (h, t) = self.ht();
 
-            let (h, t) = self.ht();
-            
+        let keys = cartesian!(
+            self.keys_into(k1).filter(|&l0| l0 != k0),
+            self.keys_out_from(k0).filter(|&l1| l1 != k1)
+        ).collect_vec();
+
+        let values = keys.into_par_iter().map(|(l0, l1)|{
             let b = self.edge(l0, k1);
             let c = self.edge(k0, l1);
             let cab = (c * &ainv * b).part_eval(h, t);
 
-            if cab.is_zero() { 
-                continue
-            } 
-
             let s = if self.has_edge(l0, l1) { 
-                let d = self.remove_edge(l0, l1);
+                let d = self.edge(l0, l1);
                 d - cab
             } else { 
                 -cab
             };
 
+            (*l0, *l1, s)
+        }).collect::<Vec<_>>();
+
+        for (l0, l1, s) in values { 
+            if self.has_edge(&l0, &l1) { 
+                self.remove_edge(&l0, &l1);
+            }
             if !s.is_zero() { 
-                self.add_edge(l0, l1, s);
+                self.add_edge(&l0, &l1, s);
             }
         }
 
