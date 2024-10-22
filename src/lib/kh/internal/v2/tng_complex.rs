@@ -224,7 +224,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn iter_verts(&self) -> impl Iterator<Item = (&TngKey, &TngVertex<R>)> {
-        self.vertices.iter().sorted_by(|(k0, _), (k1, _)| k0.cmp(k1))
+        self.vertices.iter()
     }
 
     pub fn contains_key(&self, key: &TngKey) -> bool { 
@@ -232,11 +232,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &TngKey> { 
-        self.vertices.keys().sorted()
+        self.vertices.keys()
     }
 
     pub fn keys_of_weight(&self, w: usize) -> impl Iterator<Item = &TngKey> { 
-        self.vertices.keys().filter(move |k| k.weight() == w).sorted()
+        self.vertices.keys().filter(move |k| k.weight() == w)
     }
 
     pub fn keys_into(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
@@ -574,11 +574,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn desc_d(&self) -> String { 
         let mut str = "".to_string();
-        for k0 in self.vertices.keys().sorted() { 
+        for k0 in self.vertices.keys() { 
             let v = &self.vertices[&k0];
             str += &format!("{k0}: {}", v.tng);
 
-            for k1 in v.out_edges.keys().sorted() { 
+            for k1 in v.out_edges.keys() { 
                 let f = &v.out_edges[&k1];
                 str += &format!("\n  -> {k1}: {f}");
             }
