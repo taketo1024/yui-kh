@@ -563,7 +563,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     #[allow(unused)]
     fn validate_equiv(&self) {
-        for (k, _) in self.complex().iter_verts() { 
+        for k in self.complex().keys().sorted() { 
             assert!(self.key_map.contains_key(k), "no inv-key for {k}");
             let tk = self.inv_key(k);
 

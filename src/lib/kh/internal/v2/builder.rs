@@ -188,10 +188,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let i0 = self.complex.deg_shift().0;
         let remain = self.max_dim - self.complex.dim();
 
-        let drop = self.complex.iter_verts().map(|(&k, _)| k).filter(|k| 
+        let drop = self.complex.keys().filter(|k| 
             i0 + ((k.weight() + remain) as isize) < *h_range.start() || 
             i0 + (k.weight() as isize) > *h_range.end()
-        ).collect_vec();
+        ).cloned().collect_vec();
 
         for k in drop { 
             info!("({}) drop {}", self.stat(), self.complex.vertex(&k));
