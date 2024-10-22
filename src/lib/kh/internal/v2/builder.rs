@@ -162,7 +162,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn process(&mut self, x: &Crossing) { 
-        info!("({}) append: {x}, connections: {}", self.stat(), self.count_connections(x));
+        info!("({}) append: {x}", self.stat());
 
         if let Some(i) = self.crossings.iter().find_position(|&e| e == x) { 
             self.crossings.remove(i.0);
