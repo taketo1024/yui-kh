@@ -119,7 +119,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn choose_next(&mut self) -> Option<Crossing> { 
         let Some((i, _)) = self.crossings.iter().enumerate().max_by_key(|(_, x)|
-            self.count_loops_for(x)
+            self.count_connections(x)
         ) else { 
             return None
         };
@@ -128,7 +128,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         Some(x)
     }
 
-    fn count_loops_for(&self, x: &Crossing) -> usize { 
+    fn count_connections(&self, x: &Crossing) -> usize { 
         let arcs = if x.is_resolved() { 
             let a = x.arcs();
             vec![a.0, a.1]
@@ -142,9 +142,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let count = self.complex.iter_verts().map(|(_, v)| {
             v.tng().comps().map(|c| 
-                arcs.iter().filter(|a| 
-                    c.path().is_connectable_bothends(a)
-                ).count()
+                arcs.iter().map(|a| 
+                    match c.path() {
+                        p if p.is_connectable_bothends(a) => 2,
+                        p if p.is_connectable(a)          => 1,
+                        _                                 => 0
+                    }
+                ).sum::<usize>()
             ).sum::<usize>()
         }).sum::<usize>();
 
@@ -158,7 +162,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn process(&mut self, x: &Crossing) { 
-        info!("({}) append: {x}", self.stat());
+        info!("({}) append: {x}, connections: {}", self.stat(), self.count_connections(x));
 
         if let Some(i) = self.crossings.iter().find_position(|&e| e == x) { 
             self.crossings.remove(i.0);
