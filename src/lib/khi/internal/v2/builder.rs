@@ -1,12 +1,11 @@
 use std::collections::{BTreeSet, HashSet};
-use std::ops::RangeInclusive;
 use ahash::AHashMap;
 use cartesian::cartesian;
 use itertools::Itertools;
 use log::info;
 use rayon::prelude::*;
 use yui::bitseq::{Bit, BitSeq};
-use yui::{KeyedUnionFind, RangeExt, Ring, RingOps};
+use yui::{KeyedUnionFind, Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::{KhComplex, KhGen};
@@ -26,21 +25,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> SymTngBuilder<R> 
 where R: Ring, for<'x> &'x R: RingOps<R> { 
-    pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> KhComplex<R> { 
+    pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
         let mut b = Self::new(l, h, t, reduced);
-        if let Some(h_range) = h_range { 
-            b.inner.set_h_range(h_range);
-        }
         b.process_all();
         b.finalize();
         b.into_kh_complex()
     }
 
-    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> KhIComplex<R> { 
+    pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhIComplex<R> { 
         let mut b = Self::new(l, h, t, reduced);
-        if let Some(h_range) = h_range { 
-            b.inner.set_h_range(h_range.mv(-1, 0)); // must extend left
-        }
         b.process_all();
         b.finalize();
         b.into_khi_complex()
@@ -77,10 +70,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.set_elements(elements);
     }
 
-    pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
-        self.inner.set_h_range(h_range);
-    }
-    
     pub fn process_all(&mut self) { 
         if self.complex().dim() == 0 {
             self.preprocess();
@@ -101,9 +90,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.complex_mut().connect(c);
         self.key_map = key_map;
         self.inner.set_elements(elements);
-
-        // drop if possible
-        self.inner.drop_vertices();
     }
 
     fn extract_off_axis_crossings(&mut self, take_half: bool) -> Vec<Crossing> { 
@@ -475,10 +461,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.complex().is_completely_delooped());
     }
 
-    pub fn drop_vertices(&mut self) {
-        self.inner.drop_vertices();
-    }
-
     pub fn process_partial<I>(&mut self, indices: I)
     where I: IntoIterator<Item = usize> { 
         let (h, t) = self.complex().ht();
@@ -532,7 +514,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.complex().is_completely_delooped());
         
         let deg_shift = self.complex().deg_shift();
-        let h_range = self.inner.h_range();
         let key_map = std::mem::take(&mut self.key_map);
 
         let map = move |x: &KhGen| -> KhGen { 
@@ -543,13 +524,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let c = self.into_kh_complex();
-        let ci = KhIComplex::from_kh_complex(c, map);
-
-        if let Some(h_range) = h_range { 
-            ci.truncated(h_range.mv(1, 0))
-        } else { 
-            ci
-        }
+        KhIComplex::from_kh_complex(c, map)
     }
 
     fn inv_x(&self, x: &Crossing) -> &Crossing { 
@@ -655,7 +630,7 @@ mod tests {
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
 
-        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false, None);
+        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false);
         c.check_d_all();;
 
         let h = c.inner().homology(false);
@@ -671,7 +646,7 @@ mod tests {
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
 
-        let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false, None);
+        let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false);
         c.check_d_all();;
 
         let h = c.homology();
@@ -681,36 +656,6 @@ mod tests {
         assert_eq!(h[2].rank(), 2);
         assert_eq!(h[3].rank(), 4);
         assert_eq!(h[4].rank(), 2);
-    }
-
-    #[test]
-    fn test_kh_6_3_partial() { 
-        let l = InvLink::load("6_3").unwrap();
-        let (h, t) = (FF2::zero(), FF2::zero());
-        let range = -1..=2;
-
-        let c = SymTngBuilder::build_kh_complex(&l, &h, &t, false, Some(range.clone()));
-        assert_eq!(c.h_range(), range);
-        c.check_d_all();
-
-        let h = c.homology();
-        assert_eq!(h[0].rank(), 6);
-        assert_eq!(h[1].rank(), 4);
-    }
-    
-    #[test]
-    fn test_khi_6_3_partial() { 
-        let l = InvLink::load("6_3").unwrap();
-        let (h, t) = (FF2::zero(), FF2::zero());
-        let range = -1..=2;
-
-        let c = SymTngBuilder::build_khi_complex(&l, &h, &t, false, Some(range.clone()));
-        assert_eq!(c.h_range(), range);
-        c.check_d_all();
-
-        let h = c.homology();
-        assert_eq!(h[0].rank(), 10);
-        assert_eq!(h[1].rank(), 10);
     }
 
     #[test]
