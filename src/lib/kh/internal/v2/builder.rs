@@ -87,6 +87,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.crossings.iter()
     }
 
+    pub(crate) fn crossings_mut(&mut self) -> &mut Vec<Crossing> { 
+        &mut self.crossings
+    }
+
     pub fn set_crossings<I>(&mut self, crossings: I)
     where I: IntoIterator<Item = Crossing> {
         self.crossings = crossings.into_iter().collect_vec();

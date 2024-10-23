@@ -82,17 +82,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
     
     pub fn process_all(&mut self) { 
-        self.process_off_axis();
+        if self.complex().dim() == 0 {
+            self.preprocess();
+        }
         self.process_remain();
     }
 
-    fn process_off_axis(&mut self) { 
+    fn preprocess(&mut self) { 
         assert_eq!(self.complex().dim(), 0, "must start from init state.");
 
         let off_axis = self.extract_off_axis_crossings(true);
         let elements = self.inner.take_elements();
 
-        info!("({}) process off-axis: {}", self.stat(), off_axis.len());
+        info!("({}) preprocess off-axis: {}", self.stat(), off_axis.len());
 
         let (c, key_map, elements) = self.build_from_half(off_axis, elements);
 
@@ -199,8 +201,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (c, key_map, elements)
     }
 
-    pub fn process_remain(&mut self) { 
-        info!("({}) process remain: {}", self.stat(), self.inner.crossings().count());
+    fn process_remain(&mut self) { 
+        info!("({}) process {} crossings", self.stat(), self.inner.crossings().count());
         
         while let Some(x) = self.inner.choose_next() { 
             let tx = self.inv_x(&x);
@@ -477,8 +479,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.drop_vertices();
     }
 
-    pub fn process_partial<'a, I>(&mut self, crossings: I)
-    where I: IntoIterator<Item = &'a Crossing> { 
+    pub fn process_partial<I>(&mut self, indices: I)
+    where I: IntoIterator<Item = usize> { 
         let (h, t) = self.complex().ht();
         let mut b = Self { 
             inner: TngComplexBuilder::init(h, t, (0, 0), None),
@@ -489,14 +491,21 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.inner.auto_deloop = false;
         b.inner.auto_elim = false;
 
-        b.set_crossings(crossings.into_iter().cloned());
+        let indices = indices.into_iter().collect::<HashSet<_>>();
+        let crossings = self.inner.crossings().enumerate().filter(|(i, _)| 
+            indices.contains(&i)
+        ).map(|(_, x)| x.clone()).collect_vec();
+
+        b.set_crossings(crossings.clone());
         b.process_all();
 
         info!("merge ({}) <- ({})", self.stat(), b.stat());
 
         let key_map = std::mem::take(&mut b.key_map);
         let c = b.into_tng_complex();
+
         self.inner.complex_mut().connect(c);
+        self.inner.crossings_mut().retain(|x| !crossings.contains(x));
 
         self.key_map = self.key_map.iter().flat_map(|(k1, l1)|
             key_map.iter().map(move |(k2, l2)|
@@ -726,6 +735,7 @@ mod tests {
 
     #[test]
     fn process_partial() { 
+        yui::util::log::init_simple_logger(log::LevelFilter::Info);
         let l = InvLink::sinv_knot_from_code([
             [6,9,7,10],[8,1,9,2],[14,7,1,8], // upper
             [3,13,4,12],[10,5,11,6],[11,3,12,2],[13,5,14,4], // lower
@@ -735,8 +745,8 @@ mod tests {
         let mut b = SymTngBuilder::new(&l, &h, &t, false);
 
         b.set_elements([]);
-        b.process_partial(&l.link().data()[0..3]);
-        b.process_partial(&l.link().data()[3..]);
+        b.process_partial(0..3);
+        b.process_all();
         b.finalize();
 
         let c = b.into_khi_complex();
