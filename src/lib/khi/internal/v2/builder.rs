@@ -234,7 +234,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.key_map = key_map.into_iter().collect();
         self.clean_keys();
-
     }
 
     fn append_off_axis(&mut self, x: &Crossing, tx: &Crossing) { 
@@ -478,6 +477,40 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.drop_vertices();
     }
 
+    pub fn process_partial<'a, I>(&mut self, crossings: I)
+    where I: IntoIterator<Item = &'a Crossing> { 
+        let (h, t) = self.complex().ht();
+        let mut b = Self { 
+            inner: TngComplexBuilder::init(h, t, (0, 0), None),
+            x_map: self.x_map.clone(),
+            e_map: self.e_map.clone(),
+            key_map: AHashMap::new()
+        };
+        b.inner.auto_deloop = false;
+        b.inner.auto_elim = false;
+
+        b.set_crossings(crossings.into_iter().cloned());
+        b.process_all();
+
+        info!("merge ({}) <- ({})", self.stat(), b.stat());
+
+        let key_map = std::mem::take(&mut b.key_map);
+        let c = b.into_tng_complex();
+        self.inner.complex_mut().connect(c);
+
+        self.key_map = self.key_map.iter().flat_map(|(k1, l1)|
+            key_map.iter().map(move |(k2, l2)|
+                (k1 + k2, l1 + l2)
+            )
+        ).collect();
+
+        // TODO merge elements
+
+        info!("merged ({})", self.stat());
+
+        self.deloop_all(false);
+    } 
+
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.inner.into_tng_complex()
     }
@@ -689,5 +722,34 @@ mod tests {
         assert_eq!(h[2].rank(), 2);
         assert_eq!(h[3].rank(), 4);
         assert_eq!(h[4].rank(), 2);
+    }
+
+    #[test]
+    fn process_partial() { 
+        let l = InvLink::sinv_knot_from_code([
+            [6,9,7,10],[8,1,9,2],[14,7,1,8], // upper
+            [3,13,4,12],[10,5,11,6],[11,3,12,2],[13,5,14,4], // lower
+        ]); // 6_3
+
+        let (h, t) = (FF2::zero(), FF2::zero());
+        let mut b = SymTngBuilder::new(&l, &h, &t, false);
+
+        b.set_elements([]);
+        b.process_partial(&l.link().data()[0..3]);
+        b.process_partial(&l.link().data()[3..]);
+        b.finalize();
+
+        let c = b.into_khi_complex();
+        c.check_d_all();
+
+        let h = c.homology();
+        assert_eq!(h[-3].rank(), 2);
+        assert_eq!(h[-2].rank(), 6);
+        assert_eq!(h[-1].rank(), 8);
+        assert_eq!(h[ 0].rank(), 10);
+        assert_eq!(h[ 1].rank(), 10);
+        assert_eq!(h[ 2].rank(), 8);
+        assert_eq!(h[ 3].rank(), 6);
+        assert_eq!(h[ 4].rank(), 2);
     }
 }
