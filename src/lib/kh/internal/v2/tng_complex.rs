@@ -372,6 +372,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert_eq!(self.ht(), other.ht());
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
+        let (h, t) = self.ht();
         let keys = cartesian!(
             self.keys(),
             other.keys()
@@ -397,7 +398,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 let k1_l0 = k1 + l0;
                 let f = self.edge(k0, k1);
                 let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-                (k0_l0, k1_l0, f_id)
+                (k0_l0, k1_l0, f_id.part_eval(h, t))
             });
 
             let e2 = other.keys_out_from(l0).map(|l1| { 
@@ -405,7 +406,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 let f = other.edge(l0, l1);
                 let e = R::from_sign(Sign::from_parity(i0 as i64));
                 let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                (k0_l0, k0_l1, id_f)
+                (k0_l0, k0_l1, id_f.part_eval(h, t))
             });
 
             Iterator::chain(e1, e2).collect_vec()
