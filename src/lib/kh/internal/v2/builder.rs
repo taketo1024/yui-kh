@@ -1,6 +1,5 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;
-use std::ops::RangeInclusive;
 
 use itertools::Itertools;
 use log::info;
@@ -21,8 +20,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     crossings: Vec<Crossing>,
     complex: TngComplex<R>,
     elements: Vec<BuildElem<R>>,
-    max_dim: usize,
-    h_range: Option<RangeInclusive<isize>>,
     pub auto_deloop: bool,
     pub auto_elim: bool
 }
@@ -30,13 +27,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 impl<R> From<TngComplex<R>> for TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
     fn from(complex: TngComplex<R>) -> Self {
-        let max_dim = complex.dim();
         Self { 
             crossings: vec![], 
             complex, 
             elements: vec![], 
-            max_dim, 
-            h_range: None, 
             auto_deloop: true, 
             auto_elim: true 
         }
@@ -45,10 +39,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> TngComplexBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool, h_range: Option<RangeInclusive<isize>>) -> KhComplex<R> { 
+    pub fn build_kh_complex(l: &Link, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
         let base_pt = if reduced { l.first_edge() } else { None };
         let mut b = Self::new(l, h, t, base_pt);
-        b.h_range = h_range;
         b.process_all();
         b.finalize();
         b.into_kh_complex()
@@ -60,7 +53,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let mut b = Self::init(h, t, deg_shift, base_pt);
         b.set_crossings(l.data().clone());
-        b.max_dim = l.crossing_num();
 
         if t.is_zero() && l.is_knot() {
             let canon = Self::make_canon_cycles(l, base_pt);
@@ -111,14 +103,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub(crate) fn take_elements(&mut self) -> Vec<BuildElem<R>> {
         std::mem::take(&mut self.elements)
-    }
-
-    pub fn h_range(&self) -> Option<RangeInclusive<isize>> { 
-        self.h_range.clone()
-    }
-
-    pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
-        self.h_range = Some(h_range)
     }
 
     pub fn choose_next(&mut self) -> Option<Crossing> { 
@@ -177,35 +161,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e.append(x);
         }
 
-        if self.h_range.is_some() { 
-            self.drop_vertices();
-        }
-
         if self.auto_deloop { 
             self.deloop_all(false);
         }
-    }
-
-    pub fn drop_vertices(&mut self) { 
-        let Some(h_range) = &self.h_range else { return };
-
-        let i0 = self.complex.deg_shift().0;
-        let remain = self.max_dim - self.complex.dim();
-
-        let drop = self.complex.keys().filter(|k| 
-            i0 + ((k.weight() + remain) as isize) < *h_range.start() || 
-            i0 + (k.weight() as isize) > *h_range.end()
-        ).cloned().collect_vec();
-
-        if drop.is_empty() { return }
-
-        for k in drop.iter() { 
-            self.complex.remove_vertex(k);
-        }
-
-        info!("({}) dropped {} vertices", self.stat(), drop.len());
-
-        // TODO drop elements
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
@@ -343,15 +301,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn into_kh_complex(self) -> KhComplex<R> { 
-        let h_range = self.h_range.clone();
         let canon_cycles = self.eval_elements();
-        let ckh = self.into_tng_complex().into_kh_complex(canon_cycles);
-
-        if let Some(h_range) = h_range { 
-            ckh.truncated(h_range)
-        } else { 
-            ckh
-        }
+        self.into_tng_complex().into_kh_complex(canon_cycles)
     }
 
     pub(crate) fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<BuildElem<R>> { 
@@ -557,7 +508,7 @@ mod tests {
     #[test]
     fn test_unknot() {
         let l = Link::unknot();
-        let c = TngComplexBuilder::build_kh_complex(&l, &2, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &2, &0, false);
 
         assert_eq!(c[0].rank(), 2);
         assert_eq!(c[1].rank(), 0);
@@ -566,7 +517,7 @@ mod tests {
     #[test]
     fn test_unknot_rm1() {
         let l = Link::from_pd_code([[0,0,1,1]]);
-        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         assert_eq!(c[0].rank(), 2);
         assert_eq!(c[1].rank(), 0);
@@ -575,7 +526,7 @@ mod tests {
     #[test]
     fn test_unknot_rm1_neg() {
         let l = Link::from_pd_code([[0,1,1,0]]);
-        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -586,7 +537,7 @@ mod tests {
     #[test]
     fn test_unknot_rm2() {
         let l = Link::from_pd_code([[1,4,2,1],[2,4,3,3]]);
-        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -599,7 +550,7 @@ mod tests {
     fn test_unlink_2() {
         let pd_code = [[1,2,3,4], [3,2,1,4]];
         let l = Link::from_pd_code(pd_code);
-        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -624,7 +575,7 @@ mod tests {
     #[test]
     fn test_hopf_link() {
         let l = Link::hopf_link();
-        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -636,7 +587,7 @@ mod tests {
     #[test]
     fn test_8_19() {
         let l = Link::from_pd_code([[4,2,5,1],[8,4,9,3],[9,15,10,14],[5,13,6,12],[13,7,14,6],[11,1,12,16],[15,11,16,10],[2,8,3,7]]);
-        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false);
 
         c.check_d_all();
 
@@ -662,7 +613,7 @@ mod tests {
     #[test]
     fn canon_cycle_trefoil() { 
         let l = Link::trefoil();
-        let c = TngComplexBuilder::build_kh_complex(&l, &2, &0, false, None);
+        let c = TngComplexBuilder::build_kh_complex(&l, &2, &0, false);
         let zs = c.canon_cycles();
 
         assert_eq!(zs.len(), 2);
@@ -672,20 +623,5 @@ mod tests {
             assert!(z.gens().all(|x| x.h_deg() == 0));
             assert!(c.d(0, &z).is_zero());
         }
-    }
-
-    #[test]
-    fn partial_cpx() { 
-        yui::util::log::init_simple_logger(log::LevelFilter::Info).unwrap();
-        let l = Link::load("4_1").unwrap();
-        let range = -1..=1;
-
-        let c = TngComplexBuilder::build_kh_complex(&l, &0, &0, false, Some(range.clone()));
-        assert_eq!(c.h_range(), range);
-        c.check_d_all();
-
-        let h = c.homology();
-        assert_eq!(h[0].rank(), 2);
-        assert!(h[0].is_free());
     }
 }
