@@ -287,12 +287,9 @@ fn knotJ_interlock_divided() {
     let (h, t) = (P::variable(), P::zero());
     let mut b = SymTngBuilder::new(&l, &h, &t, false);
 
-    b.set_crossings(l.link().data()[0..23].iter().cloned());
-    b.set_elements([]);
-    b.process_all();
-
-    b.set_crossings(l.link().data()[23..].iter().cloned());
-    b.process_remain();
+    b.process_partial(&l.link().data()[0..23]);
+    b.process_partial(&l.link().data()[23..37]);
+    b.process_partial(&l.link().data()[37..]);
     b.finalize();
     
     let c = b.into_khi_complex();
