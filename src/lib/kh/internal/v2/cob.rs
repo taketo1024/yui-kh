@@ -383,32 +383,49 @@ impl CobComp {
         self.dots.1 >= 2
     }
 
-    pub fn part_eval<R>(&self, h: &R, t: &R) -> Lc<CobComp, R>
+    pub fn part_eval<R>(&self, h: &R, t: &R) -> LcCob<R>
     where R: Ring, for<'x> &'x R: RingOps<R> {
-
-        fn cob(c: &CobComp, x: usize, y: usize) -> CobComp { 
-            CobComp { src: c.src.clone(), tgt: c.tgt.clone(), genus: 0, dots: (x, y) }
-        }
-
-        fn eval<R>(c: &CobComp, g: usize, x: usize, y: usize, h: &R, t: &R) -> Lc<CobComp, R>
+        fn eval<R>(c: &CobComp, g: usize, x: usize, y: usize, h: &R, t: &R) -> LcCob<R>
         where R: Ring, for<'x> &'x R: RingOps<R> { 
             match (g, x, y) { 
-                (g, _, _) if g > 0 => { // neck-cut
+                // neck-cut
+                (g, _, _) if g > 0 => { 
                     eval(c, g-1, x+1, y, h, t) + 
                     eval(c, g-1, x, y+1, h, t)
                 },
-                (0, x, y) if x >= 1 && y >= 1 => // XY = t
+
+                // XY = t
+                (0, x, y) if x >= 1 && y >= 1 => 
                     eval(c, 0, x-1, y-1, h, t) * t,
-                (0, x, 0) if x >= 2 => // X^2 = hX + t
+
+                // X^2 = hX + t
+                (0, x, 0) if x >= 2 => 
                     eval(c, 0, x-1, 0, h, t) * h + 
                     eval(c, 0, x-2, 0, h, t) * t,
-                (0, 0, y) if y >= 2 => // Y^2 = -hY + t
+
+                // Y^2 = -hY + t
+                (0, 0, y) if y >= 2 => 
                     eval(c, 0, 0, y-1, h, t) * -h + 
                     eval(c, 0, 0, y-2, h, t) *  t,
-                (0, 0, 0) if c.is_closed() => // S = 0
+
+                // XS = YS = 1
+                (0, 1, 0) | (0, 0, 1) if c.is_closed() => 
+                    Lc::from(Cob::empty()),
+                
+                // S = 0
+                (0, 0, 0) if c.is_closed() => 
                     Lc::zero(),
-                _ =>
-                    Lc::from(cob(c, x, y))
+                
+                // default
+                _ => {
+                    let c = CobComp { 
+                        src: c.src.clone(), 
+                        tgt: c.tgt.clone(), 
+                        genus: 0, 
+                        dots: (x, y) 
+                    };
+                    Lc::from(Cob::from(c))
+                }
             }
         }
 
@@ -422,11 +439,16 @@ impl CobComp {
     where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.is_closed(), "cannot eval: {}", self);
 
-        let comps = self.part_eval(h, t);
-        assert!(comps.gens().all(|c| c.is_unit_cob()));
-        
-        let coeffs = comps.into_iter().map(|(_, r)|  r);
-        R::sum(coeffs)
+        let eval = self.part_eval(h, t);
+
+        assert!(eval.nterms() <= 1);
+
+        if let Some((c, r)) = eval.any_term() { 
+            assert!(c.is_empty());
+            r.clone()
+        } else { 
+            R::zero()
+        }
     }
 }
 
@@ -766,18 +788,10 @@ impl Cob {
             return Lc::from(self)
         }
 
-        let init = Lc::from(Cob::empty());
-        self.comps.iter().fold(init, |res, c| { 
-            let eval = c.part_eval(h, t);
-            let all = cartesian!(res.iter(), eval.iter());
-            let prod = all.map(|((cob, r), (c, s))| {
-                let mut cob = cob.clone();
-                if !c.is_unit_cob() {
-                    cob.comps.push(c.clone());
-                }
-                (cob, r * s)
-            });
-            prod.collect()
+        let init = LcCob::from(Cob::empty());
+        self.comps.iter().fold(init, |res, c| {
+            let e = c.part_eval(h, t);
+            res.combine(&e, |c1, c2| c1.connected(c2))
         })
     }
 
