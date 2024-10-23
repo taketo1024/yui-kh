@@ -474,6 +474,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.complex().is_completely_delooped());
     }
 
+    pub fn drop_vertices(&mut self) {
+        self.inner.drop_vertices();
+    }
+
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.inner.into_tng_complex()
     }
