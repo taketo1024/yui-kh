@@ -193,10 +193,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             i0 + (k.weight() as isize) > *h_range.end()
         ).cloned().collect_vec();
 
-        for k in drop { 
-            info!("({}) drop {}", self.stat(), self.complex.vertex(&k));
-            self.complex.remove_vertex(&k);
+        if drop.is_empty() { return }
+
+        for k in drop.iter() { 
+            self.complex.remove_vertex(k);
         }
+
+        info!("({}) dropped {} vertices", self.stat(), drop.len());
 
         // TODO drop elements
     }
@@ -669,6 +672,7 @@ mod tests {
 
     #[test]
     fn partial_cpx() { 
+        yui::util::log::init_simple_logger(log::LevelFilter::Info).unwrap();
         let l = Link::load("4_1").unwrap();
         let range = -1..=1;
 
