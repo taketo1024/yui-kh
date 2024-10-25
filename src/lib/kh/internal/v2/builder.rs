@@ -179,7 +179,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         if keys.is_empty() { return }
 
-        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.count_loops(allow_based));
+        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.count_loops_in(allow_based, i));
 
         while let Some((k, r)) = self.find_loop(allow_based, false, keys.iter()) { 
             keys.remove(&k);
@@ -218,9 +218,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
-    pub(crate) fn count_loops(&self, allow_based: bool) -> usize { 
-        self.complex.iter_verts().map(|(_, v)| 
-            v.tng().comps().filter(|c| 
+    pub(crate) fn count_loops_in(&self, allow_based: bool, i: usize) -> usize { 
+        self.complex.keys_of_weight(i).map(|k| 
+            self.complex.vertex(k).tng().comps().filter(|c| 
                 c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
             ).count()
         ).sum()

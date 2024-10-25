@@ -268,7 +268,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         if keys.is_empty() { return }
 
-        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.inner.count_loops(allow_based));
+        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.inner.count_loops_in(allow_based, i));
 
         while let Some((k, r)) = self.inner.find_loop(allow_based, false, keys.iter()) { 
             keys.remove(&k);
