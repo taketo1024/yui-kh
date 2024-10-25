@@ -27,6 +27,7 @@ impl<R> SymTngBuilder<R>
 where R: Ring, for<'x> &'x R: RingOps<R> { 
     pub fn build_kh_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhComplex<R> { 
         let mut b = Self::new(l, h, t, reduced);
+        b.preprocess();
         b.process_all();
         b.finalize();
         b.into_kh_complex()
@@ -34,6 +35,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn build_khi_complex(l: &InvLink, h: &R, t: &R, reduced: bool) -> KhIComplex<R> { 
         let mut b = Self::new(l, h, t, reduced);
+        b.preprocess();
         b.process_all();
         b.finalize();
         b.into_khi_complex()
@@ -70,14 +72,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.set_elements(elements);
     }
 
-    pub fn process_all(&mut self) { 
-        if self.complex().dim() == 0 {
-            self.preprocess();
-        }
-        self._process_all();
-    }
-
-    fn preprocess(&mut self) { 
+    pub fn preprocess(&mut self) { 
         assert_eq!(self.complex().dim(), 0, "must start from init state.");
 
         let off_axis = self.extract_off_axis_crossings(true);
@@ -187,7 +182,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         (c, key_map, elements)
     }
 
-    fn _process_all(&mut self) { 
+    pub fn process_all(&mut self) { 
         info!("({}) process {} crossings", self.stat(), self.inner.crossings().count());
         
         while let Some(x) = self.inner.choose_next() { 
@@ -290,18 +285,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let c = self.complex().vertex(&k).tng().comp(r);
             if self.is_sym_comp(c) {
                 // symmetric loop on symmetric key
-                self.deloop_sym(&k, r)
+                self.deloop_on_axis_sym(&k, r)
             } else {
                 // asymmetric loop on symmetric key
-                self.deloop_asym(&k, r)
+                self.deloop_on_axis_asym(&k, r)
             }
         } else { 
             // (symmetric or asymmetric) loop on asymmetric key
-            self.deloop_parallel(&k, r)
+            self.deloop_off_axis(&k, r)
         }
     }
 
-    fn deloop_sym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
+    fn deloop_on_axis_sym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex().vertex(k).tng().comp(r);
 
         assert!(self.is_sym_key(k));
@@ -319,7 +314,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     #[allow(non_snake_case)]
-    fn deloop_asym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
+    fn deloop_on_axis_asym(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex().vertex(k).tng().comp(r);
 
         assert!(self.is_sym_key(k));
@@ -356,7 +351,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     #[allow(non_snake_case)]
-    fn deloop_parallel(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
+    fn deloop_off_axis(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex().vertex(k).tng().comp(r);
 
         assert!(!self.is_sym_key(k));
@@ -501,6 +496,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ).map(|(_, x)| x.clone()).collect_vec();
 
         b.set_crossings(crossings.clone());
+        b.preprocess();
         b.process_all();
 
         info!("merge ({}) <- ({})", self.stat(), b.stat());
@@ -673,12 +669,12 @@ mod tests {
     }
 
     #[test]
-    fn no_process_off_axis() { 
+    fn no_preprocess() { 
         let l = InvLink::load("3_1").unwrap();
         let (h, t) = (FF2::zero(), FF2::zero());
 
         let mut b = SymTngBuilder::new(&l, &h, &t, false);
-        b._process_all();
+        b.process_all();
 
         let c = b.into_khi_complex();
         c.check_d_all();;
