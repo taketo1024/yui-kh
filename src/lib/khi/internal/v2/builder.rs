@@ -257,6 +257,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
+        info!("({}) deloop {}.", self.stat(), self.inner.count_loops(allow_based));
+
         for i in 0 ..= self.complex().dim() { 
             let mut keys = self.complex().keys_of_weight(i).filter(|k| 
                 self.complex().vertex(k).tng().contains_circle()
@@ -374,6 +376,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn eliminate_all(&mut self) { 
         for i in 0 ..= self.complex().dim() { 
             let mut keys = self.complex().keys_of_weight(i).cloned().collect::<HashSet<_>>();
+            if keys.is_empty() { continue }
+
+            info!("({}) eliminate at C[{i}]: ({}, {}) ...", self.stat(), self.complex().keys_of_weight(i + 1).count(), self.complex().keys_of_weight(i).count());
+
+            let before = keys.len();
+
             while let Some((k, l, _)) = self.choose_pivot(keys.iter()) { 
                 let (k, l) = (*k, *l);
                 let tk = *self.inv_key(&k);
@@ -383,6 +391,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 keys.remove(&k);
                 keys.remove(&tk);
             }            
+
+            let after = self.complex().keys_of_weight(i).count();
+            info!("({})   eliminated {} edges.", self.stat(), before - after);
         }
     }
 

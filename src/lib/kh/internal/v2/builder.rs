@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
 use itertools::Itertools;
-use log::info;
+use log::{debug, info};
 use num_traits::Zero;
 use yui::bitseq::Bit;
 use yui::{hashmap, Ring, RingOps};
@@ -171,6 +171,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
+        info!("({}) deloop {}.", self.stat(), self.count_loops(allow_based));
+
         for i in 0 ..= self.complex.dim() { 
             let mut keys = self.complex.keys_of_weight(i).filter(|k| 
                 self.complex.vertex(k).tng().contains_circle()
@@ -193,7 +195,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex.vertex(k).tng().comp(r);
 
-        info!("({}) deloop: {c} in {}", self.stat(), self.complex.vertex(k));
+        debug!("({}) deloop: {c} in {}", self.stat(), self.complex.vertex(k));
 
         for e in self.elements.iter_mut() { 
             e.deloop(k, c);
@@ -211,19 +213,36 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
+    pub(crate) fn count_loops(&self, allow_based: bool) -> usize { 
+        self.complex.iter_verts().map(|(_, v)| 
+            v.tng().comps().map(|c| 
+                c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
+            ).count()
+        ).sum()
+    }
+
     pub fn eliminate_all(&mut self) { 
         for i in 0 ..= self.complex.dim() { 
             let mut keys = self.complex.keys_of_weight(i).cloned().collect::<HashSet<_>>();
+            if keys.is_empty() { continue }
+
+            info!("({}) eliminate at C[{i}]: ({}, {}) ...", self.stat(), self.complex.keys_of_weight(i + 1).count(), self.complex.keys_of_weight(i).count());
+
+            let before = keys.len();
+
             while let Some((k, l, _)) = self.choose_pivot(keys.iter()) { 
                 let (k, l) = (*k, *l);
                 self.eliminate(&k, &l);
                 keys.remove(&k);
             }            
+
+            let after = self.complex.keys_of_weight(i).count();
+            info!("({})   eliminated {} edges.", self.stat(), before - after);
         }
     }
 
     pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
-        info!("({}) eliminate {}: {} -> {}", self.stat(), self.complex.edge(i, j), self.complex.vertex(i), self.complex.vertex(j));
+        debug!("({}) eliminate {}: {} -> {}", self.stat(), self.complex.edge(i, j), self.complex.vertex(i), self.complex.vertex(j));
         
         self.eliminate_elements(i, j);
         self.complex.eliminate(i, j);
@@ -239,7 +258,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub(crate) fn choose_pivot<'a, I>(&self, keys: I) -> Option<(&'a TngKey, &TngKey, usize)> 
+    pub fn choose_pivot<'a, I>(&self, keys: I) -> Option<(&'a TngKey, &TngKey, usize)> 
     where I: IntoIterator<Item = &'a TngKey> { 
         keys.into_iter().filter_map(move |k|
             self.choose_pivot_col(k).map(move |(l, s)| (k, l, s))
@@ -273,6 +292,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.deloop_all(false);
         self.deloop_all(true);
+        self.eliminate_all();
 
         assert!(self.complex.is_completely_delooped());
     }
