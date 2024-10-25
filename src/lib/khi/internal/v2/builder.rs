@@ -680,7 +680,6 @@ mod tests {
 
     #[test]
     fn process_partial() { 
-        yui::util::log::init_simple_logger(log::LevelFilter::Info);
         let l = InvLink::sinv_knot_from_code([
             [6,9,7,10],[8,1,9,2],[14,7,1,8], // upper
             [3,13,4,12],[10,5,11,6],[11,3,12,2],[13,5,14,4], // lower
