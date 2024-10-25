@@ -361,18 +361,37 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     // TODO rename to add_crossing
     pub fn append(&mut self, x: &Crossing) {
+        self.append_with(x, |_, _| ());
+    }
+
+    pub(crate) fn append_with<F>(&mut self, x: &Crossing, callback: F)
+    where F: Fn(&mut Self, usize) { 
         let (h, t) = self.ht();
         let c = Self::from_crossing(h, t, (0, 0), None, x);
-        self.connect(c);
+        self.connect_with(c, callback);
     }
 
     // See [Bar-Natan '05] Section 5.
     // https://arxiv.org/abs/math/0410495
-    pub fn connect(&mut self, mut other: TngComplex<R>) { 
+    pub fn connect(&mut self, other: TngComplex<R>) { 
+        self.connect_with(other, |_, _| ());
+    }
+
+    pub(crate) fn connect_with<F>(&mut self, other: TngComplex<R>, callback: F)
+    where F: Fn(&mut Self, usize) { 
         assert_eq!(self.ht(), other.ht());
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
         let (h, t) = self.ht();
+        let base_pt = self.base_pt.or(other.base_pt);
+        let deg_shift = (
+            self.deg_shift.0 + other.deg_shift.0,
+            self.deg_shift.1 + other.deg_shift.1
+        );
+
+        let mut new = TngComplex::init(h, t, deg_shift, base_pt);
+        new.crossings = Iterator::chain(self.crossings.iter(), other.crossings.iter()).cloned().collect();
+
         let keys = cartesian!(
             self.keys(),
             other.keys()
@@ -388,42 +407,51 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (kl, vw)
         }).collect::<Vec<_>>();
 
-        let edges = keys.clone().into_par_iter().flat_map(|(k0, l0)| { 
-            let v0 = self.vertex(k0);
-            let w0 = other.vertex(l0);
-            let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
-            let k0_l0 = k0 + l0;
+        new.vertices = vertices.into_iter().collect();
 
-            let e1 = self.keys_out_from(k0).map(|k1| { 
-                let k1_l0 = k1 + l0;
-                let f = self.edge(k0, k1);
-                let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-                (k0_l0, k1_l0, f_id.part_eval(h, t))
-            });
+        let keys_per = keys.into_iter().into_group_map_by(|(k, l)| 
+            k.state.weight() + l.state.weight()
+        ).into_iter().sorted_by_key(|(i, _)| *i).collect_vec();
 
-            let e2 = other.keys_out_from(l0).map(|l1| { 
-                let k0_l1 = k0 + l1;
-                let f = other.edge(l0, l1);
-                let e = R::from_sign(Sign::from_parity(i0 as i64));
-                let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                (k0_l0, k0_l1, id_f.part_eval(h, t))
-            });
+        for (i, list) in keys_per { 
+            let edges = list.into_par_iter().flat_map(|(k0, l0)| { 
+                let k0_l0 = k0 + l0;
+                if !new.contains_key(&k0_l0) { 
+                    return vec![]
+                }
 
-            Iterator::chain(e1, e2).collect_vec()
-        }).collect::<Vec<_>>();
+                let v0 = self.vertex(k0);
+                let w0 = other.vertex(l0);
+                let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
+    
+                let e1 = self.keys_out_from(k0).map(|k1| { 
+                    let k1_l0 = k1 + l0;
+                    let f = self.edge(k0, k1);
+                    let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
+                    (k0_l0, k1_l0, f_id.part_eval(h, t))
+                });
+    
+                let e2 = other.keys_out_from(l0).map(|l1| { 
+                    let k0_l1 = k0 + l1;
+                    let f = other.edge(l0, l1);
+                    let e = R::from_sign(Sign::from_parity(i0 as i64));
+                    let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
+                    (k0_l0, k0_l1, id_f.part_eval(h, t))
+                });
+    
+                Iterator::chain(e1, e2).collect_vec()
+            }).collect::<Vec<_>>();
 
-        self.vertices = vertices.into_iter().collect();
-        
-        for (k, l, f) in edges { 
-            if !f.is_zero() { 
-                self.add_edge(&k, &l, f);
+            for (k, l, f) in edges { 
+                if !f.is_zero() { 
+                    new.add_edge(&k, &l, f);
+                }
             }
+
+            callback(&mut new, i)
         }
 
-        self.base_pt = self.base_pt.or(other.base_pt);
-        self.deg_shift.0 += other.deg_shift.0;
-        self.deg_shift.1 += other.deg_shift.1;
-        self.crossings.append(&mut other.crossings);
+        *self = new;
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
