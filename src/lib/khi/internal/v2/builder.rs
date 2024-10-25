@@ -390,7 +390,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn eliminate_in(&mut self, i: usize) { 
         let mut keys = self.complex().keys_of_weight(i).filter(|k| 
             self.complex().keys_out_from(k).find(|l|
-                self.complex().edge(k, l).is_invertible()
+                self.is_equiv_inv_edge(k, l)
             ).is_some()
         ).cloned().collect::<HashSet<_>>();
 
