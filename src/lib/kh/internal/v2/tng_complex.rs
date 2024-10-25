@@ -149,36 +149,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         TngComplex::new(h, t, deg_shift, base_pt, vertices, vec![])
     }
 
-    pub fn from_crossing(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>, x: &Crossing) -> Self { 
-        let mut _self = Self::new(h, t, deg_shift, base_pt, AHashMap::new(), vec![]);
-
-        if x.is_resolved() { 
-            let mut v = TngVertex::init();
-            v.tng = Tng::from_resolved(x);
-            _self.vertices.insert(v.key, v);
-        } else { 
-            let mut v0 = TngVertex::init();
-            v0.key.state.push_0();
-            v0.tng = Tng::from_resolved(&x.resolved(Bit::Bit0));
-            let k0 = v0.key;
-
-            let mut v1 = TngVertex::init();
-            v1.key.state.push_1();
-            v1.tng = Tng::from_resolved(&x.resolved(Bit::Bit1));
-            let k1 = v1.key;
-
-            _self.vertices.insert(k0, v0);
-            _self.vertices.insert(k1, v1);
-
-            let sdl = LcCob::from(Cob::from(CobComp::sdl_from(&x)));
-            _self.add_edge(&k0, &k1, sdl);
-
-            _self.crossings.push(x.clone());
-        }
-
-        _self
-    }
-
     pub fn ht(&self) -> &(R, R) { 
         &self.ht
     }
@@ -359,26 +329,53 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    // TODO rename to add_crossing
     pub fn append(&mut self, x: &Crossing) {
-        self.append_with(x, |_, _| ());
+        let c = self.make_x(x);
+        self.connect(c);
     }
 
-    pub(crate) fn append_with<F>(&mut self, x: &Crossing, callback: F)
-    where F: Fn(&mut Self, usize) { 
+    pub(crate) fn make_x(&self, x: &Crossing) -> Self { 
         let (h, t) = self.ht();
-        let c = Self::from_crossing(h, t, (0, 0), None, x);
-        self.connect_with(c, callback);
+        let mut c = Self::new(h, t, (0, 0), None, AHashMap::new(), vec![]);
+
+        if x.is_resolved() { 
+            let mut v = TngVertex::init();
+            v.tng = Tng::from_resolved(x);
+            c.vertices.insert(v.key, v);
+        } else { 
+            let mut v0 = TngVertex::init();
+            v0.key.state.push_0();
+            v0.tng = Tng::from_resolved(&x.resolved(Bit::Bit0));
+            let k0 = v0.key;
+
+            let mut v1 = TngVertex::init();
+            v1.key.state.push_1();
+            v1.tng = Tng::from_resolved(&x.resolved(Bit::Bit1));
+            let k1 = v1.key;
+
+            c.vertices.insert(k0, v0);
+            c.vertices.insert(k1, v1);
+
+            let sdl = LcCob::from(Cob::from(CobComp::sdl_from(&x)));
+            c.add_edge(&k0, &k1, sdl);
+
+            c.crossings.push(x.clone());
+        }
+
+        c
     }
 
     // See [Bar-Natan '05] Section 5.
     // https://arxiv.org/abs/math/0410495
     pub fn connect(&mut self, other: TngComplex<R>) { 
-        self.connect_with(other, |_, _| ());
+        let (mut new, keys) = Self::connect_init(self, &other);
+        for (_, keys) in keys { 
+            new.connect_edges(&self, &other, keys);
+        }
+        *self = new
     }
 
-    pub(crate) fn connect_with<F>(&mut self, other: TngComplex<R>, callback: F)
-    where F: Fn(&mut Self, usize) { 
+    pub(crate) fn connect_init(&self, other: &TngComplex<R>) -> (Self, Vec<(usize, Vec<(TngKey, TngKey)>)>) { 
         assert_eq!(self.ht(), other.ht());
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
@@ -411,47 +408,48 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let keys_per = keys.into_iter().into_group_map_by(|(k, l)| 
             k.state.weight() + l.state.weight()
-        ).into_iter().sorted_by_key(|(i, _)| *i).collect_vec();
+        ).into_iter().map(|(i, list)|
+            (i, list.into_iter().map(|(k, l)| (*k, *l)).collect_vec())
+        ).sorted_by_key(|(i, _)| *i).collect_vec();
 
-        for (i, list) in keys_per { 
-            let edges = list.into_par_iter().flat_map(|(k0, l0)| { 
-                let k0_l0 = k0 + l0;
-                if !new.contains_key(&k0_l0) { 
-                    return vec![]
-                }
+        (new, keys_per)
+    }
 
-                let v0 = self.vertex(k0);
-                let w0 = other.vertex(l0);
-                let i0 = (k0.state.weight() as isize) - self.deg_shift.0;
-    
-                let e1 = self.keys_out_from(k0).map(|k1| { 
-                    let k1_l0 = k1 + l0;
-                    let f = self.edge(k0, k1);
-                    let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-                    (k0_l0, k1_l0, f_id.part_eval(h, t))
-                });
-    
-                let e2 = other.keys_out_from(l0).map(|l1| { 
-                    let k0_l1 = k0 + l1;
-                    let f = other.edge(l0, l1);
-                    let e = R::from_sign(Sign::from_parity(i0 as i64));
-                    let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                    (k0_l0, k0_l1, id_f.part_eval(h, t))
-                });
-    
-                Iterator::chain(e1, e2).collect_vec()
-            }).collect::<Vec<_>>();
-
-            for (k, l, f) in edges { 
-                if !f.is_zero() { 
-                    new.add_edge(&k, &l, f);
-                }
+    pub(crate) fn connect_edges(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, keys: Vec<(TngKey, TngKey)>) {
+        let (h, t) = self.ht();
+        let edges = keys.par_iter().flat_map(|(k0, l0)| { 
+            let k0_l0 = k0 + l0;
+            if !self.contains_key(&k0_l0) { 
+                return vec![]
             }
 
-            callback(&mut new, i)
-        }
+            let v0 = left.vertex(k0);
+            let w0 = right.vertex(l0);
+            let i0 = (k0.state.weight() as isize) - left.deg_shift.0;
 
-        *self = new;
+            let e1 = left.keys_out_from(k0).map(|k1| { 
+                let k1_l0 = k1 + l0;
+                let f = left.edge(k0, k1);
+                let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
+                (k0_l0, k1_l0, f_id.part_eval(h, t))
+            });
+
+            let e2 = right.keys_out_from(l0).map(|l1| { 
+                let k0_l1 = k0 + l1;
+                let f = right.edge(l0, l1);
+                let e = R::from_sign(Sign::from_parity(i0 as i64));
+                let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
+                (k0_l0, k0_l1, id_f.part_eval(h, t))
+            });
+
+            Iterator::chain(e1, e2).collect_vec()
+        }).collect::<Vec<_>>();
+
+        for (k, l, f) in edges { 
+            if !f.is_zero() { 
+                self.add_edge(&k, &l, f);
+            }
+        }
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
