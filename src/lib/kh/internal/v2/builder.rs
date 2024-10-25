@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::mem::swap;
 
 use itertools::Itertools;
 use log::{debug, info};
@@ -145,25 +146,41 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn process_all(&mut self) { 
         while let Some(x) = self.choose_next() { 
-            self.process(&x)
+            self.append(&x)
         }
     }
 
-    pub fn process(&mut self, x: &Crossing) { 
+    pub(crate) fn append(&mut self, x: &Crossing) { 
         info!("({}) append: {x}", self.stat());
 
+        self.append_prepare(x);
+
+        let cx = self.complex.make_x(x);
+        let (left, right, keys) = self.connect_init(cx);
+
+        for (i, keys) in keys { 
+            self.complex.connect_edges(&left, &right, keys);
+
+            if self.auto_deloop {
+                self.deloop_in(false, i);
+            }
+        }
+    }
+
+    pub(crate) fn append_prepare(&mut self, x: &Crossing) { 
         if let Some(i) = self.crossings.iter().find_position(|&e| e == x) { 
             self.crossings.remove(i.0);
         }
-        self.complex.append(x);
 
         for e in self.elements.iter_mut() { 
             e.append(x);
         }
+    }
 
-        if self.auto_deloop { 
-            self.deloop_all(false);
-        }
+    pub(crate) fn connect_init(&mut self, other: TngComplex<R>) -> (TngComplex<R>, TngComplex<R>, Vec<(usize, Vec<(TngKey, TngKey)>)>) { 
+        let (mut complex, keys) = TngComplex::connect_init(&self.complex, &other);
+        swap(&mut self.complex, &mut complex);
+        (complex, other, keys)
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
