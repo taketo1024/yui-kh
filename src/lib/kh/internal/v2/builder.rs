@@ -182,12 +182,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 keys.remove(&k);
     
                 let updated = self.deloop(&k, r);
-                
-                keys.extend(updated);
-                keys.retain(|k| 
-                    self.complex.contains_key(k) &&
-                    self.complex.vertex(k).tng().contains_circle()
-                );
+
+                keys.extend(updated.into_iter().filter(|k| self.complex.contains_key(k)));
             }
         }
     }
@@ -215,7 +211,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub(crate) fn count_loops(&self, allow_based: bool) -> usize { 
         self.complex.iter_verts().map(|(_, v)| 
-            v.tng().comps().map(|c| 
+            v.tng().comps().filter(|c| 
                 c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
             ).count()
         ).sum()
