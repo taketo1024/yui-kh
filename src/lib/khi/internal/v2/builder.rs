@@ -192,62 +192,78 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             } else { 
                 self.append_off_axis(&x, &tx.clone());
             }
-            self.deloop_all(false);
         }
     }
 
     fn append_on_axis(&mut self, x: &Crossing) { 
-        self.inner.process(&x);
-        
-        if x.is_resolved() { return } 
+        info!("({}) append on-axis: {x}", self.stat());
 
         // k <-> l  =>  k0 <-> l0,
         //              k1 <-> l1
 
-        let iter = self.key_map.iter().collect_vec();
-        let key_map = iter.into_par_iter().flat_map(|(k, l)| { 
-            [Bit::Bit0, Bit::Bit1].map(|b| { 
-                let mut k = *k;
-                let mut l = *l;
-                k.state.push(b);
-                l.state.push(b);
-                (k, l)
-            })
-        }).collect::<Vec<_>>();
+        if !x.is_resolved() { 
+            self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
+                [Bit::Bit0, Bit::Bit1].map(|b| { 
+                    let mut k = *k;
+                    let mut l = *l;
+                    k.state.push(b);
+                    l.state.push(b);
+                    (k, l)
+                })
+            }).collect();
+        } 
 
-        self.key_map = key_map.into_iter().collect();
+        self.inner.append_prepare(&x);
+        let x = self.complex().make_x(x);
+        let (left, right, keys) = self.inner.connect_init(x);
+
+        for (i, keys) in keys { 
+            self.inner.complex_mut().connect_edges(&left, &right, keys);
+            self.deloop_in(false, i);
+        }
     }
 
     fn append_off_axis(&mut self, x: &Crossing, tx: &Crossing) { 
         assert_eq!(self.inv_x(x), tx);
 
-        self.inner.process(x);
-        self.inner.process(tx);
-        
-        if x.is_resolved() { return } 
+        info!("({}) append off-axis: {x}, {tx}", self.stat());
 
-        //                      k00 <-> l00,
-        // k <-> l  =>  k10 <-> l01  |  k01 <-> l10,
-        //                      k11 <-> l11
-        
-        let bs = |b| BitSeq::from_iter(b);
-        let iter = self.key_map.iter().collect_vec();
-        let key_map = iter.into_par_iter().flat_map(|(k, l)| { 
-            [
-                (bs([0, 0]), bs([0, 0])),
-                (bs([1, 0]), bs([0, 1])),
-                (bs([0, 1]), bs([1, 0])),
-                (bs([1, 1]), bs([1, 1]))
-            ].map(|(b0, b1)| { 
-                let mut k = *k;
-                let mut l = *l;
-                k.state.append(b0);
-                l.state.append(b1);
-                (k, l)
-            })
-        }).collect::<Vec<_>>();
+        if !x.is_resolved() { 
+            //                      k00 <-> l00,
+            // k <-> l  =>  k10 <-> l01  |  k01 <-> l10,
+            //                      k11 <-> l11
+            
+            let bs = |b| BitSeq::from_iter(b);
+            self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
+                [
+                    (bs([0, 0]), bs([0, 0])),
+                    (bs([1, 0]), bs([0, 1])),
+                    (bs([0, 1]), bs([1, 0])),
+                    (bs([1, 1]), bs([1, 1]))
+                ].map(|(b0, b1)| { 
+                    let mut k = *k;
+                    let mut l = *l;
+                    k.state.append(b0);
+                    l.state.append(b1);
+                    (k, l)
+                })
+            }).collect();
+        } 
 
-        self.key_map = key_map.into_iter().collect();
+        self.inner.append_prepare(&x);
+        self.inner.append_prepare(&tx);
+
+        let cx = { 
+            let mut cx = self.complex().make_x(x);
+            cx.append(tx);
+            cx
+        };
+        let (left, right, keys) = self.inner.connect_init(cx);
+
+        for (i, keys) in keys { 
+            self.inner.complex_mut().connect_edges(&left, &right, keys);
+            self.deloop_in(false, i);
+        }
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
@@ -501,17 +517,22 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("merge ({}) <- ({})", self.stat(), b.stat());
 
-        let key_map = std::mem::take(&mut b.key_map);
-        let c = b.into_tng_complex();
-
-        self.inner.complex_mut().connect(c);
         self.inner.crossings_mut().retain(|x| !crossings.contains(x));
 
+        let key_map = std::mem::take(&mut b.key_map);
         self.key_map = self.key_map.iter().flat_map(|(k1, l1)|
             key_map.iter().map(move |(k2, l2)|
                 (k1 + k2, l1 + l2)
             )
         ).collect();
+
+        let c = b.into_tng_complex();
+        let (left, right, keys) = self.inner.connect_init(c);
+
+        for (i, keys) in keys { 
+            self.inner.complex_mut().connect_edges(&left, &right, keys);
+            self.deloop_in(false, i);
+        }
 
         // TODO merge elements
 
@@ -700,7 +721,7 @@ mod tests {
 
         b.set_elements([]);
         b.process_partial(0..3);
-        b.process_all();
+        b.process_partial(0..4);
         b.finalize();
 
         let c = b.into_khi_complex();
