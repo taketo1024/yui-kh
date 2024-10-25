@@ -164,34 +164,43 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         if self.auto_deloop { 
             self.deloop_all(false);
         }
-
-        if self.auto_elim { 
-            self.eliminate_all();
-        }
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
-        info!("({}) deloop {}.", self.stat(), self.count_loops(allow_based));
-
         for i in 0 ..= self.complex.dim() { 
-            let mut keys = self.complex.keys_of_weight(i).filter(|k| 
-                self.complex.vertex(k).tng().contains_circle()
-            ).cloned().collect::<HashSet<_>>();
-    
-            while let Some((k, r)) = self.find_loop(allow_based, false, keys.iter()) { 
-                keys.remove(&k);
-    
-                let updated = self.deloop(&k, r);
+            self.deloop_in(allow_based, i);
+        }
+    }
 
-                keys.extend(updated.into_iter().filter(|k| self.complex.contains_key(k)));
+    fn deloop_in(&mut self, allow_based: bool, i: usize) { 
+        let mut keys = self.complex.keys_of_weight(i).filter(|k| 
+            self.complex.vertex(k).tng().contains_circle()
+        ).cloned().collect::<HashSet<_>>();
+
+        if keys.is_empty() { return }
+
+        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.count_loops(allow_based));
+
+        while let Some((k, r)) = self.find_loop(allow_based, false, keys.iter()) { 
+            keys.remove(&k);
+
+            let updated = self.deloop(&k, r);
+
+            keys.extend(updated.into_iter().filter(|k| self.complex.contains_key(k)));
+        }
+
+        if self.auto_elim { 
+            if i > 0 {
+                self.eliminate_in(i - 1);
             }
+            self.eliminate_in(i);
         }
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
         let c = self.complex.vertex(k).tng().comp(r);
 
-        debug!("({}) deloop: {c} in {}", self.stat(), self.complex.vertex(k));
+        debug!("({}) deloop {c} in {}", self.stat(), self.complex.vertex(k));
 
         for e in self.elements.iter_mut() { 
             e.deloop(k, c);
@@ -219,22 +228,26 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn eliminate_all(&mut self) { 
         for i in 0 ..= self.complex.dim() { 
-            let mut keys = self.complex.keys_of_weight(i).cloned().collect::<HashSet<_>>();
-            if keys.is_empty() { continue }
-
-            info!("({}) eliminate at C[{i}]: ({}, {}) ...", self.stat(), self.complex.keys_of_weight(i + 1).count(), self.complex.keys_of_weight(i).count());
-
-            let before = keys.len();
-
-            while let Some((k, l, _)) = self.choose_pivot(keys.iter()) { 
-                let (k, l) = (*k, *l);
-                self.eliminate(&k, &l);
-                keys.remove(&k);
-            }            
-
-            let after = self.complex.keys_of_weight(i).count();
-            info!("({})   eliminated {} edges.", self.stat(), before - after);
+            self.eliminate_in(i);
         }
+    }
+
+    pub fn eliminate_in(&mut self, i: usize) { 
+        let mut keys = self.complex.keys_of_weight(i).filter(|k| 
+            self.complex.keys_out_from(k).find(|l|
+                self.complex.edge(k, l).is_invertible()
+            ).is_some()
+        ).cloned().collect::<HashSet<_>>();
+
+        if keys.is_empty() { return }
+
+        info!("({}) eliminate in C[{i}]: {} targets", self.stat(), keys.len());
+
+        while let Some((k, l, _)) = self.choose_pivot(keys.iter()) { 
+            let (k, l) = (*k, *l);
+            self.eliminate(&k, &l);
+            keys.remove(&k);
+        }            
     }
 
     pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
@@ -288,7 +301,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.deloop_all(false);
         self.deloop_all(true);
-        self.eliminate_all();
 
         assert!(self.complex.is_completely_delooped());
     }
