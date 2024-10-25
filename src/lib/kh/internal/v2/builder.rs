@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
 use itertools::Itertools;
@@ -164,70 +164,30 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         if self.auto_deloop { 
             self.deloop_all(false);
         }
+
+        if self.auto_elim { 
+            self.eliminate_all();
+        }
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
-        let mut keys = self.complex.keys().filter(|k| 
-            self.complex.vertex(k).tng().contains_circle()
-        ).cloned().collect::<BTreeSet<_>>();
-
-        for special in [true, false] { 
-            while let Some((k, r)) = self.find_loop(allow_based, special, keys.iter()) { 
+        for i in 0 ..= self.complex.dim() { 
+            let mut keys = self.complex.keys_of_weight(i).filter(|k| 
+                self.complex.vertex(k).tng().contains_circle()
+            ).cloned().collect::<HashSet<_>>();
+    
+            while let Some((k, r)) = self.find_loop(allow_based, false, keys.iter()) { 
                 keys.remove(&k);
     
                 let updated = self.deloop(&k, r);
                 
                 keys.extend(updated);
                 keys.retain(|k| 
-                    self.complex.contains_key(k) && 
+                    self.complex.contains_key(k) &&
                     self.complex.vertex(k).tng().contains_circle()
                 );
             }
         }
-    }
-
-    pub fn find_loop<'a, I>(&self, allow_based: bool, special: bool, keys: I) -> Option<(TngKey, usize)>
-    where I: IntoIterator<Item = &'a TngKey> { 
-        let ok = |c: &TngComp| { 
-            c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
-        };
-
-        let plain_merge = |k: &TngKey, c: &TngComp| { 
-            self.complex.keys_out_from(k).find(|l| {
-                let f = self.complex.edge(k, l);
-                f.nterms() == 1 && f.iter().find(|(cob, a)|
-                    a.is_unit() && cob.comps().find(|cob|
-                        cob.src().contains(c) && cob.is_plain() && cob.is_merge()
-                    ).is_some()
-                ).is_some()
-            }).is_some()
-        };
-
-        let plain_split = |k: &TngKey, c: &TngComp| {
-            self.complex.keys_into(k).find(|j| {
-                let f = self.complex.edge(j, k);
-                f.nterms() == 1 && f.iter().find(|(cob, a)|
-                    a.is_unit() && cob.comps().find(|cob|
-                        cob.tgt().contains(c) && cob.is_plain() && cob.is_split()
-                    ).is_some()
-                ).is_some()
-            }
-            ).is_some()
-        };
-
-        let special_ok = |k: &TngKey, c: &TngComp| {
-            ok(c) && (plain_merge(k, c) || plain_split(k, c))
-        };
-
-        keys.into_iter().find_map(|k|
-            self.complex.vertex(k).tng().find_comp(|c|
-                if special { 
-                    special_ok(k, c)
-                } else { 
-                    ok(c)
-                }
-            ).map(|r| (*k, r))
-        )
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> {
@@ -239,35 +199,27 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e.deloop(k, c);
         }
 
-        let keys = self.complex.deloop(k, r);
-
-        if self.auto_elim { 
-            for k in keys.iter() { 
-                if let Some((i, j)) = self.find_inv_edge(k) { 
-                    self.eliminate(&i, &j)
-                }
-            }
-        }
-
-        keys
+        self.complex.deloop(k, r)
     }
 
-    pub fn find_inv_edge(&self, k: &TngKey) -> Option<(TngKey, TngKey)> { 
-        let v = self.complex.vertex(k);
-        let edges = Iterator::chain(
-            v.in_edges().map(|i| (i, k)),
-            v.out_edges().map(|i| (k, i))
-        );
+    pub(crate) fn find_loop<'a, I>(&self, allow_based: bool, _special: bool, keys: I) -> Option<(TngKey, usize)>
+    where I: IntoIterator<Item = &'a TngKey> { 
+        keys.into_iter().find_map(|k|
+            self.complex.vertex(k).tng().find_comp(|c|
+                c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
+            ).map(|r| (*k, r))
+        )
+    }
 
-        edges.filter_map(|(i, j)| {
-            let f = self.complex.edge(i, j);
-            f.is_invertible().then(|| {
-                let s = self.complex.elim_weight(i, j);
-                (s, i, j)
-            })
-        })
-        .min_by_key(|(s, _, _)| *s)
-        .map(|(_, i, j)| (*i, *j))
+    pub fn eliminate_all(&mut self) { 
+        for i in 0 ..= self.complex.dim() { 
+            let mut keys = self.complex.keys_of_weight(i).cloned().collect::<HashSet<_>>();
+            while let Some((k, l, _)) = self.choose_pivot(keys.iter()) { 
+                let (k, l) = (*k, *l);
+                self.eliminate(&k, &l);
+                keys.remove(&k);
+            }            
+        }
     }
 
     pub fn eliminate(&mut self, i: &TngKey, j: &TngKey) {
@@ -287,7 +239,36 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
+    pub(crate) fn choose_pivot<'a, I>(&self, keys: I) -> Option<(&'a TngKey, &TngKey, usize)> 
+    where I: IntoIterator<Item = &'a TngKey> { 
+        keys.into_iter().filter_map(move |k|
+            self.choose_pivot_col(k).map(move |(l, s)| (k, l, s))
+        ).min_by_key(|(_, _, s)| *s)
+    }
+
+    fn choose_pivot_col(&self, k: &TngKey) -> Option<(&TngKey, usize)> { 
+        // Choose best pivot in "column k".
+        self.complex.keys_out_from(k).filter_map(|l| { 
+            let f = self.complex.edge(k, l);
+            f.is_invertible().then(|| {
+                let s = self.edge_weight(k, l);
+                (l, s)
+            })
+        })
+        .min_by_key(|(_, s)| *s)
+    }
+
+    pub(crate) fn edge_weight(&self, k: &TngKey, l: &TngKey) -> usize { 
+        let nk = self.complex.keys_out_from(k).count(); // nnz in column k
+        let nl = self.complex.keys_into(l).count();     // nnz in row l
+        (nk - 1) * (nl - 1)
+    }
+
     pub fn finalize(&mut self) { 
+        if self.complex.is_completely_delooped() { 
+            return;
+        }
+
         info!("finalize");
 
         self.deloop_all(false);
