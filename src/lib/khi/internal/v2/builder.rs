@@ -266,14 +266,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     
             while let Some((k, r)) = self.inner.find_loop(allow_based, false, keys.iter()) { 
                 keys.remove(&k);
+                keys.remove(&self.inv_key(&k));
     
                 let updated = self.deloop_equiv(&k, r);
                 
-                keys.extend(updated);
-                keys.retain(|k| 
-                    self.complex().contains_key(k) &&
-                    self.complex().vertex(k).tng().contains_circle()
-                );
+                keys.extend(updated.into_iter().filter(|k| self.complex().contains_key(k)));
             }
         }
     }
@@ -361,8 +358,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let tc = c.convert_edges(|e| self.inv_e(e));
         let tr = self.complex().vertex(&tk).tng().index_of(&tc).unwrap();
 
-        let ks = self.inner.deloop(k, r);
-        let tks = self.inner.deloop(&tk, tr);
+        let mut ks = self.inner.deloop(k, r);
+        let mut tks = self.inner.deloop(&tk, tr);
 
         self.remove_key_pair(k);
 
@@ -370,6 +367,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.add_key_pair(k_new, tk_new);
         }
 
+        ks.append(&mut tks);
         ks
     }
 
