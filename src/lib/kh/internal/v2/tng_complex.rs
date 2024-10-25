@@ -424,8 +424,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.deg_shift.0 += other.deg_shift.0;
         self.deg_shift.1 += other.deg_shift.1;
         self.crossings.append(&mut other.crossings);
-
-        // self.validate();
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
@@ -530,14 +528,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.remove_vertex(k0);
         self.remove_vertex(k1);
-
-        // self.validate();
-    }
-
-    pub fn elim_weight(&self, k: &TngKey, l: &TngKey) -> usize { 
-        let ni = self.vertex(k).out_edges().count(); // nnz in column i
-        let nj = self.vertex(l).in_edges().count();  // nnz in row j
-        (ni - 1) * (nj - 1)
     }
 
     pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> {
