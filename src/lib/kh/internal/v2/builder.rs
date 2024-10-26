@@ -162,7 +162,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.complex.connect_edges(&left, &right, keys);
 
             if self.auto_deloop {
-                self.deloop_in(false, i);
+                self.deloop_in(i, false);
             }
         }
     }
@@ -177,28 +177,28 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
-    pub(crate) fn connect_init(&mut self, other: TngComplex<R>) -> (TngComplex<R>, TngComplex<R>, Vec<(usize, Vec<(TngKey, TngKey)>)>) { 
+    pub(crate) fn connect_init(&mut self, other: TngComplex<R>) -> (TngComplex<R>, TngComplex<R>, Vec<(isize, Vec<(TngKey, TngKey)>)>) { 
         let (mut complex, keys) = TngComplex::connect_init(&self.complex, &other);
         swap(&mut self.complex, &mut complex);
         (complex, other, keys)
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
-        for i in 0 ..= self.complex.dim() { 
-            self.deloop_in(allow_based, i);
+        for i in self.complex.h_range() { 
+            self.deloop_in(i, allow_based);
         }
     }
 
-    fn deloop_in(&mut self, allow_based: bool, i: usize) { 
-        let mut keys = self.complex.keys_of_weight(i).filter(|k| 
+    fn deloop_in(&mut self, i: isize, allow_based: bool) { 
+        let mut keys = self.complex.keys_of(i).filter(|k| 
             self.complex.vertex(k).tng().contains_circle()
         ).cloned().collect::<HashSet<_>>();
 
         if keys.is_empty() { return }
 
-        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.count_loops_in(allow_based, i));
+        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.count_loops_in(i, allow_based));
 
-        while let Some((k, r)) = self.find_loop(allow_based, false, keys.iter()) { 
+        while let Some((k, r)) = self.find_loop(keys.iter(), allow_based) { 
             keys.remove(&k);
 
             let updated = self.deloop(&k, r);
@@ -207,9 +207,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
 
         if self.auto_elim { 
-            if i > 0 {
-                self.eliminate_in(i - 1);
-            }
+            self.eliminate_in(i - 1);
             self.eliminate_in(i);
         }
     }
@@ -226,7 +224,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.complex.deloop(k, r)
     }
 
-    pub(crate) fn find_loop<'a, I>(&self, allow_based: bool, _special: bool, keys: I) -> Option<(TngKey, usize)>
+    pub(crate) fn find_loop<'a, I>(&self, keys: I, allow_based: bool) -> Option<(TngKey, usize)>
     where I: IntoIterator<Item = &'a TngKey> { 
         keys.into_iter().find_map(|k|
             self.complex.vertex(k).tng().find_comp(|c|
@@ -235,8 +233,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         )
     }
 
-    pub(crate) fn count_loops_in(&self, allow_based: bool, i: usize) -> usize { 
-        self.complex.keys_of_weight(i).map(|k| 
+    pub(crate) fn count_loops_in(&self, i: isize, allow_based: bool) -> usize { 
+        self.complex.keys_of(i).map(|k| 
             self.complex.vertex(k).tng().comps().filter(|c| 
                 c.is_circle() && (allow_based || !self.complex.contains_base_pt(c))
             ).count()
@@ -244,13 +242,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn eliminate_all(&mut self) { 
-        for i in 0 ..= self.complex.dim() { 
+        for i in self.complex.h_range() { 
             self.eliminate_in(i);
         }
     }
 
-    pub fn eliminate_in(&mut self, i: usize) { 
-        let mut keys = self.complex.keys_of_weight(i).filter(|k| 
+    pub fn eliminate_in(&mut self, i: isize) { 
+        let mut keys = self.complex.keys_of(i).filter(|k| 
             self.complex.keys_out_from(k).find(|l|
                 self.complex.edge(k, l).is_invertible()
             ).is_some()
