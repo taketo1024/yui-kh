@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use ahash::AHashMap;
 use cartesian::cartesian;
+use delegate::delegate;
 use itertools::Itertools;
 use log::info;
 use rayon::prelude::*;
@@ -58,18 +59,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         SymTngBuilder { inner, x_map, e_map, key_map }
     }
 
-    pub fn complex(&self) -> &TngComplex<R> { 
-        self.inner.complex()
-    }
-
-    pub fn set_crossings<I>(&mut self, crossings: I) 
-    where I: IntoIterator<Item = Crossing>{ 
-        self.inner.set_crossings(crossings);
-    }
-
-    pub fn set_elements<I>(&mut self, elements: I) 
-    where I: IntoIterator<Item = BuildElem<R>>{ 
-        self.inner.set_elements(elements);
+    delegate! { 
+        to self.inner { 
+            pub fn complex(&self) -> &TngComplex<R>;
+            pub fn crossings(&self) -> impl Iterator<Item = &Crossing>;
+            pub fn set_crossings<I>(&mut self, crossings: I) where I: IntoIterator<Item = Crossing>;
+            pub fn elements(&self) -> impl Iterator<Item = &BuildElem<R>>;
+            pub fn set_elements<I>(&mut self, elements: I) where I: IntoIterator<Item = BuildElem<R>>;
+            pub(crate) fn stat(&self) -> String;
+        }
     }
 
     pub fn preprocess(&mut self) { 
@@ -183,7 +181,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn process_all(&mut self) { 
-        info!("({}) process {} crossings", self.stat(), self.inner.crossings().count());
+        info!("({}) process {} crossings", self.stat(), self.crossings().count());
         
         while let Some(x) = self.inner.choose_next() { 
             let tx = self.inv_x(&x);
@@ -637,10 +635,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 assert_eq!(&f.convert_edges(|e| self.inv_e(e)), tf);
             }
         }
-    }
-
-    pub fn stat(&self) -> String { 
-        self.inner.stat()
     }
 }
 
