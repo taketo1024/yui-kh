@@ -273,12 +273,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     fn eliminate_elements(&mut self, i: &TngKey, j: &TngKey) {
-        let a = self.complex.edge(i, j);
         for e in self.elements.iter_mut() { 
-            let i_out = self.complex.keys_out_from(i).map(|k| 
-                (k, self.complex.edge(i, k))
-            );
-            e.eliminate(i, j, a, i_out);
+            e.eliminate(&self.complex, i, j);
         }
     }
 
@@ -458,24 +454,29 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     //  w0 -----> w1         w0 ---------> w1
     //       d                
     
-    pub fn eliminate<'a, I>(&mut self, i: &TngKey, j: &TngKey, a: &LcCob<R>, i_out: I)
-    where I: IntoIterator<Item = (&'a TngKey, &'a LcCob<R>)> {
+    pub fn eliminate(&mut self, complex: &TngComplex<R>, i: &TngKey, j: &TngKey) {
+        assert!(complex.has_edge(i, j));
+
         // mors into i can be simply dropped.
         self.retr_cob.remove(i);
 
         // mors into j must be redirected by -ca^{-1}
         let Some(b) = self.retr_cob.remove(j) else { return };
-        let ainv = a.inv().unwrap();
 
-        for (k, c) in i_out { 
+        let a = complex.edge(i, j);
+        let ainv = a.inv().unwrap();
+        let (h, t) = complex.ht();
+
+        for k in complex.keys_out_from(i) { 
             if k == j { continue }
 
+            let c = complex.edge(i, k);
             let cab = c * &ainv * &b;
             let s = if let Some(d) = self.retr_cob.remove(k) { 
                 d - cab
             } else { 
                 -cab
-            };
+            }.part_eval(h, t);
 
             if !s.is_zero() { 
                 self.retr_cob.insert(*k, s);
