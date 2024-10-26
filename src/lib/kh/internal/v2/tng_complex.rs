@@ -606,15 +606,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn desc_d(&self) -> String { 
         let mut str = "".to_string();
-        for k0 in self.vertices.keys() { 
-            let v = &self.vertices[&k0];
-            str += &format!("{k0}: {}", v.tng);
-
-            for k1 in v.out_edges.keys() { 
-                let f = &v.out_edges[&k1];
-                str += &format!("\n  -> {k1}: {f}");
+        for i in self.h_range() { 
+            str += &format!("C[{i}]: {}\n", self.rank(i));
+            for (j, k) in self.keys_of(i).sorted().enumerate() { 
+                let v = &self.vertices[k];
+                str += &format!(" ({j}) {k}: {}", v.tng);
+    
+                for l in self.keys_out_from(k).sorted() { 
+                    let f = self.edge(k, l);
+                    str += &format!("\n  -> {l}: {f}");
+                }
+                str += "\n";
             }
-            str += "\n";
         }
         str
     }
