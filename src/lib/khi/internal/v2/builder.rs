@@ -219,7 +219,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            self.deloop_in(false, i);
+            self.deloop_in(i, false);
         }
     }
 
@@ -262,26 +262,26 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            self.deloop_in(false, i);
+            self.deloop_in(i, false);
         }
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
-        for i in 0 ..= self.complex().dim() { 
-            self.deloop_in(allow_based, i);
+        for i in self.complex().h_range() { 
+            self.deloop_in(i, allow_based);
         }
     }
 
-    fn deloop_in(&mut self, allow_based: bool, i: usize) {
-        let mut keys = self.complex().keys_of_weight(i).filter(|k| 
+    fn deloop_in(&mut self, i: isize, allow_based: bool) {
+        let mut keys = self.complex().keys_of(i).filter(|k| 
             self.complex().vertex(k).tng().contains_circle()
         ).cloned().collect::<HashSet<_>>();
 
         if keys.is_empty() { return }
 
-        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.inner.count_loops_in(allow_based, i));
+        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.inner.count_loops_in(i, allow_based));
 
-        while let Some((k, r)) = self.inner.find_loop(allow_based, false, keys.iter()) { 
+        while let Some((k, r)) = self.inner.find_loop(keys.iter(), allow_based) { 
             keys.remove(&k);
             keys.remove(&self.inv_key(&k));
 
@@ -393,13 +393,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn eliminate_all(&mut self) { 
-        for i in 0 ..= self.complex().dim() { 
+        for i in self.complex().h_range() { 
             self.eliminate_in(i)
         }
     }
 
-    fn eliminate_in(&mut self, i: usize) { 
-        let mut keys = self.complex().keys_of_weight(i).filter(|k| 
+    fn eliminate_in(&mut self, i: isize) { 
+        let mut keys = self.complex().keys_of(i).filter(|k| 
             self.complex().keys_out_from(k).find(|l|
                 self.is_equiv_inv_edge(k, l)
             ).is_some()
@@ -531,7 +531,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            self.deloop_in(false, i);
+            self.deloop_in(i, false);
         }
 
         // TODO merge elements

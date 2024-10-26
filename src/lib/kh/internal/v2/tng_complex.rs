@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, RangeInclusive};
 
 use ahash::{AHashMap, AHashSet};
 use auto_impl_ops::auto_ops;
@@ -172,14 +172,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn dim(&self) -> usize { 
         self.crossings.iter().filter(|x| !x.is_resolved()).count()
     }
+    
+    pub fn h_range(&self) -> RangeInclusive<isize> { 
+        let i0 = self.deg_shift.0;
+        let n = self.dim() as isize;
+        i0 ..= i0 + n
+    }
 
     pub fn rank(&self, i: isize) -> usize { 
-        let i0 = self.deg_shift.0;
-        if i >= i0 { 
-            self.keys_of_weight((i - i0) as usize).count()
-        } else { 
-            0
-        }
+        self.keys_of(i).count()
     }
 
     pub fn crossing(&self, i: usize) -> &Crossing {
@@ -206,8 +207,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertices.keys()
     }
 
-    pub fn keys_of_weight(&self, w: usize) -> impl Iterator<Item = &TngKey> { 
-        self.vertices.keys().filter(move |k| k.weight() == w)
+    pub fn keys_of(&self, i: isize) -> impl Iterator<Item = &TngKey> { 
+        let i0 = self.deg_shift.0;
+        self.vertices.keys().filter(move |k| 
+            (k.weight() as isize) + i0 == i
+        )
     }
 
     pub fn keys_into(&self, k: &TngKey) -> impl Iterator<Item = &TngKey> { 
@@ -375,7 +379,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         *self = new
     }
 
-    pub(crate) fn connect_init(&self, other: &TngComplex<R>) -> (Self, Vec<(usize, Vec<(TngKey, TngKey)>)>) { 
+    pub(crate) fn connect_init(&self, other: &TngComplex<R>) -> (Self, Vec<(isize, Vec<(TngKey, TngKey)>)>) { 
         assert_eq!(self.ht(), other.ht());
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
@@ -385,6 +389,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.deg_shift.0 + other.deg_shift.0,
             self.deg_shift.1 + other.deg_shift.1
         );
+        let i0 = deg_shift.0;
 
         let mut new = TngComplex::init(h, t, deg_shift, base_pt);
         new.crossings = Iterator::chain(self.crossings.iter(), other.crossings.iter()).cloned().collect();
@@ -406,8 +411,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         new.vertices = vertices.into_iter().collect();
 
-        let keys_per = keys.into_iter().into_group_map_by(|(k, l)| 
-            k.state.weight() + l.state.weight()
+        let keys_per = keys.into_iter().into_group_map_by(|(k, l)|
+            i0 + (k.state.weight() + l.state.weight()) as isize
         ).into_iter().map(|(i, list)|
             (i, list.into_iter().map(|(k, l)| (*k, *l)).collect_vec())
         ).sorted_by_key(|(i, _)| *i).collect_vec();
@@ -559,13 +564,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn into_raw_complex(self) -> XChainComplex<KhGen, R> {
         assert!(self.is_completely_delooped());
 
-        let n = self.dim();
-        let i0 = self.deg_shift.0;
-        let i1 = i0 + (n as isize);
-
-        let summands = Grid1::generate(i0..=i1, |i| { 
-            let w = (i - i0) as usize;
-            let gens = self.keys_of_weight(w).map(|k|
+        let summands = Grid1::generate(self.h_range(), |i| { 
+            let gens = self.keys_of(i).map(|k|
                 k.as_gen(self.deg_shift)
             ).sorted_by_key(|x|
                 x.q_deg()
