@@ -151,6 +151,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub(crate) fn append(&mut self, x: &Crossing) { 
+        assert!(!self.complex.crossings().contains(x));
+        
         info!("({}) append: {x}", self.stat());
 
         self.append_prepare(x);

@@ -187,6 +187,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         &self.crossings[i]
     }
 
+    pub fn crossings(&self) -> &[Crossing] {
+        &self.crossings
+    }
+
     pub fn vertex(&self, v: &TngKey) -> &TngVertex<R> { 
         &self.vertices[v]
     }
