@@ -494,6 +494,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn process_partial<I>(&mut self, indices: I)
     where I: IntoIterator<Item = usize> { 
+        self.set_elements([]); // TODO
+
         let (h, t) = self.complex().ht();
         let mut b = Self { 
             inner: TngComplexBuilder::init(h, t, (0, 0), None),
@@ -713,13 +715,14 @@ mod tests {
         let (h, t) = (FF2::zero(), FF2::zero());
         let mut b = SymTngBuilder::new(&l, &h, &t, false);
 
-        b.set_elements([]);
         b.process_partial(0..3);
         b.process_partial(0..4);
         b.finalize();
 
         let c = b.into_khi_complex();
         c.check_d_all();
+
+        assert!(c.canon_cycles().is_empty()); // TODO
 
         let h = c.homology();
         assert_eq!(h[-3].rank(), 2);
