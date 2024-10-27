@@ -277,7 +277,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         if keys.is_empty() { return }
 
-        info!("({}) deloop in C[{i}]: {} loops.", self.stat(), self.inner.count_loops_in(i, allow_based));
+        info!("({}) C[{i}]: {}, deloop: {}.", self.stat(), self.complex().rank(i), self.inner.count_loops_in(i, allow_based));
+        let before = self.complex().rank(i);
 
         while let Some((k, r)) = self.inner.find_loop(keys.iter(), allow_based) { 
             keys.remove(&k);
@@ -288,9 +289,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             keys.extend(updated.into_iter().filter(|k| self.complex().contains_key(k)));
         }
 
-        if i > 0 {
-            self.eliminate_in(i - 1);
-        }
+        info!("({}) -> +{}.", self.stat(), self.complex().rank(i) - before);
+
+        self.eliminate_in(i - 1);
         self.eliminate_in(i);
     }
 
@@ -405,7 +406,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         if keys.is_empty() { return }
 
-        info!("({}) eliminate in C[{i}]: {} targets", self.stat(), keys.len());
+        info!("({}) C[{i}]: {}, eliminate targets: {}.", self.stat(), self.complex().rank(i), keys.len());
+        let before = self.complex().rank(i);
 
         while let Some((k, l, _)) = self.choose_pivot(keys.iter()) { 
             let (k, l) = (*k, *l);
@@ -416,6 +418,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             keys.remove(&k);
             keys.remove(&tk);
         }            
+
+        info!("({}) -> -{}.", self.stat(), before - self.complex().rank(i));
     }
 
     pub fn eliminate_equiv(&mut self, i: &TngKey, j: &TngKey) {
