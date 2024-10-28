@@ -83,10 +83,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.crossings.iter()
     }
 
-    pub(crate) fn crossings_mut(&mut self) -> &mut Vec<Crossing> { 
-        &mut self.crossings
-    }
-
     pub fn set_crossings<I>(&mut self, crossings: I)
     where I: IntoIterator<Item = Crossing> {
         self.crossings = crossings.into_iter().collect_vec();
@@ -361,7 +357,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         if drop.is_empty() { return }
 
         info!("({}) drop {} vertices.", self.stat(), drop.len());
-        
+
         for k in drop.iter() { 
             self.complex.remove_vertex(k);
         }
