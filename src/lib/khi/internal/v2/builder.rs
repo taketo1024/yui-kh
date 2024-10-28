@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::ops::RangeInclusive;
 use ahash::AHashMap;
 use cartesian::cartesian;
 use delegate::delegate;
@@ -66,6 +67,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             pub fn set_crossings<I>(&mut self, crossings: I) where I: IntoIterator<Item = Crossing>;
             pub fn elements(&self) -> impl Iterator<Item = &BuildElem<R>>;
             pub fn set_elements<I>(&mut self, elements: I) where I: IntoIterator<Item = BuildElem<R>>;
+            pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>);
             pub(crate) fn stat(&self) -> String;
         }
     }
@@ -78,11 +80,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("({}) preprocess off-axis: {}", self.stat(), off_axis.len());
 
-        let (c, key_map, elements) = self.build_from_half(off_axis, elements);
+        let (c, tc, key_map, elements) = self.build_from_half(off_axis, elements);
 
-        self.inner.complex_mut().connect(c);
-        self.key_map = key_map;
+        self.inner.connect(c);
+        self.inner.connect(tc);
         self.inner.set_elements(elements);
+        self.key_map = key_map;
     }
 
     fn extract_off_axis_crossings(&mut self, take_half: bool) -> Vec<Crossing> { 
@@ -132,7 +135,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ).map(|(_, x)| x).collect()
     }
 
-    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
+    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
         let (h, t) = self.complex().ht();
         let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
 
@@ -143,16 +146,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // take results
         let keys = b.complex().keys().cloned().collect_vec();
         let elements = b.take_elements();
-        let mut c = b.into_tng_complex();
-
-        // merge complexes
-        info!("merge two sides...");
-        info!("  current: {}", c.stat());
-
+        let c = b.into_tng_complex();
         let tc = c.convert_edges(|e| self.inv_e(e));
-        c.connect(tc);
-
-        info!("     done: {}", c.stat());
 
         // build keys
         let keys = cartesian!(keys.iter(), keys.iter()).collect_vec();
@@ -177,7 +172,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e
         }).collect::<Vec<_>>();
 
-        (c, key_map, elements)
+        (c, tc, key_map, elements)
     }
 
     pub fn process_all(&mut self) { 
@@ -214,6 +209,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.append_prepare(&x);
         let x = self.complex().make_x(x);
         let (left, right, keys) = self.inner.connect_init(x);
+
+        self.clean_keys();
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
@@ -257,6 +254,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             cx
         };
         let (left, right, keys) = self.inner.connect_init(cx);
+
+        self.clean_keys();
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
@@ -500,6 +499,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     where I: IntoIterator<Item = usize> { 
         self.set_elements([]); // TODO
 
+        // extract target crossings
+        let indices = indices.into_iter().collect::<HashSet<_>>();
+        let crossings = self.inner.take_crossings();
+        let (target, retain) = crossings.into_iter().enumerate().partition::<Vec<(usize, Crossing)>, _>(|(i, _)|
+            indices.contains(&i)
+        );
+        let target = target.into_iter().map(|(_, x)| x);
+        let retain = retain.into_iter().map(|(_, x)| x);
+
+        self.inner.set_crossings(retain);
+
         let (h, t) = self.complex().ht();
         let mut b = Self { 
             inner: TngComplexBuilder::init(h, t, (0, 0), None),
@@ -510,28 +520,23 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         b.inner.auto_deloop = false;
         b.inner.auto_elim = false;
 
-        let indices = indices.into_iter().collect::<HashSet<_>>();
-        let crossings = self.inner.crossings().enumerate().filter(|(i, _)| 
-            indices.contains(&i)
-        ).map(|(_, x)| x.clone()).collect_vec();
-
-        b.set_crossings(crossings.clone());
+        b.set_crossings(target);
         b.preprocess();
         b.process_all();
 
         info!("merge ({}) <- ({})", self.stat(), b.stat());
 
-        self.inner.crossings_mut().retain(|x| !crossings.contains(x));
-
-        let key_map = std::mem::take(&mut b.key_map);
-        self.key_map = self.key_map.iter().flat_map(|(k1, l1)|
-            key_map.iter().map(move |(k2, l2)|
+        let merged_key_map = self.key_map.iter().flat_map(|(k1, l1)|
+            b.key_map.iter().map(move |(k2, l2)|
                 (k1 + k2, l1 + l2)
             )
-        ).collect();
+        ).collect::<AHashMap<_, _>>();
 
         let c = b.into_tng_complex();
         let (left, right, keys) = self.inner.connect_init(c);
+
+        self.key_map = merged_key_map;
+        self.clean_keys();
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
@@ -602,6 +607,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn is_sym_comp(&self, c: &TngComp) -> bool { 
         &c.convert_edges(|e| self.inv_e(e)) == c
+    }
+
+    fn clean_keys(&mut self) { 
+        let drop = self.key_map.keys().filter(|k| 
+            !self.complex().contains_key(k)
+        ).cloned().collect::<HashSet<_>>();
+
+        self.key_map.retain(|k, _tk| { 
+            !drop.contains(&k)
+        });
     }
 
     #[allow(unused)]
