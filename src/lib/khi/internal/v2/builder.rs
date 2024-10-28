@@ -82,10 +82,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let (c, tc, key_map, elements) = self.build_from_half(off_axis, elements);
 
+        info!("({}) merge off-axis complexes...", self.stat());
+
         self.inner.connect(c);
         self.inner.connect(tc);
         self.inner.set_elements(elements);
         self.key_map = key_map;
+        self.clean_keys();
+
+        info!("({}) preprocess done.", self.stat());
     }
 
     fn extract_off_axis_crossings(&mut self, take_half: bool) -> Vec<Crossing> { 
@@ -155,7 +160,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let k  = k1 + k2;
             let tk = k2 + k1;
             (k, tk)
-        }).collect::<Vec<_>>().into_iter().collect();
+        }).collect::<ahash::HashMap<_, _>>().into();
 
         // build elements
         let elements = elements.into_par_iter().map(|mut e| { 
@@ -288,7 +293,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             keys.extend(updated.into_iter().filter(|k| self.complex().contains_key(k)));
         }
 
-        info!("({}) -> +{}.", self.stat(), self.complex().rank(i) - before);
+        let after = self.complex().rank(i);
+        info!("({}) -> C[{i}]: {} (+{}).", self.stat(), after, after - before);
 
         self.eliminate_in(i - 1);
         self.eliminate_in(i);
@@ -405,7 +411,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         if keys.is_empty() { return }
 
-        info!("({}) C[{i}]: {}, eliminate targets: {}.", self.stat(), self.complex().rank(i), keys.len());
+        info!("({}) C[{i}]: {}, elim targets: {}.", self.stat(), self.complex().rank(i), keys.len());
         let before = self.complex().rank(i);
 
         while let Some((k, l, _)) = self.choose_pivot(keys.iter()) { 
@@ -418,7 +424,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             keys.remove(&tk);
         }            
 
-        info!("({}) -> -{}.", self.stat(), before - self.complex().rank(i));
+        let after = self.complex().rank(i);
+        info!("({}) -> C[{i}]: {} (-{}).", self.stat(), after, before - after);
     }
 
     pub fn eliminate_equiv(&mut self, i: &TngKey, j: &TngKey) {
