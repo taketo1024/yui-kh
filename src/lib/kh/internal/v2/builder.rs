@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::mem::swap;
+use std::ops::RangeInclusive;
 
 use itertools::Itertools;
 use log::{debug, info};
@@ -21,6 +22,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     crossings: Vec<Crossing>,
     complex: TngComplex<R>,
     elements: Vec<BuildElem<R>>,
+    h_range: Option<RangeInclusive<isize>>,
     pub auto_deloop: bool,
     pub auto_elim: bool
 }
@@ -32,6 +34,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             crossings: vec![], 
             complex, 
             elements: vec![], 
+            h_range: None,
             auto_deloop: true, 
             auto_elim: true 
         }
@@ -104,6 +107,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub(crate) fn take_elements(&mut self) -> Vec<BuildElem<R>> {
         std::mem::take(&mut self.elements)
+    }
+
+    pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
+        info!("({}) set h_range: {:?}", self.stat(), h_range);
+        self.h_range = Some(h_range);
     }
 
     pub fn choose_next(&mut self) -> Option<Crossing> { 
@@ -179,9 +187,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
+    pub(crate) fn connect(&mut self, other: TngComplex<R>) { 
+        info!("({}) connect <- ({})", self.stat(), other.stat());
+        let (left, right, keys) = self.connect_init(other);
+        for (_, keys) in keys { 
+            self.complex.connect_edges(&left, &right, keys);
+        }
+    }
+
     pub(crate) fn connect_init(&mut self, other: TngComplex<R>) -> (TngComplex<R>, TngComplex<R>, Vec<(isize, Vec<(TngKey, TngKey)>)>) { 
         let (mut complex, keys) = TngComplex::connect_init(&self.complex, &other);
         swap(&mut self.complex, &mut complex);
+        self.retain_supported();
         (complex, other, keys)
     }
 
@@ -322,6 +339,34 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.deloop_all(true);
 
         assert!(self.complex.is_completely_delooped());
+    }
+
+    pub fn is_supported(&self, i: isize) -> bool { 
+        if let Some(h_range) = &self.h_range { 
+            h_range.contains(&i)
+        } else { 
+            true
+        }
+    }
+
+    pub fn retain_supported(&mut self) { 
+        let Some(h_range) = &self.h_range else { return };
+
+        let i0 = self.complex.deg_shift().0;
+        let drop = self.complex.keys().filter(|k| { 
+            let i = (k.weight() as isize) + i0;
+            !h_range.contains(&i)
+        }).cloned().collect_vec();
+
+        if drop.is_empty() { return }
+
+        info!("({}) drop {} vertices.", self.stat(), drop.len());
+        
+        for k in drop.iter() { 
+            self.complex.remove_vertex(k);
+        }
+
+        // TODO must drop elements.
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
