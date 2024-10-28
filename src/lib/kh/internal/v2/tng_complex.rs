@@ -436,19 +436,25 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let w0 = right.vertex(l0);
             let i0 = (k0.state.weight() as isize) - left.deg_shift.0;
 
-            let e1 = left.keys_out_from(k0).map(|k1| { 
+            let e1 = left.keys_out_from(k0).filter_map(|k1| { 
                 let k1_l0 = k1 + l0;
+                if !self.contains_key(&k1_l0) { return None }
+
                 let f = left.edge(k0, k1);
                 let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-                (k0_l0, k1_l0, f_id.part_eval(h, t))
+                let entry = (k0_l0, k1_l0, f_id.part_eval(h, t));
+                Some(entry)
             });
 
-            let e2 = right.keys_out_from(l0).map(|l1| { 
+            let e2 = right.keys_out_from(l0).filter_map(|l1| { 
                 let k0_l1 = k0 + l1;
+                if !self.contains_key(&k0_l1) { return None }
+
                 let f = right.edge(l0, l1);
                 let e = R::from_sign(Sign::from_parity(i0 as i64));
                 let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                (k0_l0, k0_l1, id_f.part_eval(h, t))
+                let entry = (k0_l0, k0_l1, id_f.part_eval(h, t));
+                Some(entry)
             });
 
             Iterator::chain(e1, e2).collect_vec()
