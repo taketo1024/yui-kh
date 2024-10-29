@@ -60,6 +60,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         SymTngBuilder { inner, x_map, e_map, key_map }
     }
 
+    fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
+        let mut inner = TngComplexBuilder::init(h, t, deg_shift, base_pt);
+        inner.auto_deloop = false;
+        inner.auto_elim = false;
+
+        let x_map = AHashMap::new();
+        let e_map = AHashMap::new();
+        let key_map = AHashMap::from_iter([(TngKey::init(), TngKey::init())]);
+
+        SymTngBuilder { inner, x_map, e_map, key_map }
+    }
+
     delegate! { 
         to self.inner { 
             pub fn complex(&self) -> &TngComplex<R>;
@@ -80,15 +92,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("({}) preprocess off-axis: {}", self.stat(), off_axis.len());
 
-        let (c, tc, key_map, elements) = self.build_from_half(off_axis, elements);
+        let (c, key_map, elements) = self.build_from_half(off_axis, elements);
 
-        info!("({}) merge off-axis complexes...", self.stat());
-
-        self.inner.connect(c);
-        self.inner.connect(tc);
-        self.inner.set_elements(elements);
-        self.key_map = key_map;
-        self.clean_keys();
+        self.merge(c, key_map, false);
+        self.set_elements(elements);
 
         info!("({}) preprocess done.", self.stat());
     }
@@ -140,7 +147,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         ).map(|(_, x)| x).collect()
     }
 
-    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
+    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
         let (h, t) = self.complex().ht();
         let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
 
@@ -151,8 +158,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         // take results
         let keys = b.complex().keys().cloned().collect_vec();
         let elements = b.take_elements();
-        let c = b.into_tng_complex();
+        let mut c = b.into_tng_complex();
         let tc = c.convert_edges(|e| self.inv_e(e));
+        c.connect(tc);
 
         // build keys
         let keys = cartesian!(keys.iter(), keys.iter()).collect_vec();
@@ -177,7 +185,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e
         }).collect::<Vec<_>>();
 
-        (c, tc, key_map, elements)
+        (c, key_map, elements)
     }
 
     pub fn process_all(&mut self) { 
@@ -518,28 +526,29 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.set_crossings(retain);
 
         let (h, t) = self.complex().ht();
-        let mut b = Self { 
-            inner: TngComplexBuilder::init(h, t, (0, 0), None),
-            x_map: self.x_map.clone(),
-            e_map: self.e_map.clone(),
-            key_map: AHashMap::new()
-        };
-        b.inner.auto_deloop = false;
-        b.inner.auto_elim = false;
+        let mut b = Self::init(h, t, (0, 0), None);
+        b.x_map = self.x_map.clone();
+        b.e_map = self.e_map.clone();
 
         b.set_crossings(target);
         b.preprocess();
         b.process_all();
 
-        info!("merge ({}) <- ({})", self.stat(), b.stat());
+        let key_map = std::mem::take(&mut b.key_map);
+        let c = b.into_tng_complex();
+
+        self.merge(c, key_map, true);
+    } 
+
+    fn merge(&mut self, c: TngComplex<R>, key_map: AHashMap<TngKey, TngKey>, deloop: bool) { 
+        info!("merge ({}) <- ({})", self.stat(), c.stat());
 
         let merged_key_map = self.key_map.iter().flat_map(|(k1, l1)|
-            b.key_map.iter().map(move |(k2, l2)|
+            key_map.iter().map(move |(k2, l2)|
                 (k1 + k2, l1 + l2)
             )
         ).collect::<AHashMap<_, _>>();
 
-        let c = b.into_tng_complex();
         let (left, right, keys) = self.inner.connect_init(c);
 
         self.key_map = merged_key_map;
@@ -547,15 +556,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            self.deloop_in(i, false);
+            if deloop { 
+                self.deloop_in(i, false);
+            }
         }
 
         // TODO merge elements
 
         info!("merged ({})", self.stat());
-
-        self.deloop_all(false);
-    } 
+    }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
         self.inner.into_tng_complex()
