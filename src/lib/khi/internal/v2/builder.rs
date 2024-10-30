@@ -23,6 +23,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     x_map: AHashMap<Crossing, Crossing>,
     e_map: AHashMap<Edge, Edge>,
     key_map: AHashMap<TngKey, TngKey>,
+    pub auto_deloop: bool,
+    pub auto_elim: bool
 }
 
 impl<R> SymTngBuilder<R> 
@@ -48,25 +50,22 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(!reduced || l.base_pt().is_some());
 
         let base_pt = if reduced { l.base_pt() } else { None };
+        let inner = TngComplexBuilder::new(l.link(), h, t, base_pt);
+        let x_map = l.link().data().iter().map(|x| (x.clone(), l.inv_x(x).clone())).collect();
+        let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
 
-        let mut b = Self::init(h, t, (0, 0), None);
-        b.inner = TngComplexBuilder::new(l.link(), h, t, base_pt);
-        b.x_map = l.link().data().iter().map(|x| (x.clone(), l.inv_x(x).clone())).collect();
-        b.e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
-
-        b
+        Self::new_impl(inner, x_map, e_map)
     }
 
-    fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
-        let mut inner = TngComplexBuilder::init(h, t, deg_shift, base_pt);
+    fn new_impl(mut inner: TngComplexBuilder<R>, x_map: AHashMap<Crossing, Crossing>, e_map: AHashMap<Edge, Edge>) -> Self { 
         inner.auto_deloop = false;
         inner.auto_elim = false;
 
-        let x_map = AHashMap::new();
-        let e_map = AHashMap::new();
         let key_map = AHashMap::from_iter([(TngKey::init(), TngKey::init())]);
-
-        SymTngBuilder { inner, x_map, e_map, key_map }
+        let auto_deloop = true;
+        let auto_elim = true;
+        
+        SymTngBuilder { inner, x_map, e_map, key_map, auto_deloop, auto_elim }
     }
 
     delegate! { 
@@ -221,7 +220,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            self.deloop_in(i, false);
+            if self.auto_deloop { 
+                self.deloop_in(i, false);
+            }
         }
     }
 
@@ -266,7 +267,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            self.deloop_in(i, false);
+            if self.auto_deloop { 
+                self.deloop_in(i, false);
+            }
         }
     }
 
@@ -298,8 +301,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let after = self.complex().rank(i);
         info!("({}) -> C[{i}]: {} (+{}).", self.stat(), after, after - before);
 
-        self.eliminate_in(i - 1);
-        self.eliminate_in(i);
+        if self.auto_elim { 
+            self.eliminate_in(i - 1);
+            self.eliminate_in(i);
+        }
     }
 
     pub fn deloop_equiv(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
@@ -520,9 +525,11 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.inner.set_crossings(retain);
 
         let (h, t) = self.complex().ht();
-        let mut b = Self::init(h, t, (0, 0), None);
-        b.x_map = self.x_map.clone();
-        b.e_map = self.e_map.clone();
+        let mut b = Self::new_impl(
+            TngComplexBuilder::init(h, t, (0, 0), None),
+            self.x_map.clone(),
+            self.e_map.clone()
+        );
 
         b.set_crossings(target);
         b.preprocess();
@@ -550,7 +557,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            self.deloop_in(i, false);
+            if self.auto_deloop { 
+                self.deloop_in(i, false);
+            }
         }
 
         // TODO merge elements
@@ -760,5 +769,59 @@ mod tests {
         assert_eq!(h[ 2].rank(), 8);
         assert_eq!(h[ 3].rank(), 6);
         assert_eq!(h[ 4].rank(), 2);
+    }
+
+    #[test]
+    fn no_auto_deloop() { 
+        let l = InvLink::load("3_1").unwrap();
+        let (h, t) = (FF2::zero(), FF2::zero());
+
+        let mut b = SymTngBuilder::new(&l, &h, &t, false);
+        b.auto_deloop = false;
+        b.preprocess();
+        b.process_all();
+
+        assert!(!b.complex().is_completely_delooped());
+
+        b.finalize();
+
+        assert!(b.complex().is_completely_delooped());
+
+        let c = b.into_kh_complex();
+        assert_eq!(c[0].rank(), 2);
+        assert_eq!(c[1].rank(), 0);
+        assert_eq!(c[2].rank(), 2);
+        assert_eq!(c[3].rank(), 2);
+        
+        let h = c.homology();
+        assert_eq!(h[0].rank(), 2);
+        assert_eq!(h[1].rank(), 0);
+        assert_eq!(h[2].rank(), 2);
+        assert_eq!(h[3].rank(), 2);
+    }
+
+    #[test]
+    fn no_auto_elim() { 
+        let l = InvLink::load("3_1").unwrap();
+        let (h, t) = (FF2::zero(), FF2::zero());
+
+        let mut b = SymTngBuilder::new(&l, &h, &t, false);
+        b.auto_elim = false;
+        b.preprocess();
+        b.process_all();
+
+        assert!(b.complex().is_completely_delooped());
+
+        let c = b.into_kh_complex();
+        assert_eq!(c[0].rank(), 4);
+        assert_eq!(c[1].rank(), 6);
+        assert_eq!(c[2].rank(), 12);
+        assert_eq!(c[3].rank(), 8);
+        
+        let h = c.homology();
+        assert_eq!(h[0].rank(), 2);
+        assert_eq!(h[1].rank(), 0);
+        assert_eq!(h[2].rank(), 2);
+        assert_eq!(h[3].rank(), 2);
     }
 }
