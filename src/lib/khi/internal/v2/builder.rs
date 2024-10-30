@@ -789,4 +789,24 @@ mod tests {
         assert_eq!(h[2].rank(), 2);
         assert_eq!(h[3].rank(), 2);
     }
+
+    #[test]
+    fn h_range() { 
+        let l = InvLink::load("6_3").unwrap();
+        let (h, t) = (FF2::zero(), FF2::zero());
+        let h_range = -2..=2;
+
+        let mut b = SymTngBuilder::new(&l, &h, &t, false);
+        b.set_h_range(h_range.clone());
+        b.preprocess();
+        b.process_all();
+        b.finalize();
+
+        let c = b.into_khi_complex();
+        c.check_d_all();
+
+        let h = c.homology();
+        assert_eq!(h[0].rank(), 10);
+        assert_eq!(h[1].rank(), 10);
+    }
 }
