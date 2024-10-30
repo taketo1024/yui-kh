@@ -49,15 +49,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let base_pt = if reduced { l.base_pt() } else { None };
 
-        let mut inner = TngComplexBuilder::new(l.link(), h, t, base_pt);
-        inner.auto_deloop = false;
-        inner.auto_elim = false;
+        let mut b = Self::init(h, t, (0, 0), None);
+        b.inner = TngComplexBuilder::new(l.link(), h, t, base_pt);
+        b.x_map = l.link().data().iter().map(|x| (x.clone(), l.inv_x(x).clone())).collect();
+        b.e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
 
-        let x_map = l.link().data().iter().map(|x| (x.clone(), l.inv_x(x).clone())).collect();
-        let e_map = l.link().edges().iter().map(|&e| (e, l.inv_e(e))).collect();
-        let key_map = AHashMap::from_iter([(TngKey::init(), TngKey::init())]);
-
-        SymTngBuilder { inner, x_map, e_map, key_map }
+        b
     }
 
     fn init(h: &R, t: &R, deg_shift: (isize, isize), base_pt: Option<Edge>) -> Self { 
