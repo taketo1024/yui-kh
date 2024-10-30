@@ -376,14 +376,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     // See [Bar-Natan '05] Section 5.
     // https://arxiv.org/abs/math/0410495
     pub fn connect(&mut self, other: TngComplex<R>) { 
-        let (mut new, keys) = Self::connect_init(self, &other);
-        for (_, keys) in keys { 
-            new.connect_edges(&self, &other, keys);
+        let mut new = Self::connect_init(self, &other);
+        for i in new.h_range() { 
+            new.connect_edges(&self, &other, i);
         }
         *self = new
     }
 
-    pub(crate) fn connect_init(&self, other: &TngComplex<R>) -> (Self, Vec<(isize, Vec<(TngKey, TngKey)>)>) { 
+    pub(crate) fn connect_init(&self, other: &TngComplex<R>) -> Self { 
         assert_eq!(self.ht(), other.ht());
         assert!(self.base_pt.is_none() || other.base_pt.is_none() || self.base_pt == other.base_pt);
 
@@ -393,7 +393,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             self.deg_shift.0 + other.deg_shift.0,
             self.deg_shift.1 + other.deg_shift.1
         );
-        let i0 = deg_shift.0;
 
         let mut new = TngComplex::init(h, t, deg_shift, base_pt);
         new.crossings = Iterator::chain(self.crossings.iter(), other.crossings.iter()).cloned().collect();
@@ -403,7 +402,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             other.keys()
         ).collect_vec();
 
-        let vertices = keys.clone().into_par_iter().map(|(k, l)| { 
+        new.vertices = keys.clone().into_par_iter().map(|(k, l)| { 
             let v = self.vertex(k);
             let w = other.vertex(l);
             let kl = k + l;
@@ -411,22 +410,22 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             vw.key = kl;
             vw.tng = v.tng.connected(&w.tng); // D(v, w)
             (kl, vw)
-        }).collect::<Vec<_>>();
+        }).collect::<ahash::HashMap<_, _>>().into();
 
-        new.vertices = vertices.into_iter().collect();
-
-        let keys_per = keys.into_iter().into_group_map_by(|(k, l)|
-            i0 + (k.state.weight() + l.state.weight()) as isize
-        ).into_iter().map(|(i, list)|
-            (i, list.into_iter().map(|(k, l)| (*k, *l)).collect_vec())
-        ).sorted_by_key(|(i, _)| *i).collect_vec();
-
-        (new, keys_per)
+        new
     }
 
-    pub(crate) fn connect_edges(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, keys: Vec<(TngKey, TngKey)>) {
+    pub(crate) fn connect_edges(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, i: isize) {
         let (h, t) = self.ht();
-        let edges = keys.par_iter().flat_map(|(k0, l0)| { 
+        let keys = left.h_range().flat_map(move |i1| {
+            let i2 = i - i1;
+            cartesian!(
+                left.keys_of(i1), 
+                right.keys_of(i2)
+            ).collect_vec()
+        }).collect_vec();
+        
+        let edges = keys.into_par_iter().flat_map(|(k0, l0)| { 
             let k0_l0 = k0 + l0;
             if !self.contains_key(&k0_l0) { 
                 return vec![]

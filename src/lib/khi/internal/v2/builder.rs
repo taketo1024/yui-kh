@@ -214,12 +214,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         self.inner.append_prepare(&x);
         let x = self.complex().make_x(x);
-        let (left, right, keys) = self.inner.connect_init(x);
+        let (left, right) = self.inner.connect_init(x);
 
         self.clean_keys();
 
-        for (i, keys) in keys { 
-            self.inner.complex_mut().connect_edges(&left, &right, keys);
+        for i in self.complex().h_range() { 
+            self.inner.complex_mut().connect_edges(&left, &right, i);
             if self.auto_deloop { 
                 self.deloop_in(i, false);
             }
@@ -261,12 +261,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             cx.append(tx);
             cx
         };
-        let (left, right, keys) = self.inner.connect_init(cx);
+        let (left, right) = self.inner.connect_init(cx);
 
         self.clean_keys();
 
-        for (i, keys) in keys { 
-            self.inner.complex_mut().connect_edges(&left, &right, keys);
+        for i in self.complex().h_range() { 
+            self.inner.complex_mut().connect_edges(&left, &right, i);
             if self.auto_deloop { 
                 self.deloop_in(i, false);
             }
@@ -538,33 +538,33 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let key_map = std::mem::take(&mut b.key_map);
         let c = b.into_tng_complex();
 
+        info!("merge ({}) <- ({})", self.stat(), c.stat());
+
         self.merge(c, key_map);
+
+        info!("merged ({})", self.stat());
     } 
 
     fn merge(&mut self, c: TngComplex<R>, key_map: AHashMap<TngKey, TngKey>) { 
-        info!("merge ({}) <- ({})", self.stat(), c.stat());
-
         let merged_key_map = self.key_map.iter().flat_map(|(k1, l1)|
             key_map.iter().map(move |(k2, l2)|
                 (k1 + k2, l1 + l2)
             )
         ).collect::<AHashMap<_, _>>();
 
-        let (left, right, keys) = self.inner.connect_init(c);
+        let (left, right) = self.inner.connect_init(c);
 
         self.key_map = merged_key_map;
         self.clean_keys();
 
-        for (i, keys) in keys { 
-            self.inner.complex_mut().connect_edges(&left, &right, keys);
+        for i in self.complex().h_range() { 
+            self.inner.complex_mut().connect_edges(&left, &right, i);
             if self.auto_deloop { 
                 self.deloop_in(i, false);
             }
         }
 
         // TODO merge elements
-
-        info!("merged ({})", self.stat());
     }
 
     pub fn into_tng_complex(self) -> TngComplex<R> { 
