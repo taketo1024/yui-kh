@@ -91,7 +91,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let (c, key_map, elements) = self.build_from_half(off_axis, elements);
 
-        self.merge(c, key_map, false);
+        self.inner.connect(c);
+        self.key_map = key_map;
         self.set_elements(elements);
 
         info!("({}) preprocess done.", self.stat());
@@ -127,7 +128,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         }
 
-        let retain = u.group().into_iter().fold(HashSet::<&Crossing>::new(), |mut res, next| { 
+        let half = u.group().into_iter().fold(vec![], |mut res, next| { 
             if let Some(x) = next.iter().next() { 
                 let tx = self.inv_x(x);
                 if !res.contains(&tx) { 
@@ -136,12 +137,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
             res
         });
-
-        let flags = off_axis.iter().map(|x| retain.contains(x)).collect_vec();
-
-        off_axis.into_iter().enumerate().filter(|(i, _)| 
-            flags[*i]
-        ).map(|(_, x)| x).collect()
+        
+        half.into_iter().cloned().collect()
     }
 
     fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
@@ -534,10 +531,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let key_map = std::mem::take(&mut b.key_map);
         let c = b.into_tng_complex();
 
-        self.merge(c, key_map, true);
+        self.merge(c, key_map);
     } 
 
-    fn merge(&mut self, c: TngComplex<R>, key_map: AHashMap<TngKey, TngKey>, deloop: bool) { 
+    fn merge(&mut self, c: TngComplex<R>, key_map: AHashMap<TngKey, TngKey>) { 
         info!("merge ({}) <- ({})", self.stat(), c.stat());
 
         let merged_key_map = self.key_map.iter().flat_map(|(k1, l1)|
@@ -553,9 +550,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         for (i, keys) in keys { 
             self.inner.complex_mut().connect_edges(&left, &right, keys);
-            if deloop { 
-                self.deloop_in(i, false);
-            }
+            self.deloop_in(i, false);
         }
 
         // TODO merge elements
