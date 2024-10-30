@@ -333,14 +333,14 @@ fn knotJ_interlock_divided_no_elim() {
     b.auto_deloop = false;
     b.auto_elim = false;
     
-    b.set_h_range(-n ..= 2);
+    b.set_h_range(-2 ..= 2);
     b.process_partial(0..37);
     b.process_partial(0..23);
     b.finalize();
     
-    let c = b.into_khi_complex();
+    let c = b.into_khi_complex().truncated(-1..=2);
     c.check_d_all();
 
-    let h = c.homology().into_bigraded();
+    let h = c.homology().truncated(0..=1).into_bigraded();
     h.print_table("i", "j");
 }
