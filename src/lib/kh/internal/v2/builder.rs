@@ -108,6 +108,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn set_h_range(&mut self, h_range: RangeInclusive<isize>) { 
         info!("({}) set h_range: {:?}", self.stat(), h_range);
         self.h_range = Some(h_range);
+        self.retain_supported();
     }
 
     pub fn choose_next(&mut self) -> Option<Crossing> { 
@@ -183,6 +184,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn connect(&mut self, other: TngComplex<R>) { 
         info!("({}) connect <- ({})", self.stat(), other.stat());
         let (left, right, keys) = self.connect_init(other);
