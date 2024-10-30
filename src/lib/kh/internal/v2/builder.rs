@@ -351,11 +351,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub fn retain_supported(&mut self) { 
         let Some(h_range) = &self.h_range else { return };
+        let (h0, h1) = h_range.clone().into_inner();
 
-        let i0 = self.complex.deg_shift().0;
+        let remain = self.crossings.len() as isize;
         let drop = self.complex.keys().filter(|k| { 
-            let i = (k.weight() as isize) + i0;
-            !h_range.contains(&i)
+            let i0 = self.complex.deg_shift().0 + (k.weight() as isize);
+            let i1 = i0 + remain;
+            i1 < h0 || h1 < i0
         }).cloned().collect_vec();
 
         if drop.is_empty() { return }
