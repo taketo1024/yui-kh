@@ -163,10 +163,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.append_prepare(x);
 
         let cx = self.complex.make_x(x);
-        let (left, right, keys) = self.connect_init(cx);
+        let (left, right) = self.connect_init(cx);
 
-        for (i, keys) in keys { 
-            self.complex.connect_edges(&left, &right, keys);
+        for i in self.complex.h_range() { 
+            self.complex.connect_edges(&left, &right, i);
 
             if self.auto_deloop {
                 self.deloop_in(i, false);
@@ -187,17 +187,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     #[allow(unused)]
     pub(crate) fn connect(&mut self, other: TngComplex<R>) { 
         info!("({}) connect <- ({})", self.stat(), other.stat());
-        let (left, right, keys) = self.connect_init(other);
-        for (_, keys) in keys { 
-            self.complex.connect_edges(&left, &right, keys);
+        let (left, right) = self.connect_init(other);
+        for i in self.complex.h_range() { 
+            self.complex.connect_edges(&left, &right, i);
         }
     }
 
-    pub(crate) fn connect_init(&mut self, other: TngComplex<R>) -> (TngComplex<R>, TngComplex<R>, Vec<(isize, Vec<(TngKey, TngKey)>)>) { 
-        let (mut complex, keys) = TngComplex::connect_init(&self.complex, &other);
+    pub(crate) fn connect_init(&mut self, other: TngComplex<R>) -> (TngComplex<R>, TngComplex<R>) { 
+        let mut complex = TngComplex::connect_init(&self.complex, &other);
         swap(&mut self.complex, &mut complex);
         self.retain_supported();
-        (complex, other, keys)
+        (complex, other)
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
