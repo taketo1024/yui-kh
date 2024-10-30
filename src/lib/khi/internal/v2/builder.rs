@@ -10,7 +10,7 @@ use yui::bitseq::{Bit, BitSeq};
 use yui::{KeyedUnionFind, Ring, RingOps};
 use yui_link::{Crossing, Edge, InvLink};
 
-use crate::kh::{KhComplex, KhGen};
+use crate::kh::{KhComplex, KhGen, KhLabel};
 use crate::khi::KhIComplex;
 use crate::kh::internal::v2::builder::{BuildElem, TngComplexBuilder};
 use crate::kh::internal::v2::cob::LcCobTrait;
@@ -197,33 +197,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     fn append_on_axis(&mut self, x: &Crossing) { 
         info!("({}) append on-axis: {x}", self.stat());
 
-        // k <-> l  =>  k0 <-> l0,
-        //              k1 <-> l1
-
-        if !x.is_resolved() { 
-            self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
-                [Bit::Bit0, Bit::Bit1].map(|b| { 
-                    let mut k = *k;
-                    let mut l = *l;
-                    k.state.push(b);
-                    l.state.push(b);
-                    (k, l)
-                })
-            }).collect();
-        } 
-
         self.inner.append_prepare(&x);
-        let x = self.complex().make_x(x);
-        let (left, right) = self.inner.connect_init(x);
 
-        self.clean_keys();
+        let c = self.complex().make_x(x);
+        let key_map = if !x.is_resolved() { 
+            [Bit::Bit0, Bit::Bit1].map(|b| { 
+                let k = TngKey { state: BitSeq::from(b), label: KhLabel::empty() };
+                (k, k)
+            }).into_iter().collect()
+        } else { 
+            let k = TngKey::init();
+            [(k, k)].into_iter().collect()
+        };
 
-        for i in self.complex().h_range() { 
-            self.inner.complex_mut().connect_edges(&left, &right, i);
-            if self.auto_deloop { 
-                self.deloop_in(i, false);
-            }
-        }
+        self.merge(c, key_map);
     }
 
     fn append_off_axis(&mut self, x: &Crossing, tx: &Crossing) { 
@@ -231,46 +218,31 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         info!("({}) append off-axis: {x}, {tx}", self.stat());
 
-        if !x.is_resolved() { 
-            //                      k00 <-> l00,
-            // k <-> l  =>  k10 <-> l01  |  k01 <-> l10,
-            //                      k11 <-> l11
-            
-            let bs = |b| BitSeq::from_iter(b);
-            self.key_map = self.key_map.iter().flat_map(|(k, l)| { 
-                [
-                    (bs([0, 0]), bs([0, 0])),
-                    (bs([1, 0]), bs([0, 1])),
-                    (bs([0, 1]), bs([1, 0])),
-                    (bs([1, 1]), bs([1, 1]))
-                ].map(|(b0, b1)| { 
-                    let mut k = *k;
-                    let mut l = *l;
-                    k.state.append(b0);
-                    l.state.append(b1);
-                    (k, l)
-                })
-            }).collect();
-        } 
-
         self.inner.append_prepare(&x);
         self.inner.append_prepare(&tx);
 
-        let cx = { 
-            let mut cx = self.complex().make_x(x);
-            cx.append(tx);
-            cx
+        let c = { 
+            let mut c = self.complex().make_x(x);
+            c.append(tx);
+            c
         };
-        let (left, right) = self.inner.connect_init(cx);
+        let key_map = if !x.is_resolved() { 
+            [
+                ([0, 0], [0, 0]),
+                ([1, 0], [0, 1]),
+                ([0, 1], [1, 0]),
+                ([1, 1], [1, 1])
+            ].map(|(b0, b1)| { 
+                let k = TngKey { state: BitSeq::from_iter(b0), label: KhLabel::empty() };
+                let l = TngKey { state: BitSeq::from_iter(b1), label: KhLabel::empty() };
+                (k, l)
+            }).into_iter().collect()
+        } else {
+            let k = TngKey::init();
+            [(k, k)].into_iter().collect()
+        };
 
-        self.clean_keys();
-
-        for i in self.complex().h_range() { 
-            self.inner.complex_mut().connect_edges(&left, &right, i);
-            if self.auto_deloop { 
-                self.deloop_in(i, false);
-            }
-        }
+        self.merge(c, key_map);
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
@@ -546,16 +518,16 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     } 
 
     fn merge(&mut self, c: TngComplex<R>, key_map: AHashMap<TngKey, TngKey>) { 
-        let merged_key_map = self.key_map.iter().flat_map(|(k1, l1)|
-            key_map.iter().map(move |(k2, l2)|
-                (k1 + k2, l1 + l2)
-            )
-        ).collect::<AHashMap<_, _>>();
-
         let (left, right) = self.inner.connect_init(c);
 
-        self.key_map = merged_key_map;
-        self.clean_keys();
+        self.key_map = self.key_map.iter().flat_map(|(k1, l1)|
+            key_map.iter().map(|(k2, l2)|
+                (*k1 + k2, *l1 + l2)
+            )
+        ).filter(|(k, l)|
+            self.complex().contains_key(k) && 
+            self.complex().contains_key(l)
+        ).collect();
 
         for i in self.complex().h_range() { 
             self.inner.complex_mut().connect_edges(&left, &right, i);
@@ -624,16 +596,6 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     fn is_sym_comp(&self, c: &TngComp) -> bool { 
         &c.convert_edges(|e| self.inv_e(e)) == c
-    }
-
-    fn clean_keys(&mut self) { 
-        let drop = self.key_map.keys().filter(|k| 
-            !self.complex().contains_key(k)
-        ).cloned().collect::<HashSet<_>>();
-
-        self.key_map.retain(|k, _tk| { 
-            !drop.contains(&k)
-        });
     }
 
     #[allow(unused)]
@@ -750,6 +712,9 @@ mod tests {
 
         let (h, t) = (FF2::zero(), FF2::zero());
         let mut b = SymTngBuilder::new(&l, &h, &t, false);
+
+        b.auto_elim = false;
+        b.auto_deloop = false;
 
         b.process_partial(0..3);
         b.process_partial(0..4);
