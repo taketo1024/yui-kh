@@ -89,8 +89,10 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.crossings = crossings.into_iter().collect_vec();
     }
 
-    pub(crate) fn take_crossings(&mut self) -> Vec<Crossing> { 
-        std::mem::take(&mut self.crossings)
+    pub(crate) fn remove_crossings<'a, I>(&mut self, crossings: I) 
+    where I: IntoIterator<Item = &'a Crossing> { 
+        let drop = crossings.into_iter().collect::<HashSet<_>>();
+        self.crossings.retain(|x| !drop.contains(x));
     }
 
     pub fn elements(&self) -> impl Iterator<Item = &BuildElem<R>> { 
