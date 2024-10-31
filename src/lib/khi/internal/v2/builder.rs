@@ -153,8 +153,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let keys = b.complex().keys().cloned().collect_vec();
         let elements = b.take_elements();
         let mut c = b.into_tng_complex();
+
+        // build doubled complex
+
+        info!("({}) build double..", c.stat());
+
         let tc = c.convert_edges(|e| self.inv_e(e));
         c.connect(tc);
+
+        info!("({}) doubled.", c.stat());
 
         // build keys
         let keys = cartesian!(keys.iter(), keys.iter()).collect_vec();
