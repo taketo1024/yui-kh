@@ -335,9 +335,9 @@ fn knotJ_interlock_divided_no_elim() {
     b.process_partial(0..8);
     b.finalize();
     
-    let c = b.into_khi_complex().truncated(-1..=2);
+    let c = b.into_khi_complex().truncated(-n..=2);
     c.check_d_all();
 
-    let h = c.homology().truncated(0..=1).into_bigraded();
+    let h = c.homology().truncated(-n..=1).into_bigraded();
     h.print_table("i", "j");
 }
