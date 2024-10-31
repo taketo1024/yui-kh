@@ -8,6 +8,7 @@ use log::{debug, info};
 use num_traits::Zero;
 use yui::bitseq::Bit;
 use yui::{hashmap, Ring, RingOps};
+use yui_homology::DisplaySeq;
 use yui_link::{Crossing, Edge, Link};
 
 use crate::ext::LinkExt;
@@ -376,8 +377,14 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub fn into_kh_complex(self) -> KhComplex<R> { 
+        info!("build Kh complex...");
+
         let canon_cycles = self.eval_elements();
-        self.into_tng_complex().into_kh_complex(canon_cycles)
+        let c = self.into_tng_complex().into_kh_complex(canon_cycles);
+        
+        info!("  done\n{}", c.display_seq("i"));
+
+        c
     }
 
     pub(crate) fn make_canon_cycles(l: &Link, base_pt: Option<Edge>) -> Vec<BuildElem<R>> { 
