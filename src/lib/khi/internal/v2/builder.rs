@@ -8,6 +8,7 @@ use log::info;
 use rayon::prelude::*;
 use yui::bitseq::{Bit, BitSeq};
 use yui::{KeyedUnionFind, Ring, RingOps};
+use yui_homology::DisplaySeq;
 use yui_link::{Crossing, Edge, InvLink};
 
 use crate::kh::{KhComplex, KhGen, KhLabel};
@@ -561,7 +562,12 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         };
 
         let c = self.into_kh_complex();
-        KhIComplex::from_kh_complex(c, map)
+
+        info!("build KhI complex...");
+        let c = KhIComplex::from_kh_complex(c, map);
+        info!("  done\n{}", c.display_seq("i"));
+
+        c
     }
 
     fn inv_x(&self, x: &Crossing) -> &Crossing { 
