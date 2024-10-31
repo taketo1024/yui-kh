@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::ops::{Add, AddAssign, RangeInclusive};
+use std::sync::RwLock;
 
 use ahash::{AHashMap, AHashSet};
 use auto_impl_ops::auto_ops;
@@ -416,54 +417,46 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub(crate) fn connect_edges(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, i: isize) {
-        let (h, t) = self.ht();
+        let (h, t) = self.ht().clone();
         let keys = left.h_range().flat_map(move |i1| {
-            let i2 = i - i1;
-            cartesian!(
-                left.keys_of(i1), 
-                right.keys_of(i2)
-            ).collect_vec()
+            left.keys_of(i1).flat_map(move |k|
+                right.keys_of(i - i1).map(|l| 
+                    (*k, *l)
+                )
+            )
         }).collect_vec();
-        
-        let edges = keys.into_par_iter().flat_map(|(k0, l0)| { 
-            let k0_l0 = k0 + l0;
-            if !self.contains_key(&k0_l0) { 
-                return vec![]
-            }
 
-            let v0 = left.vertex(k0);
-            let w0 = right.vertex(l0);
+        let lock = RwLock::new(self);
+        
+        keys.into_par_iter().for_each(|(k0, l0)| { 
+            let k0_l0 = &k0 + &l0;
+            let v0 = left.vertex(&k0);
+            let w0 = right.vertex(&l0);
             let i0 = (k0.state.weight() as isize) - left.deg_shift.0;
 
-            let e1 = left.keys_out_from(k0).filter_map(|k1| { 
+            let e1 = left.keys_out_from(&k0).map(|k1| { 
                 let k1_l0 = k1 + l0;
-                if !self.contains_key(&k1_l0) { return None }
-
-                let f = left.edge(k0, k1);
+                let f = left.edge(&k0, k1);
                 let f_id = f.connected(&Cob::id(w0.tng())); // D(f, 1) 
-                let entry = (k0_l0, k1_l0, f_id.part_eval(h, t));
-                Some(entry)
+                (k0_l0, k1_l0, f_id.part_eval(&h, &t))
             });
 
-            let e2 = right.keys_out_from(l0).filter_map(|l1| { 
+            let e2 = right.keys_out_from(&l0).map(|l1| { 
                 let k0_l1 = k0 + l1;
-                if !self.contains_key(&k0_l1) { return None }
-
-                let f = right.edge(l0, l1);
+                let f = right.edge(&l0, l1);
                 let e = R::from_sign(Sign::from_parity(i0 as i64));
                 let id_f = f.connected(&Cob::id(v0.tng())) * e; // (-1)^{deg(k0)} D(1, f) 
-                let entry = (k0_l0, k0_l1, id_f.part_eval(h, t));
-                Some(entry)
+                (k0_l0, k0_l1, id_f.part_eval(&h, &t))
             });
 
-            Iterator::chain(e1, e2).collect_vec()
-        }).collect::<Vec<_>>();
+            let mut this = lock.write().unwrap();
 
-        for (k, l, f) in edges { 
-            if !f.is_zero() { 
-                self.add_edge(&k, &l, f);
-            }
-        }
+            Iterator::chain(e1, e2).for_each(|(k, l, f)| { 
+                if this.contains_key(&k) && this.contains_key(&l) && !f.is_zero() { 
+                    this.add_edge(&k, &l, f);
+                }
+            });
+        });
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
