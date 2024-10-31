@@ -418,18 +418,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub(crate) fn connect_edges(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, i: isize) {
         let (h, t) = self.ht().clone();
-        let keys = left.h_range().flat_map(move |i1| {
-            left.keys_of(i1).flat_map(move |k|
-                right.keys_of(i - i1).map(|l| 
-                    (*k, *l)
-                )
-            )
+        let keys = left.h_range().flat_map(|i1| {
+            cartesian!(
+                left.keys_of(i1),
+                right.keys_of(i - i1)
+            ).filter(|(k, l)|
+                self.contains_key(&(*k + *l))
+            ).collect_vec()
         }).collect_vec();
 
         let lock = RwLock::new(self);
         
         keys.into_par_iter().for_each(|(k0, l0)| { 
-            let k0_l0 = &k0 + &l0;
+            let k0_l0 = k0 + l0;
             let v0 = left.vertex(&k0);
             let w0 = right.vertex(&l0);
             let i0 = (k0.state.weight() as isize) - left.deg_shift.0;
@@ -452,7 +453,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             let mut this = lock.write().unwrap();
 
             Iterator::chain(e1, e2).for_each(|(k, l, f)| { 
-                if this.contains_key(&k) && this.contains_key(&l) && !f.is_zero() { 
+                if this.contains_key(&l) && !f.is_zero() { 
                     this.add_edge(&k, &l, f);
                 }
             });
