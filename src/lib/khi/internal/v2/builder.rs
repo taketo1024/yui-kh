@@ -84,26 +84,30 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn preprocess(&mut self) { 
         assert_eq!(self.complex().dim(), 0, "must start from init state.");
 
-        let off_axis = self.extract_off_axis_crossings(true);
         let elements = self.inner.take_elements();
+        let off_axis = self.off_axis_crossings(true).into_iter().cloned().collect_vec();
 
         info!("({}) preprocess off-axis: {}", self.stat(), off_axis.len());
 
-        let (c, key_map, elements) = self.build_from_half(off_axis, elements);
+        let (c, tc, key_map, elements) = self.build_from_half(off_axis.iter(), elements);
 
+        self.inner.remove_crossings(off_axis.iter());
         self.inner.connect(c);
+
+        let off_axis = off_axis.iter().map(|x| self.inv_x(x).clone()).collect_vec();
+        self.inner.remove_crossings(off_axis.iter());
+        self.inner.connect(tc);
+        
         self.key_map = key_map;
         self.set_elements(elements);
 
         info!("({}) preprocess done.", self.stat());
     }
 
-    fn extract_off_axis_crossings(&mut self, take_half: bool) -> Vec<Crossing> { 
-        let crossings = self.inner.take_crossings();
-        let (on_axis, off_axis) = crossings.into_iter().partition::<Vec<_>, _>(|x|
-            self.inv_x(x) == x
-        );
-        self.inner.set_crossings(on_axis);
+    fn off_axis_crossings(&self, take_half: bool) -> Vec<&Crossing> { 
+        let off_axis = self.crossings().filter(|&x|
+            self.inv_x(x) != x
+        ).collect_vec();
 
         if !take_half { 
             return off_axis
@@ -117,7 +121,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             )
         };
 
-        let mut u = KeyedUnionFind::from_iter(off_axis.iter());
+        let mut u = KeyedUnionFind::from_iter(off_axis.iter().cloned());
 
         for (i, x) in off_axis.iter().enumerate() { 
             for j in 0 .. i { 
@@ -128,7 +132,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             }
         }
 
-        let half = u.group().into_iter().fold(vec![], |mut res, next| { 
+        u.group().into_iter().fold(vec![], |mut res, next| { 
             if let Some(x) = next.iter().next() { 
                 let tx = self.inv_x(x);
                 if !res.contains(&tx) { 
@@ -136,32 +140,23 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 }
             }
             res
-        });
-        
-        half.into_iter().cloned().collect()
+        })
     }
 
-    fn build_from_half(&self, crossings: Vec<Crossing>, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) { 
+    fn build_from_half<'a, I>(&self, crossings: I, elements: Vec<BuildElem<R>>) -> (TngComplex<R>, TngComplex<R>, AHashMap<TngKey, TngKey>, Vec<BuildElem<R>>) 
+    where I: IntoIterator<Item = &'a Crossing> { 
         let (h, t) = self.complex().ht();
         let mut b = TngComplexBuilder::init(h, t, (0, 0), None);
 
-        b.set_crossings(crossings);
+        b.set_crossings(crossings.into_iter().cloned());
         b.set_elements(elements);
         b.process_all();
 
         // take results
         let keys = b.complex().keys().cloned().collect_vec();
         let elements = b.take_elements();
-        let mut c = b.into_tng_complex();
-
-        // build doubled complex
-
-        info!("({}) build double..", c.stat());
-
+        let c = b.into_tng_complex();
         let tc = c.convert_edges(|e| self.inv_e(e));
-        c.connect(tc);
-
-        info!("({}) doubled.", c.stat());
 
         // build keys
         let keys = cartesian!(keys.iter(), keys.iter()).collect_vec();
@@ -186,7 +181,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             e
         }).collect::<Vec<_>>();
 
-        (c, key_map, elements)
+        (c, tc, key_map, elements)
     }
 
     pub fn process_all(&mut self) { 
@@ -495,14 +490,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         // extract target crossings
         let indices = indices.into_iter().collect::<HashSet<_>>();
-        let crossings = self.inner.take_crossings();
-        let (target, retain) = crossings.into_iter().enumerate().partition::<Vec<(usize, Crossing)>, _>(|(i, _)|
+        let target = self.crossings().enumerate().filter(|(i, _)|
             indices.contains(&i)
-        );
-        let target = target.into_iter().map(|(_, x)| x);
-        let retain = retain.into_iter().map(|(_, x)| x);
-
-        self.inner.set_crossings(retain);
+        ).map(|(_, x)| 
+            x.clone()
+        ).collect_vec();
+        
+        self.inner.remove_crossings(target.iter());
 
         let (h, t) = self.complex().ht();
         let mut b = Self::new_impl(
