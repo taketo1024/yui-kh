@@ -194,15 +194,13 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub(crate) fn connect_incr(&mut self, left: &TngComplex<R>, right: &TngComplex<R>) {
-        let h_range = self.complex.h_range().filter(|i| 
-            self.should_retain(*i)
-        ).collect_vec();
+        let h_range = self.current_h_range();
 
-        for &i in h_range.iter() { 
+        for i in h_range.clone() { 
             self.complex.connect_vertices(&left, &right, i);
         }
 
-        for &i in h_range.iter() { 
+        for i in h_range { 
             self.complex.connect_edges(&left, &right, i);
             if self.auto_deloop {
                 self.deloop_in(i, false);
@@ -349,6 +347,19 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.deloop_all(true);
 
         assert!(self.complex.is_completely_delooped());
+    }
+
+    pub(crate) fn current_h_range(&self) -> RangeInclusive<isize> { 
+        if let Some(h_range) = &self.h_range { 
+            let (h0, h1) = h_range.clone().into_inner();
+            let (c0, c1) = self.complex.h_range().into_inner();
+            let remain = self.crossings.len() as isize;
+            let i0 = isize::max(c0, h0 - remain);
+            let i1 = isize::min(c1, h1);
+            i0 ..= i1
+        } else { 
+            self.complex.h_range()
+        }
     }
 
     pub(crate) fn should_retain(&self, i: isize) -> bool { 

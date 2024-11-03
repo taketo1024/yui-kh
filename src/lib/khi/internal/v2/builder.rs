@@ -524,23 +524,23 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let l_key_map = std::mem::take(&mut self.key_map);
         let r_key_map = key_map;
 
-        // TODO remove unused
+        let h_range = self.inner.current_h_range();
+
+        for i in h_range.clone() { 
+            self.inner.complex_mut().connect_vertices(&left, &right, i);
+        }
+
         self.key_map = cartesian!(
             l_key_map.iter(),
             r_key_map.iter()
         ).map(|((k1, l1), (k2, l2))|
             (k1 + k2, l1 + l2)
+        ).filter(|(k, l)|
+            self.complex().contains_key(&k) && 
+            self.complex().contains_key(&l)
         ).collect();
 
-        let h_range = self.complex().h_range().filter(|i| 
-            self.inner.should_retain(*i)
-        ).collect_vec();
-
-        for &i in h_range.iter() { 
-            self.inner.complex_mut().connect_vertices(&left, &right, i);
-        }
-
-        for &i in h_range.iter() { 
+        for i in h_range { 
             self.inner.complex_mut().connect_edges(&left, &right, i);
             if self.auto_deloop { 
                 self.deloop_in(i, false);

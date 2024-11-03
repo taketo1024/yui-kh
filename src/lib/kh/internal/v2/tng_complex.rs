@@ -412,7 +412,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     }
 
     pub(crate) fn connect_vertices(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, i: isize) {
-        let keys = self.collect_keys(left, right, i);
+        let keys = self.collect_keys(left, right, i, false);
         keys.into_iter().for_each(|(k, l)| { 
             let v = left.vertex(k);
             let w = right.vertex(l);
@@ -428,9 +428,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
     pub(crate) fn connect_edges(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, i: isize) {
         let (h, t) = self.ht().clone();
-        let keys = self.collect_keys(left, right, i).into_iter().filter(|(k, l)|
-            self.contains_key(&(*k + *l))
-        ).collect_vec();
+        let keys = self.collect_keys(left, right, i, true);
 
         let lock = RwLock::new(self);
         
@@ -465,15 +463,23 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         });
     }
 
-    fn collect_keys<'a, 'b>(&mut self, left: &'a TngComplex<R>, right: &'b TngComplex<R>, i: isize) -> Vec<(&'a TngKey, &'b TngKey)> {
-        left.h_range().flat_map(|i1| {
+    fn collect_keys<'a, 'b>(&mut self, left: &'a TngComplex<R>, right: &'b TngComplex<R>, i: isize, filter: bool) -> Vec<(&'a TngKey, &'b TngKey)> {
+        let keys = left.h_range().flat_map(|i1| {
             let i2 = i - i1;
             left.keys_of(i1).flat_map(move |k| { 
                 right.keys_of(i2).map(move |l|
                     (k, l)
                 )
             })
-        }).collect_vec()
+        });
+        
+        if filter { 
+            keys.filter(|(k, l)|
+                self.contains_key(&(*k + *l))
+            ).collect_vec()
+        } else { 
+            keys.collect_vec()
+        }
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
