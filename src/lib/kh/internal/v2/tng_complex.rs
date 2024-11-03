@@ -227,11 +227,18 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         self.vertex(k).out_edges()
     }
 
-    pub fn remove_vertex(&mut self, k: &TngKey) { 
+    pub fn add_vertex(&mut self, v: TngVertex<R>) { 
+        assert!(!self.contains_key(&v.key));
+        self.vertices.insert(v.key, v);
+    }
+
+    pub fn remove_vertex(&mut self, k: &TngKey) -> TngVertex<R> { 
+        assert!(self.contains_key(k));
+
         let in_edges = self.keys_into(k).cloned().collect_vec();
         let out_edges = self.keys_out_from(k).cloned().collect_vec();
 
-        self.vertices.remove(k);
+        let v = self.vertices.remove(k).unwrap();
 
         for j in in_edges { 
             self.vertices.get_mut(&j).unwrap().out_edges.remove(k);
@@ -240,6 +247,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         for l in out_edges { 
             self.vertices.get_mut(&l).unwrap().in_edges.remove(k);
         }
+
+        v
     }
     
     fn rename_vertex_key(&mut self, k_old: &TngKey, k_new: TngKey) { 
@@ -257,9 +266,9 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             (l, f)
         }).collect_vec();
 
-        let mut v = self.vertices.remove(k_old).unwrap();
+        let mut v = self.remove_vertex(k_old);
         v.key = k_new;
-        self.vertices.insert(k_new, v);
+        self.add_vertex(v);
 
         for (j, f) in in_removed { 
             self.add_edge(&j, &k_new, f);
@@ -281,7 +290,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         v_new.in_edges.clear();
         v_new.out_edges.clear();
 
-        self.vertices.insert(k_new, v_new);
+        self.add_vertex(v_new);
 
         for j in in_edges { 
             let f = self.edge(&j, k).clone();
@@ -350,7 +359,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         if x.is_resolved() { 
             let mut v = TngVertex::init();
             v.tng = Tng::from_resolved(x);
-            c.vertices.insert(v.key, v);
+            c.add_vertex(v);
         } else { 
             let mut v0 = TngVertex::init();
             v0.key.state.push_0();
@@ -362,8 +371,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             v1.tng = Tng::from_resolved(&x.resolved(Bit::Bit1));
             let k1 = v1.key;
 
-            c.vertices.insert(k0, v0);
-            c.vertices.insert(k1, v1);
+            c.add_vertex(v0);
+            c.add_vertex(v1);
 
             let sdl = LcCob::from(Cob::from(CobComp::sdl_from(&x)));
             c.add_edge(&k0, &k1, sdl);
@@ -379,7 +388,8 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub fn connect(&mut self, other: TngComplex<R>) { 
         let mut new = Self::connect_init(self, &other);
         for i in new.h_range() { 
-            new.connect_edges(&self, &other, i);
+            new.connect_vertices(&self, &other, i);
+            new.connect_edges(&self, &other, i - 1);
         }
         *self = new
     }
@@ -396,36 +406,31 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         );
 
         let mut new = TngComplex::init(h, t, deg_shift, base_pt);
+        new.vertices.clear();
         new.crossings = Iterator::chain(self.crossings.iter(), other.crossings.iter()).cloned().collect();
+        new
+    }
 
-        let keys = cartesian!(
-            self.keys(),
-            other.keys()
-        ).collect_vec();
-
-        new.vertices = keys.clone().into_par_iter().map(|(k, l)| { 
-            let v = self.vertex(k);
-            let w = other.vertex(l);
+    pub(crate) fn connect_vertices(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, i: isize) {
+        let keys = self.collect_keys(left, right, i);
+        keys.into_iter().for_each(|(k, l)| { 
+            let v = left.vertex(k);
+            let w = right.vertex(l);
             let kl = k + l;
+
             let mut vw = TngVertex::init();
             vw.key = kl;
             vw.tng = v.tng.connected(&w.tng); // D(v, w)
-            (kl, vw)
-        }).collect::<ahash::HashMap<_, _>>().into();
 
-        new
+            self.add_vertex(vw);
+        });
     }
 
     pub(crate) fn connect_edges(&mut self, left: &TngComplex<R>, right: &TngComplex<R>, i: isize) {
         let (h, t) = self.ht().clone();
-        let keys = left.h_range().flat_map(|i1| {
-            cartesian!(
-                left.keys_of(i1),
-                right.keys_of(i - i1)
-            ).filter(|(k, l)|
-                self.contains_key(&(*k + *l))
-            ).collect_vec()
-        }).collect_vec();
+        let keys = self.collect_keys(left, right, i).into_iter().filter(|(k, l)|
+            self.contains_key(&(*k + *l))
+        ).collect_vec();
 
         let lock = RwLock::new(self);
         
@@ -458,6 +463,17 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
                 }
             });
         });
+    }
+
+    fn collect_keys<'a, 'b>(&mut self, left: &'a TngComplex<R>, right: &'b TngComplex<R>, i: isize) -> Vec<(&'a TngKey, &'b TngKey)> {
+        left.h_range().flat_map(|i1| {
+            let i2 = i - i1;
+            left.keys_of(i1).flat_map(move |k| { 
+                right.keys_of(i2).map(move |l|
+                    (k, l)
+                )
+            })
+        }).collect_vec()
     }
 
     pub fn deloop(&mut self, k: &TngKey, r: usize) -> Vec<TngKey> { 
