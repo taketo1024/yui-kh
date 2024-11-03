@@ -167,14 +167,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
         let cx = self.complex.make_x(x);
         let (left, right) = self.connect_init(cx);
-
-        for i in self.complex.h_range() { 
-            self.complex.connect_edges(&left, &right, i);
-
-            if self.auto_deloop {
-                self.deloop_in(i, false);
-            }
-        }
+        self.connect_incr(&left, &right);
     }
 
     pub(crate) fn append_prepare(&mut self, x: &Crossing) { 
@@ -191,16 +184,30 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
     pub(crate) fn connect(&mut self, other: TngComplex<R>) { 
         info!("({}) connect <- ({})", self.stat(), other.stat());
         let (left, right) = self.connect_init(other);
-        for i in self.complex.h_range() { 
-            self.complex.connect_edges(&left, &right, i);
-        }
+        self.connect_incr(&left, &right);
     }
 
     pub(crate) fn connect_init(&mut self, other: TngComplex<R>) -> (TngComplex<R>, TngComplex<R>) { 
         let mut complex = TngComplex::connect_init(&self.complex, &other);
         swap(&mut self.complex, &mut complex);
-        self.retain_supported();
         (complex, other)
+    }
+
+    pub(crate) fn connect_incr(&mut self, left: &TngComplex<R>, right: &TngComplex<R>) {
+        let h_range = self.complex.h_range().filter(|i| 
+            self.should_retain(*i)
+        ).collect_vec();
+
+        for &i in h_range.iter() { 
+            self.complex.connect_vertices(&left, &right, i);
+        }
+
+        for &i in h_range.iter() { 
+            self.complex.connect_edges(&left, &right, i);
+            if self.auto_deloop {
+                self.deloop_in(i, false);
+            }
+        }
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
@@ -344,23 +351,20 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         assert!(self.complex.is_completely_delooped());
     }
 
-    pub fn is_supported(&self, i: isize) -> bool { 
-        if let Some(h_range) = &self.h_range { 
-            h_range.contains(&i)
-        } else { 
-            true
-        }
+    pub(crate) fn should_retain(&self, i: isize) -> bool { 
+        let Some(h_range) = &self.h_range else { return true };
+        let (h0, h1) = h_range.clone().into_inner();
+        let remain = self.crossings.len() as isize;
+        h0 <= (i + remain) && i <= h1
     }
 
     pub fn retain_supported(&mut self) { 
-        let Some(h_range) = &self.h_range else { return };
-        let (h0, h1) = h_range.clone().into_inner();
+        if self.h_range.is_none() { return }
 
-        let remain = self.crossings.len() as isize;
-        let drop = self.complex.keys().filter(|k| { 
-            let i0 = self.complex.deg_shift().0 + (k.weight() as isize);
-            let i1 = i0 + remain;
-            i1 < h0 || h1 < i0
+        let i0 = self.complex.deg_shift().0;
+        let drop = self.complex.keys().filter(|k| {
+            let i = i0 + (k.weight() as isize);
+            !self.should_retain(i)
         }).cloned().collect_vec();
 
         if drop.is_empty() { return }
@@ -712,5 +716,23 @@ mod tests {
             assert!(z.gens().all(|x| x.h_deg() == 0));
             assert!(c.d(0, &z).is_zero());
         }
+    }
+
+    #[test]
+    fn h_range() { 
+        let l = Link::load("6_3").unwrap();
+        let h_range = -1..=1;
+
+        let mut b = TngComplexBuilder::new(&l, &0, &0, None);
+        b.set_h_range(h_range);
+        b.process_all();
+        b.finalize();
+
+        let c = b.into_kh_complex();
+        c.check_d_all();
+
+        let h = c.homology();
+        assert_eq!(h[0].rank(), 4);
+        assert_eq!(h[0].tors(), &[2]);
     }
 }

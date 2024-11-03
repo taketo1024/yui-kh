@@ -213,7 +213,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             [(k, k)].into_iter().collect()
         };
 
-        self.merge(c, key_map);
+        self.connect(c, key_map);
     }
 
     fn append_off_axis(&mut self, x: &Crossing, tx: &Crossing) { 
@@ -245,7 +245,7 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
             [(k, k)].into_iter().collect()
         };
 
-        self.merge(c, key_map);
+        self.connect(c, key_map);
     }
 
     pub fn deloop_all(&mut self, allow_based: bool) { 
@@ -512,26 +512,35 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
         let key_map = std::mem::take(&mut b.key_map);
         let c = b.into_tng_complex();
 
-        info!("merge ({}) <- ({})", self.stat(), c.stat());
+        info!("connect ({}) <- ({})", self.stat(), c.stat());
 
-        self.merge(c, key_map);
+        self.connect(c, key_map);
 
-        info!("merged ({})", self.stat());
+        info!("connected ({})", self.stat());
     } 
 
-    fn merge(&mut self, c: TngComplex<R>, key_map: AHashMap<TngKey, TngKey>) { 
+    fn connect(&mut self, c: TngComplex<R>, key_map: AHashMap<TngKey, TngKey>) { 
         let (left, right) = self.inner.connect_init(c);
+        let l_key_map = std::mem::take(&mut self.key_map);
+        let r_key_map = key_map;
 
-        self.key_map = self.key_map.iter().flat_map(|(k1, l1)|
-            key_map.iter().map(|(k2, l2)|
-                (*k1 + k2, *l1 + l2)
-            )
-        ).filter(|(k, l)|
-            self.complex().contains_key(k) && 
-            self.complex().contains_key(l)
+        // TODO remove unused
+        self.key_map = cartesian!(
+            l_key_map.iter(),
+            r_key_map.iter()
+        ).map(|((k1, l1), (k2, l2))|
+            (k1 + k2, l1 + l2)
         ).collect();
 
-        for i in self.complex().h_range() { 
+        let h_range = self.complex().h_range().filter(|i| 
+            self.inner.should_retain(*i)
+        ).collect_vec();
+
+        for &i in h_range.iter() { 
+            self.inner.complex_mut().connect_vertices(&left, &right, i);
+        }
+
+        for &i in h_range.iter() { 
             self.inner.complex_mut().connect_edges(&left, &right, i);
             if self.auto_deloop { 
                 self.deloop_in(i, false);
@@ -809,10 +818,10 @@ mod tests {
         b.process_all();
         b.finalize();
 
-        let c = b.into_khi_complex();
+        let c = b.into_khi_complex().truncated(-1..=2);
         c.check_d_all();
 
-        let h = c.homology();
+        let h = c.homology().truncated(0..=1);
         assert_eq!(h[0].rank(), 10);
         assert_eq!(h[1].rank(), 10);
     }
