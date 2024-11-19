@@ -46,8 +46,8 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     assert_eq!(kh[0].rank(), r);
     assert_eq!(kh[1].rank(), r);    
 
-    info!("KhI[0]: {}", kh[0].math_symbol());    
-    info!("KhI[1]: {}", kh[1].math_symbol());    
+    info!("KhI[0]: {}", kh[0]);    
+    info!("KhI[1]: {}", kh[1]);    
 
     let zs = kh.canon_cycles();
     

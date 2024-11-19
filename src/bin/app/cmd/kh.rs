@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{DisplayForGrid, DisplaySeq, DisplayTable, GridTrait, SummandTrait};
+use yui_homology::{DisplaySeq, DisplayTable, GridTrait, SummandTrait};
 use yui_kh::kh::KhHomology;
 use yui_kh::kh::KhChainExt;
 use yui_link::Link;
@@ -108,7 +108,7 @@ where
             let h = &kh[i];
             if h.is_zero() { continue }
 
-            self.out(&format!("Kh[{i}]: {}", h.display_for_grid()));
+            self.out(&format!("Kh[{i}]: {}", h));
 
             let r = h.rank() + h.tors().len();
             for i in 0..r { 

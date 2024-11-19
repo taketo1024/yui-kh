@@ -27,14 +27,14 @@ debug = true
 overflow-checks = true
 
 [dependencies]
-yui  =         { git = "https://github.com/taketo1024/yui", branch = "develop" }
+yui  =         { git = "https://github.com/taketo1024/yui", branch = "develop", features = ["tex"] }
 yui-link =     { git = "https://github.com/taketo1024/yui", branch = "develop" }
 yui-matrix =   { git = "https://github.com/taketo1024/yui", branch = "develop" }
-yui-homology = { git = "https://github.com/taketo1024/yui", branch = "develop" }
-# yui  =         { path = "../yui/yui" }
+yui-homology = { git = "https://github.com/taketo1024/yui", branch = "develop", features = ["tex"] }
+# yui  =         { path = "../yui/yui", features = ["tex"]  }
 # yui-link =     { path = "../yui/yui-link" }
 # yui-matrix =   { path = "../yui/yui-matrix" }
-# yui-homology = { path = "../yui/yui-homology" }
+# yui-homology = { path = "../yui/yui-homology", features = ["tex"]  }
 auto-impl-ops = "0.2.1"
 cartesian = "0.2.1"
 clap = { version = "4.5.17", features = ["derive", "cargo"] }

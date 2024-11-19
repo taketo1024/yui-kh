@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
 use yui_homology::DisplayTable;
-use yui_homology::{ChainComplexTrait, DisplayForGrid, GridTrait, SummandTrait};
+use yui_homology::{ChainComplexTrait, GridTrait, SummandTrait};
 use yui_kh::kh::KhChainExt;
 use yui_kh::khi::KhIComplex;
 
@@ -104,7 +104,7 @@ where
             let c = &ckh[i];
             if c.is_zero() { continue }
             
-            self.out(&format!("C[{i}]: {}", c.display_for_grid()));
+            self.out(&format!("C[{i}]: {}", c));
     
             let r = c.rank() + c.tors().len();
             for i in 0..r { 

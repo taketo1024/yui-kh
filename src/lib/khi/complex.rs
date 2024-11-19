@@ -202,14 +202,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> GridTrait<isize> for KhIComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    type Itr = std::vec::IntoIter<isize>;
-    type Output = KhIComplexSummand<R>;
+    type Support = std::vec::IntoIter<isize>;
+    type Item = KhIComplexSummand<R>;
 
     delegate! { 
         to self.inner { 
-            fn support(&self) -> Self::Itr;
+            fn support(&self) -> Self::Support;
             fn is_supported(&self, i: isize) -> bool;
-            fn get(&self, i: isize) -> &Self::Output;
+            fn get(&self, i: isize) -> &Self::Item;
+            fn get_default(&self) -> &Self::Item;
         }
     }
 }

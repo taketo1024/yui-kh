@@ -191,14 +191,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> GridTrait<isize> for KhComplex<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    type Itr = std::vec::IntoIter<isize>;
-    type Output = KhComplexSummand<R>;
+    type Support = std::vec::IntoIter<isize>;
+    type Item = KhComplexSummand<R>;
 
     delegate! { 
         to self.inner { 
-            fn support(&self) -> Self::Itr;
+            fn support(&self) -> Self::Support;
             fn is_supported(&self, i: isize) -> bool;
-            fn get(&self, i: isize) -> &Self::Output;
+            fn get(&self, i: isize) -> &Self::Item;
+            fn get_default(&self) -> &Self::Item;
         }
     }
 }
@@ -296,14 +297,15 @@ where R: Ring, for<'x> &'x R: RingOps<R> {
 
 impl<R> GridTrait<isize2> for KhComplexBigraded<R>
 where R: Ring, for<'x> &'x R: RingOps<R> {
-    type Itr = std::vec::IntoIter<isize2>;
-    type Output = KhComplexSummand<R>;
+    type Support = std::vec::IntoIter<isize2>;
+    type Item = KhComplexSummand<R>;
 
     delegate! { 
         to self.inner { 
-            fn support(&self) -> Self::Itr;
+            fn support(&self) -> Self::Support;
             fn is_supported(&self, i: isize2) -> bool;
-            fn get(&self, i: isize2) -> &Self::Output;
+            fn get(&self, i: isize2) -> &Self::Item;
+            fn get_default(&self) -> &Self::Item;
         }
     }
 }
