@@ -39,7 +39,7 @@ where R: EucRing, for<'x> &'x R: EucRingOps<R> {
     // let kh = KhHomology::new_partial(l, c, &R::zero(), reduced, Some(0..=0));
 
     assert_eq!(kh[0].rank(), r);
-    info!("Kh[0]: {}", kh[0].math_symbol());
+    info!("Kh[0]: {}", kh[0]);
     
     let zs = kh.canon_cycles();
 

@@ -3,7 +3,7 @@ use crate::app::err::*;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use yui::{Ring, RingOps};
-use yui_homology::{ChainComplexTrait, DisplayForGrid, DisplayTable, GridTrait, SummandTrait};
+use yui_homology::{ChainComplexTrait, DisplayTable, GridTrait, SummandTrait};
 use yui_kh::kh::KhChainExt;
 use yui_kh::kh::KhComplex;
 
@@ -101,7 +101,7 @@ where
             let c = &ckh[i];
             if c.is_zero() { continue }
             
-            self.out(&format!("C[{i}]: {}", c.display_for_grid()));
+            self.out(&format!("C[{i}]: {}", c));
     
             let r = c.rank() + c.tors().len();
             for i in 0..r { 
@@ -137,7 +137,7 @@ where
 
     fn flush(&mut self) -> String { 
         let res = std::mem::take(&mut self.buff);
-        res.trim().to_string()
+        res.trim_end().to_string()
     }
 }
 
