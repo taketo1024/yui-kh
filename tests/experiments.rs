@@ -8,7 +8,7 @@ use yui::FF2;
 use yui_homology::{ChainComplexCommon, DisplaySeq, DisplayTable};
 use yui_kh::khi::internal::v2::builder::SymTngBuilder;
 use yui_link::{Crossing, InvLink, Link};
-use yui_kh::khi::{ssi_invariants, KhIComplex};
+use yui_kh::khi::{ssi_invariants, KhIComplex, KhIHomology};
 
 type R = FF2;
 type P = HPoly<'H', R>;
@@ -49,8 +49,23 @@ fn knotJ() {
 
     let c = P::variable();
     let ssi = ssi_invariants(&l, &c, false);
+    assert_eq!(ssi, (0, 2));
+}
 
-    // good
+#[test]
+#[ignore]
+fn knotJ_18() { 
+    init_logger();
+    
+    let l = InvLink::sinv_knot_from_code([
+        [1,27,2,26],[5,16,6,17],[6,32,7,31],[10,27,11,28],[11,1,12,36],
+        [13,8,14,9],[14,20,15,19],[17,4,18,5],[18,24,19,23],[21,32,22,33],
+        [22,16,23,15],[25,3,26,2],[28,9,29,10],[29,24,30,25],[30,4,31,3],
+        [33,20,34,21],[34,8,35,7],[35,13,36,12]
+    ]);
+
+    let c = P::variable();
+    let ssi = ssi_invariants(&l, &c, false);
     assert_eq!(ssi, (0, 2));
 }
 
@@ -325,8 +340,8 @@ fn knotJ_interlock_truncated() {
     let mut b = SymTngBuilder::new(&l, &h, &t, false);
 
     b.set_h_range(-n ..= 2);
-    b.preprocess();
-    b.process_all();
+    b.process_partial(0..26);
+    b.process_partial(0..22);
     b.finalize();
     
     let c = b.into_khi_complex().truncated(-n..=2);
