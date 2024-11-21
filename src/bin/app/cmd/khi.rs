@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
+use yui::tex::TeX;
 use yui::{EucRing, EucRingOps};
-use yui_homology::{DisplaySeq, DisplayTable, GridTrait, SummandTrait};
+use yui_homology::{DisplaySeq, DisplayTable, GridTrait, SummandTrait, tex::TeXTable};
 use yui_kh::kh::KhChainExt;
 use yui_kh::khi::{KhIChain, KhIComplex, KhIHomology};
 use yui_link::InvLink;
@@ -37,13 +38,16 @@ pub struct Args {
     #[arg(short = 's', long)]
     pub show_ssi: bool,
 
+    #[arg(short, long)]
+    pub format: Format,
+
     #[arg(long, default_value = "0")]
     pub log: u8,
 }
 
 pub struct App<R>
 where
-    R: EucRing + FromStr,
+    R: EucRing + FromStr + TeX,
     for<'x> &'x R: EucRingOps<R>,
 {
     args: Args,
@@ -53,7 +57,7 @@ where
 
 impl<R> App<R>
 where
-    R: EucRing + FromStr,
+    R: EucRing + FromStr + TeX,
     for<'x> &'x R: EucRingOps<R>,
 {
     pub fn new(args: Args) -> Self { 
@@ -84,12 +88,16 @@ where
         let bigraded = h.is_zero() && t.is_zero() || 
             ["H", "0,T"].contains(&self.args.c_value.as_str());
 
-        if bigraded { 
-            let khi = khi.clone().into_bigraded();
-            self.out(&khi.display_table("i", "j"));
+        let table = if bigraded { 
+            let grid = khi.clone().into_bigraded();
+            match self.args.format {
+                Format::Unicode => grid.display_table("i", "j"),
+                Format::TeX     => grid.tex_table("$\\mathit{KhI}$", " ")
+            }
         } else { 
-            self.out(&khi.display_seq("i"));
-        }
+            khi.display_seq("i")
+        };
+        self.out(&table);
 
         if self.args.show_gens { 
             self.show_gens(&khi);

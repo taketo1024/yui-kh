@@ -2,8 +2,9 @@ use crate::app::utils::*;
 use crate::app::err::*;
 use std::marker::PhantomData;
 use std::str::FromStr;
+use yui::tex::TeX;
 use yui::{Ring, RingOps};
-use yui_homology::{ChainComplexTrait, DisplayTable, GridTrait, SummandTrait};
+use yui_homology::{ChainComplexTrait, DisplayTable, GridTrait, SummandTrait, tex::TeXTable};
 use yui_kh::kh::KhChainExt;
 use yui_kh::kh::KhComplex;
 
@@ -36,13 +37,16 @@ pub struct Args {
     #[arg(short = 'a', long)]
     pub show_alpha: bool,
 
+    #[arg(short, long)]
+    pub format: Format,
+
     #[arg(long, default_value = "0")]
     pub log: u8,
 }
 
 pub struct App<R>
 where
-    R: Ring + FromStr,
+    R: Ring + FromStr + TeX,
     for<'x> &'x R: RingOps<R>,
 {
     args: Args,
@@ -52,7 +56,7 @@ where
 
 impl<R> App<R>
 where
-    R: Ring + FromStr,
+    R: Ring + FromStr + TeX,
     for<'x> &'x R: RingOps<R>,
 {
     pub fn new(args: Args) -> Self { 
@@ -74,7 +78,12 @@ where
         let ckh = KhComplex::new(&l, &h, &t, self.args.reduced);
         
         // CKh generators
-        self.out(&ckh.gen_grid().display_table("i", "j"));
+        let grid = ckh.gen_grid();
+        let table = match self.args.format {
+            Format::Unicode => grid.display_table("i", "j"),
+            Format::TeX     => grid.tex_table("$\\mathit{CKh}$", " ")
+        };
+        self.out(&table);
 
         // Generators
         if self.args.show_gens { 
