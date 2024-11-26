@@ -1,3 +1,4 @@
+#![cfg(not(feature = "old"))]
 #![allow(non_snake_case, unused)]
 use itertools::Itertools;
 use num_traits::Zero;

@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::ops::RangeInclusive;
 
 use itertools::Itertools;
-use yui::bitseq::{Bit, BitSeq};
+use yui::bitseq::BitSeq;
 use yui::lc::Lc;
 use yui::{Ring, RingOps};
 use yui_homology::{Grid, ChainComplex, Summand};
@@ -29,16 +29,18 @@ where R: Ring, for<'a> &'a R: RingOps<R> {
         let reduce_e = if reduced { l.base_pt() } else { None };
         let cube = KhCube::new(l.link(), h, t, reduce_e, deg_shift);
 
-        let state_map = State::generate(n).map(|s| { 
-            let xs = s.iter().enumerate().filter_map(|(i, b)| 
-                b.is_one().then_some(i)
-            ).map(|i| 
-                l.inv_x(i)
-            ).collect::<HashSet<_>>();
+        let x_index = (0..n).map(|i| { 
+            let x = l.link().crossing_at(i);
+            (x, i)
+        }).collect::<HashMap<_, _>>();
 
-            let t = State::from_iter((0..n).map(|i| 
-                if xs.contains(&i) { Bit::Bit1 } else { Bit::Bit0 }
-            ));
+        let state_map = State::generate(n).map(|s| { 
+            let t = State::from_iter((0..n).map(|i| {
+                let x = l.link().crossing_at(i);
+                let tx = l.inv_x(x);
+                let ti = x_index[tx];
+                s[ti]
+            }));
             (s, t)
         }).collect::<HashMap<_, _>>();
 
@@ -175,11 +177,7 @@ mod tests {
  
     #[test]
     fn tau_state() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::sinv_knot_from_code([[5,3,6,2],[1,5,2,4],[3,1,4,6]]);
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -228,11 +226,7 @@ mod tests {
 
     #[test]
     fn tau_label() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::sinv_knot_from_code([[5,3,6,2],[1,5,2,4],[3,1,4,6]]);
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -261,11 +255,7 @@ mod tests {
 
     #[test]
     fn generators() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::sinv_knot_from_code([[5,3,6,2],[1,5,2,4],[3,1,4,6]]);
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -280,11 +270,7 @@ mod tests {
 
     #[test]
     fn d_lower_sym() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::sinv_knot_from_code([[5,3,6,2],[1,5,2,4],[3,1,4,6]]);
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -328,11 +314,7 @@ mod tests {
 
     #[test]
     fn d_lower_asym() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::sinv_knot_from_code([[5,3,6,2],[1,5,2,4],[3,1,4,6]]);
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
@@ -386,11 +368,7 @@ mod tests {
 
     #[test]
     fn d_upper() { 
-        let l = InvLink::new(
-            Link::from_pd_code([[1,5,2,4],[3,1,4,6],[5,3,6,2]]), 
-            [(1,5), (2,4)],
-            None
-        );
+        let l = InvLink::sinv_knot_from_code([[5,3,6,2],[1,5,2,4],[3,1,4,6]]);
 
         type R = FF2;
         let (h, t) = (R::zero(), R::zero());
